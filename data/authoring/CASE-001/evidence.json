@@ -1,0 +1,126 @@
+{
+  "case_id": "CASE-001",
+  "evidence": [
+    {
+      "id": "E01",
+      "type": "business_record",
+      "title": "器材资产及盘点记录",
+      "content": "记载序列号QH-X9-042相机及硬箱归青禾影像工作室登记持有；5月18日18时05分盘点状态为在库，5月19日09时10分状态为缺失。",
+      "source": "虚构的青禾影像器材管理系统导出件",
+      "reliability_notes": ["需核对导出人和原始系统日志", "不能单独证明取走者身份"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F01", "F02", "F06"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E02",
+      "type": "electronic_record",
+      "title": "A柜门磁日志",
+      "content": "A柜于21时11分开启、21时19分闭合；日志只记录柜门状态，不记录操作者身份。",
+      "source": "虚构的器材库门磁控制器",
+      "reliability_notes": ["设备时钟经校准误差小于20秒", "无法识别开柜人员"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F02", "F06"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E03",
+      "type": "electronic_record",
+      "title": "仓库门禁记录",
+      "content": "编号TMP-017、登记在林舟名下的门禁卡于21时07分进入、21时22分离开仓库区域。",
+      "source": "虚构的仓库门禁系统",
+      "reliability_notes": ["证明门禁卡被使用，不必然证明持卡人为登记人", "需结合证言核对"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F03"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E04",
+      "type": "electronic_record",
+      "title": "工作群聊天记录",
+      "content": "19时28分林舟询问能否当晚取用QH-X9相机；19时32分陈薇回复“今晚不要拿，明早登记后再用”；记录显示林舟账号19时36分已读。",
+      "source": "虚构的工作群聊天导出件",
+      "reliability_notes": ["需核对完整上下文和导出过程", "账号已读状态不能单独证明本人实际阅读"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F04", "F13", "F14"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E05",
+      "type": "surveillance_video",
+      "title": "仓库走廊监控片段",
+      "content": "21时12分一名灰色连帽外套人员携蓝色折叠包靠近A柜；21时22分同衣着人员携较鼓的蓝色长方形包离开。面部被帽檐和角度遮挡。",
+      "source": "虚构的仓库监控系统",
+      "reliability_notes": ["无法从画面直接识别人脸", "视频未覆盖A柜内部"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F05", "F07"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E06",
+      "type": "electronic_record",
+      "title": "二手平台发布记录",
+      "content": "账号“追光者17”于21时48分发布QH-X9相机，图片显示序列号末三位042；账号绑定林舟手机号，登录设备信息仅能定位到同一城市。",
+      "source": "虚构的二手平台数据保全件",
+      "reliability_notes": ["账号归属不等同于发布行为必由本人实施", "需核对图片原始文件和账号共享情况"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F08", "F09", "F13"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E07",
+      "type": "inspection_record",
+      "title": "寄存柜订单及提取记录",
+      "content": "L-18寄存柜于22时03分使用林舟手机号下单；次日10时30分在见证下开启，内有QH-X9-042相机和硬箱。",
+      "source": "虚构的寄存平台记录和提取笔录",
+      "reliability_notes": ["需核对开启程序、见证人和连续保管情况", "手机号下单不能单独排除他人操作"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F10", "F13"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E08",
+      "type": "forensic_report",
+      "title": "硬箱指纹检验意见",
+      "content": "硬箱提手处一枚可用指纹与林舟样本相符。未能判断指纹形成时间。",
+      "source": "虚构的技术检验机构",
+      "reliability_notes": ["林舟此前合法使用过该硬箱", "不能确定指纹形成时间"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F11"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E09",
+      "type": "valuation_report",
+      "title": "涉案器材价格认定材料",
+      "content": "以2026年5月18日为基准日，认定QH-X9相机及硬箱合计价值人民币12800元。",
+      "source": "虚构的价格认定机构",
+      "reliability_notes": ["需核对机构资质、型号成色和折旧依据", "具体入罪数额标准需另行核验"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F12"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E10",
+      "type": "business_record",
+      "title": "历史器材借用记录",
+      "content": "此前两个月有三次器材在次日补录借用单，其中两次涉及林舟，均在24小时内归还并由主管补签。",
+      "source": "虚构的青禾影像借用台账",
+      "reliability_notes": ["历史做法不当然等于本次已获得授权", "可用于评估林舟解释的可能性和指纹来源"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F04", "F11", "F13", "F14"],
+      "status": "not_submitted"
+    },
+    {
+      "id": "E11",
+      "type": "identity_record",
+      "title": "被告人基本身份信息表",
+      "content": "记载林舟出生日期为1998年3月12日；姓名和号码均为教学系统生成的虚构信息。",
+      "source": "虚构的案件身份核验材料",
+      "reliability_notes": ["仅用于教学模拟中的身份和年龄确认", "不对应任何现实个人"],
+      "available_to": ["prosecution", "defense"],
+      "related_fact_ids": ["F15"],
+      "status": "not_submitted"
+    }
+  ]
+}

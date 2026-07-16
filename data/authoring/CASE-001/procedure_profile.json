@@ -1,0 +1,35 @@
+{
+  "id": "PROC-CN-SH-CRIMINAL-MVP-DEV",
+  "case_id": "CASE-001",
+  "review_status": "development_verified",
+  "legal_source_ids": ["LS-CPL-50", "LS-CPL-51", "LS-CPL-55"],
+  "stages": [
+    "COURT_OPENING",
+    "INDICTMENT_AND_DEFENDANT_STATEMENT",
+    "COURT_INVESTIGATION",
+    "PROSECUTION_EVIDENCE_AND_EXAMINATION",
+    "DEFENSE_EVIDENCE_AND_EXAMINATION",
+    "WITNESS_QUESTIONING",
+    "COURT_DEBATE_PROSECUTION",
+    "COURT_DEBATE_DEFENSE",
+    "DEFENDANT_FINAL_STATEMENT",
+    "LEGAL_ANALYSIS",
+    "REVIEW",
+    "COMPLETED"
+  ],
+  "procedural_requests": [
+    "IRRELEVANT_QUESTION",
+    "REPETITIVE_QUESTION",
+    "IMPROPER_QUESTION",
+    "EVIDENCE_CHALLENGE"
+  ],
+  "simplifications": [
+    "不模拟法庭组织、身份核对和完整法庭纪律流程",
+    "举证质证按公诉方与辩护方分阶段进行",
+    "证人出庭顺序由确定性控制器安排",
+    "程序性请求是教学操作入口，不等同于英美法 objection",
+    "不生成现实裁判文书，不进行量刑结论"
+  ],
+  "development_note": "十二阶段为教学产品流程，不声称逐项复刻真实法庭。证据类型、举证责任和证明标准分别以刑事诉讼法第50、51、55条为基线。",
+  "production_gate": "面向外部用户发布前，由独立法律专业人员复核程序省略项。"
+}

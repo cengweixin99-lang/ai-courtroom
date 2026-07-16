@@ -1,0 +1,33 @@
+{
+  "case_id": "CASE-001",
+  "defendant": {
+    "id": "D01",
+    "name": "林舟",
+    "fictional": true,
+    "age_at_incident": 28,
+    "public_profile": "青禾影像工作室的临时摄影师，持有有效期至2026年5月20日的仓库临时门禁卡。",
+    "known_fact_ids": ["F03", "F04", "F05", "F07", "F10", "F11", "F13", "F14", "F15"],
+    "prior_statement_ids": ["D01-S01", "D01-S02"],
+    "defense_position": "承认取走并寄存相机，但主张属于沿用过往做法的临时借用，准备次日补登记和归还，不具有非法占有目的。",
+    "uncertainties": [
+      "不能确认19时36分是否由本人查看工作群消息",
+      "不知道二手平台信息由谁最终点击发布",
+      "不知道寄存柜提取前是否有人接触过硬箱"
+    ],
+    "forbidden_fact_ids": ["F01", "F02", "F06", "F12"],
+    "statements": [
+      {
+        "id": "D01-S01",
+        "text": "我当晚用自己的门禁卡进入仓库，也把相机装进蓝色包带走了。我原计划次日上午拍摄后补登记并归还。",
+        "related_fact_ids": ["F03", "F07", "F14"],
+        "certainty": "high"
+      },
+      {
+        "id": "D01-S02",
+        "text": "我把相机放入寄存柜，是因为住处没有安全存放条件。二手账号是团队共用的，我没有准备出售这台相机。",
+        "related_fact_ids": ["F09", "F10", "F13"],
+        "certainty": "medium"
+      }
+    ]
+  }
+}

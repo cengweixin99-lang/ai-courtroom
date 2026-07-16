@@ -1,0 +1,141 @@
+{
+  "case_id": "CASE-001",
+  "facts": [
+    {
+      "id": "F01",
+      "description": "青禾影像工作室登记持有一台序列号末三位为042的专业相机及配套硬箱。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E01"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": ["W03-S01"],
+      "materiality": "key"
+    },
+    {
+      "id": "F02",
+      "description": "2026年5月18日18时05分盘点时，该相机仍在器材库A柜内。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E01", "E02"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": ["W03-S01"],
+      "materiality": "key"
+    },
+    {
+      "id": "F03",
+      "description": "林舟名下临时门禁卡于当晚21时07分进入仓库区域。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E03"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": ["D01-S01", "W01-S01"],
+      "materiality": "key"
+    },
+    {
+      "id": "F04",
+      "description": "器材主管陈薇于19时32分在工作群中回复林舟，当晚不要取用相机，次日再办理借用。",
+      "status": "disputed",
+      "supporting_evidence_ids": ["E04"],
+      "contradicting_evidence_ids": ["E10"],
+      "supporting_statement_ids": ["W03-S02"],
+      "materiality": "key"
+    },
+    {
+      "id": "F05",
+      "description": "21时12分，一名穿灰色连帽外套、携蓝色折叠包的人出现在器材库A柜附近，监控未拍清面部。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E05"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": [],
+      "materiality": "key"
+    },
+    {
+      "id": "F06",
+      "description": "器材库A柜于21时19分重新闭合，次日上午盘点发现相机和硬箱均不在柜内。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E01", "E02"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": ["W03-S03"],
+      "materiality": "key"
+    },
+    {
+      "id": "F07",
+      "description": "林舟于21时22分离开仓库时携带一个外观较鼓的蓝色长方形包。",
+      "status": "disputed",
+      "supporting_evidence_ids": ["E05"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": ["W01-S02", "D01-S01"],
+      "materiality": "key"
+    },
+    {
+      "id": "F08",
+      "description": "21时48分，二手平台账号“追光者17”发布同型号相机信息，图片可见序列号末三位042。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E06"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": [],
+      "materiality": "key"
+    },
+    {
+      "id": "F09",
+      "description": "“追光者17”绑定林舟手机号，但林舟主张该账号密码曾与摄影团队成员共享。",
+      "status": "disputed",
+      "supporting_evidence_ids": ["E06"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": ["D01-S02", "W02-S02"],
+      "materiality": "key"
+    },
+    {
+      "id": "F10",
+      "description": "次日10时30分，相机及硬箱从自助寄存柜L-18中被找回，该柜订单使用林舟手机号下单。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E07"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": ["D01-S02"],
+      "materiality": "key"
+    },
+    {
+      "id": "F11",
+      "description": "硬箱提手处检出林舟指纹，但林舟在案发前曾因工作合法使用该硬箱。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E08", "E10"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": ["W02-S01"],
+      "materiality": "supporting"
+    },
+    {
+      "id": "F12",
+      "description": "估价材料记载涉案相机和硬箱在基准日的合计价值为人民币12800元。",
+      "status": "disputed",
+      "supporting_evidence_ids": ["E09"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": [],
+      "materiality": "key"
+    },
+    {
+      "id": "F13",
+      "description": "林舟取走相机时具有出售、永久控制或排除权利人占有的目的。",
+      "status": "disputed",
+      "supporting_evidence_ids": ["E04", "E06", "E07"],
+      "contradicting_evidence_ids": ["E10"],
+      "supporting_statement_ids": [],
+      "materiality": "key",
+      "claim_type": "inference"
+    },
+    {
+      "id": "F14",
+      "description": "工作室过去存在个别摄影师先取用器材、次日补登记的非规范做法。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E10"],
+      "contradicting_evidence_ids": ["E04"],
+      "supporting_statement_ids": ["W02-S01"],
+      "materiality": "supporting"
+    },
+    {
+      "id": "F15",
+      "description": "林舟出生于1998年3月12日，案发时已满二十八周岁。",
+      "status": "supported",
+      "supporting_evidence_ids": ["E11"],
+      "contradicting_evidence_ids": [],
+      "supporting_statement_ids": [],
+      "materiality": "supporting"
+    }
+  ]
+}

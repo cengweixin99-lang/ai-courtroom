@@ -1,0 +1,27 @@
+{
+  "dataset": "legal_rag_version_filter",
+  "version": "0.1.0",
+  "cases": [
+    {
+      "id": "EVAL-RAG-VERSION-001",
+      "description": "官方但已过期的2009刑法版本不得用于2026基准日，应选择国家法律法规数据库中的现行有效版本。",
+      "query": "盗窃罪第二百六十四条的入罪条件",
+      "legal_profile_id": "CN-CRIMINAL-THEFT-2026-07-14-DRAFT",
+      "law_as_of_date": "2026-07-14",
+      "candidate_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL",
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "expected_accepted_source_ids": [
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "expected_rejections": [
+        {
+          "source_id": "LS-CRIMINAL-LAW-264-2009-HISTORICAL",
+          "reason": "superseded_not_applicable_as_of_2026-07-14"
+        }
+      ],
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY"
+    }
+  ]
+}

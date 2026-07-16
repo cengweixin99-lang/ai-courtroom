@@ -1,0 +1,60 @@
+{
+  "id": "CASE-001",
+  "title": "青禾影像器材失窃案",
+  "summary": "2026年5月18日晚，完全虚构的青禾影像工作室一台专业相机从器材库中失踪。临时摄影师林舟当晚曾使用个人门禁卡进入仓库，次日相机在一处自助寄存柜中被找回。林舟承认取走并存放相机，但主张属于临时借用且准备归还。公诉方认为聊天记录、二手平台信息和寄存记录共同表明其具有非法占有目的。",
+  "fictional": true,
+  "jurisdiction": "PRC-SHANGHAI",
+  "venue": {
+    "country": "中华人民共和国",
+    "province_level_region": "上海市",
+    "fictional_district": "澄明区",
+    "assumed_first_instance_court": "上海市澄明区人民法院（虚构）"
+  },
+  "case_type": "criminal_first_instance_teaching_simulation",
+  "charge_draft": "盗窃罪",
+  "legal_profile_id": "CN-SH-CRIMINAL-THEFT-2026-07-14-DEV",
+  "law_as_of_date": "2026-07-14",
+  "estimated_duration_minutes": 25,
+  "available_user_roles": [
+    "prosecution",
+    "defense"
+  ],
+  "defendant_id": "D01",
+  "witness_ids": [
+    "W01",
+    "W02",
+    "W03"
+  ],
+  "disputed_issues": [
+    {
+      "id": "DI-01",
+      "title": "取走相机的人是否为林舟",
+      "description": "监控未拍清面部，需结合门禁、证言、设备痕迹和后续控制情况判断。"
+    },
+    {
+      "id": "DI-02",
+      "title": "林舟是否获得临时借用授权",
+      "description": "林舟主张工作室过去允许先借后登记；器材主管主张当晚已明确拒绝。"
+    },
+    {
+      "id": "DI-03",
+      "title": "林舟是否具有非法占有目的",
+      "description": "二手平台发布和异地寄存支持出售意图，账号共享和历史借用记录构成反驳。"
+    },
+    {
+      "id": "DI-04",
+      "title": "涉案价值及入罪标准是否满足",
+      "description": "估价金额本身需要质证；如采信12800元估价，该金额高于两高司法解释允许各地采用的数额较大标准上限3000元。"
+    }
+  ],
+  "public_material_ids": [
+    "MAT-CASE-SUMMARY",
+    "MAT-EVIDENCE-CATALOG",
+    "MAT-WITNESS-LIST",
+    "MAT-DISCLAIMER"
+  ],
+  "status": "DEVELOPMENT_READY",
+  "development_mode_allowed": true,
+  "legal_conclusion_allowed": false,
+  "disclaimer": "本案完全虚构，仅用于教学模拟。系统可生成带法源引用的模拟分析，但不构成现实裁判或法律意见。"
+}

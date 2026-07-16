@@ -1,0 +1,86 @@
+{
+  "case_id": "CASE-001",
+  "witnesses": [
+    {
+      "id": "W01",
+      "name": "周明",
+      "fictional": true,
+      "public_profile": "仓库夜班保安，负责当晚出入登记。",
+      "private_background": "与林舟只在工作中见过数次，无私人关系。",
+      "allowed_fact_ids": ["F03", "F07"],
+      "statement_ids": ["W01-S01", "W01-S02"],
+      "uncertainties": ["未查看蓝色包内部", "不能仅凭背影确认监控中的全部画面均为林舟"],
+      "forbidden_fact_ids": ["F04", "F06", "F08", "F09", "F10", "F11", "F12", "F13", "F14"],
+      "statements": [
+        {
+          "id": "W01-S01",
+          "text": "大约21时05分，我在门口和林舟打过招呼。他穿灰色连帽外套，手里有一个折起来的蓝色包。",
+          "related_fact_ids": ["F03"],
+          "certainty": "high"
+        },
+        {
+          "id": "W01-S02",
+          "text": "他离开时仍拿着蓝色包，包看起来比进门时鼓，但我没有看到里面是什么。",
+          "related_fact_ids": ["F07"],
+          "certainty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "W02",
+      "name": "何宁",
+      "fictional": true,
+      "public_profile": "青禾影像摄影师，曾与林舟共同执行拍摄任务。",
+      "private_background": "曾两次见到林舟先取器材、次日补登记，相关器材均已归还。",
+      "allowed_fact_ids": ["F09", "F11", "F14"],
+      "statement_ids": ["W02-S01", "W02-S02"],
+      "uncertainties": ["不知道本次是否获得陈薇授权", "不知道谁发布了二手平台信息"],
+      "forbidden_fact_ids": ["F02", "F03", "F04", "F05", "F06", "F07", "F08", "F10", "F12", "F13"],
+      "statements": [
+        {
+          "id": "W02-S01",
+          "text": "之前有两次，林舟晚上先拿了器材，第二天再让主管补签，器材都按时还了。",
+          "related_fact_ids": ["F11", "F14"],
+          "certainty": "high"
+        },
+        {
+          "id": "W02-S02",
+          "text": "我们小组以前共用过“追光者17”的账号查看行情，但我不知道案发当晚是谁登录或发布。",
+          "related_fact_ids": ["F09"],
+          "certainty": "medium"
+        }
+      ]
+    },
+    {
+      "id": "W03",
+      "name": "陈薇",
+      "fictional": true,
+      "public_profile": "青禾影像器材主管，负责器材审批和盘点。",
+      "private_background": "当晚不在仓库，通过工作群处理林舟的借用请求。",
+      "allowed_fact_ids": ["F01", "F02", "F04", "F06", "F14"],
+      "statement_ids": ["W03-S01", "W03-S02", "W03-S03"],
+      "uncertainties": ["没有亲眼看到取走过程", "不能确认林舟是否实际阅读群消息"],
+      "forbidden_fact_ids": ["F03", "F05", "F07", "F08", "F09", "F10", "F11", "F12", "F13"],
+      "statements": [
+        {
+          "id": "W03-S01",
+          "text": "18时05分盘点时，相机和硬箱都在A柜，资产登记归工作室。",
+          "related_fact_ids": ["F01", "F02"],
+          "certainty": "high"
+        },
+        {
+          "id": "W03-S02",
+          "text": "林舟在群里问能否当晚拿相机，我明确回复当晚不要拿，第二天登记后再用。",
+          "related_fact_ids": ["F04"],
+          "certainty": "high"
+        },
+        {
+          "id": "W03-S03",
+          "text": "次日09时10分我盘点时发现相机和硬箱不在A柜，随后报告。",
+          "related_fact_ids": ["F06"],
+          "certainty": "high"
+        }
+      ]
+    }
+  ]
+}

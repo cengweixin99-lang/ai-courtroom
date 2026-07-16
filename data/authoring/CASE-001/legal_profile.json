@@ -1,0 +1,62 @@
+{
+  "id": "CN-SH-CRIMINAL-THEFT-2026-07-14-DEV",
+  "case_id": "CASE-001",
+  "jurisdiction": "People's Republic of China - Shanghai Municipality",
+  "forum_region": "Shanghai Municipality",
+  "forum_assumption": "虚构的上海市澄明区人民法院一审",
+  "case_type": "criminal_first_instance_teaching_simulation",
+  "charge_draft": "盗窃罪",
+  "law_as_of_date": "2026-07-14",
+  "substantive_source_ids": [
+    "LS-CRIMINAL-LAW-13",
+    "LS-CRIMINAL-LAW-14",
+    "LS-CRIMINAL-LAW-17-1",
+    "LS-CRIMINAL-LAW-264",
+    "LS-THEFT-INTERPRETATION-2013-1",
+    "LS-THEFT-INTERPRETATION-2013-4-1"
+  ],
+  "candidate_substantive_source_ids": [],
+  "available_historical_official_source_ids": [
+    "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+  ],
+  "procedure_source_ids": [
+    "LS-CPL-50",
+    "LS-CPL-51",
+    "LS-CPL-55"
+  ],
+  "evidence_rule_source_ids": [
+    "LS-CPL-50",
+    "LS-CPL-55",
+    "LS-THEFT-INTERPRETATION-2013-4-1"
+  ],
+  "burden_of_proof": {
+    "value": "公诉案件中，被告人有罪的举证责任由人民检察院承担。",
+    "status": "development_verified",
+    "source_id": "LS-CPL-51"
+  },
+  "standard_of_proof": {
+    "value": "证据确实、充分，并且综合全案证据对所认定事实已排除合理怀疑。",
+    "status": "development_verified",
+    "source_id": "LS-CPL-55"
+  },
+  "amount_threshold": {
+    "case_value_cny": 12800,
+    "national_local_range_cny": [1000, 3000],
+    "comparison_basis": "case_value_exceeds_national_maximum_local_threshold",
+    "local_threshold_outcome_determinative": false,
+    "source_id": "LS-THEFT-INTERPRETATION-2013-1"
+  },
+  "unlawful_possession_purpose_method": {
+    "classification": "fact_inference_not_standalone_statutory_text",
+    "rule": "结合取走是否获授权、二手发布、寄存、归还解释及反证，对盗窃故意和排除权利人控制的目的进行综合推断。",
+    "source_ids": ["LS-CRIMINAL-LAW-14", "LS-CRIMINAL-LAW-264"]
+  },
+  "simplified_procedure_profile_id": "PROC-CN-SH-CRIMINAL-MVP-DEV",
+  "review_status": "development_verified",
+  "development_mode_allowed": true,
+  "legal_conclusion_allowed": false,
+  "production_release_gates": [
+    "固化盗窃司法解释和刑事诉讼法官方详情记录ID或PDF哈希",
+    "由独立法律专业人员复核后方可对外宣称具有法律结论能力"
+  ]
+}

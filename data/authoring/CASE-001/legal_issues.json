@@ -1,0 +1,101 @@
+{
+  "case_id": "CASE-001",
+  "profile_id": "CN-SH-CRIMINAL-THEFT-2026-07-14-DEV",
+  "review_status": "development_verified",
+  "disputed_issue_ids": ["DI-01", "DI-02", "DI-03", "DI-04"],
+  "legal_issues": [
+    {
+      "id": "LI-01",
+      "title": "涉案相机是否属于刑法第二百六十四条所称公私财物",
+      "element_ids": ["LE-01"],
+      "related_fact_ids": ["F01", "F02"],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-13", "LS-CRIMINAL-LAW-264"]
+    },
+    {
+      "id": "LI-02",
+      "title": "是否足以认定林舟实施了未经授权的取走行为",
+      "element_ids": ["LE-02", "LE-03"],
+      "related_fact_ids": ["F03", "F04", "F05", "F06", "F07", "F10", "F11", "F14"],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-264"]
+    },
+    {
+      "id": "LI-03",
+      "title": "是否足以认定林舟具有盗窃故意和非法占有目的",
+      "element_ids": ["LE-04"],
+      "related_fact_ids": ["F04", "F08", "F09", "F10", "F13", "F14"],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-14", "LS-CRIMINAL-LAW-264"]
+    },
+    {
+      "id": "LI-04",
+      "title": "数额或其他入罪情节是否满足适用条件",
+      "element_ids": ["LE-05"],
+      "related_fact_ids": ["F12"],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-13", "LS-CRIMINAL-LAW-264", "LS-THEFT-INTERPRETATION-2013-1", "LS-THEFT-INTERPRETATION-2013-4-1"]
+    },
+    {
+      "id": "LI-05",
+      "title": "林舟是否达到刑事责任年龄",
+      "element_ids": ["LE-06"],
+      "related_fact_ids": ["F15"],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-17-1"]
+    }
+  ],
+  "elements": [
+    {
+      "id": "LE-01",
+      "text": "行为对象为他人所有或合法占有的公私财物。",
+      "status": "development_baseline",
+      "supporting_fact_ids": ["F01", "F02"],
+      "contradicting_fact_ids": [],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-13", "LS-CRIMINAL-LAW-264"],
+      "proof_status": "insufficient"
+    },
+    {
+      "id": "LE-02",
+      "text": "行为人实施了将涉案财物脱离权利人控制的取走行为。",
+      "status": "development_baseline",
+      "supporting_fact_ids": ["F03", "F05", "F06", "F07", "F10", "F11"],
+      "contradicting_fact_ids": [],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-264"],
+      "proof_status": "insufficient"
+    },
+    {
+      "id": "LE-03",
+      "text": "取走行为未经权利人授权。",
+      "status": "development_baseline",
+      "supporting_fact_ids": ["F04"],
+      "contradicting_fact_ids": ["F14"],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-264"],
+      "proof_status": "insufficient"
+    },
+    {
+      "id": "LE-04",
+      "text": "行为人具有盗窃故意；非法占有目的属于根据授权情况、处分行为、控制方式和归还解释综合判断的事实推断，不虚构独立法条。",
+      "status": "development_baseline",
+      "supporting_fact_ids": ["F04", "F08", "F10", "F13"],
+      "contradicting_fact_ids": ["F09", "F14"],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-14", "LS-CRIMINAL-LAW-264"],
+      "proof_status": "insufficient"
+    },
+    {
+      "id": "LE-05",
+      "text": "盗窃数额达到数额较大标准，或者存在第二百六十四条列举的其他入罪情形。",
+      "status": "development_baseline",
+      "supporting_fact_ids": ["F12"],
+      "contradicting_fact_ids": [],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-264", "LS-THEFT-INTERPRETATION-2013-1", "LS-THEFT-INTERPRETATION-2013-4-1"],
+      "proof_status": "insufficient"
+    },
+    {
+      "id": "LE-06",
+      "text": "行为人达到刑事责任年龄。",
+      "status": "development_baseline",
+      "supporting_fact_ids": ["F15"],
+      "contradicting_fact_ids": [],
+      "legal_source_ids": ["LS-CRIMINAL-LAW-17-1"],
+      "proof_status": "insufficient"
+    }
+  ],
+  "deterministic_conclusion_allowed": false,
+  "blocked_reason": "仅禁止输出现实法律结论；开发模式可运行完整教学流程并生成带免责声明的模拟分析。"
+}

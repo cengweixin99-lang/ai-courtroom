@@ -1,0 +1,52 @@
+{
+  "case_id": "CASE-001",
+  "package_version": "0.2.0-dev",
+  "overall_status": "development_ready",
+  "reviews": [
+    {
+      "type": "official_source_provenance",
+      "status": "verified",
+      "reviewer": "project_owner_and_automated_source_verification",
+      "reviewed_at": "2026-07-14T00:00:00+08:00",
+      "notes": "已核验国家法律法规数据库稳定详情页、记录ID、公布与施行日期，并保存官方数据库下载快照及SHA-256。"
+    },
+    {
+      "type": "fictionality_and_privacy",
+      "status": "self_checked_for_development",
+      "reviewer": "project_owner",
+      "reviewed_at": "2026-07-14T00:00:00+08:00",
+      "notes": "人物、地点、机构、设备和平台均为虚构。"
+    },
+    {
+      "type": "substantive_criminal_law",
+      "status": "development_verified",
+      "reviewer": "project_owner_with_official_source_check",
+      "reviewed_at": "2026-07-14T00:00:00+08:00",
+      "notes": "开发基线采用刑法第13、14、17、264条及法释〔2013〕8号第1、4条。12800元高于各地数额较大标准上限3000元；非法占有目的作为事实推断处理。"
+    },
+    {
+      "type": "criminal_procedure",
+      "status": "development_verified",
+      "reviewer": "project_owner_with_official_source_check",
+      "reviewed_at": "2026-07-14T00:00:00+08:00",
+      "notes": "以刑事诉讼法第50、51、55条约束证据、举证责任和证明标准；十二阶段明确标记为教学简化。"
+    },
+    {
+      "type": "evidence_rules",
+      "status": "development_verified",
+      "reviewer": "project_owner_with_official_source_check",
+      "reviewed_at": "2026-07-14T00:00:00+08:00",
+      "notes": "开发阶段统一按真实性、关联性、合法性和证明力组织质证，不预设证据必然采信；估价材料另引用盗窃司法解释第4条。"
+    },
+    {
+      "type": "instructional_design",
+      "status": "self_checked_for_development",
+      "reviewer": "project_owner",
+      "reviewed_at": "2026-07-14T00:00:00+08:00",
+      "notes": "案卷保留身份、授权、非法占有目的和估价四个争点，双方均有可用证据；实际时长在E1联调时验证。"
+    }
+  ],
+  "approved_for_development": true,
+  "approved_for_release": false,
+  "approved_for_legal_conclusion": false
+}

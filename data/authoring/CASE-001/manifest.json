@@ -1,0 +1,33 @@
+{
+  "package_id": "CASE-001",
+  "package_version": "0.2.0-dev",
+  "status": "DEVELOPMENT_READY",
+  "created_at": "2026-07-14T00:00:00+08:00",
+  "law_as_of_date": "2026-07-14",
+  "files": [
+    "case.json",
+    "facts.json",
+    "evidence.json",
+    "participants/defendant.json",
+    "participants/witnesses.json",
+    "role_materials.json",
+    "legal_profile.json",
+    "legal_sources.json",
+    "legal_issues.json",
+    "procedure_profile.json",
+    "review_manifest.json",
+    "author_only/ground_truth.json"
+  ],
+  "runtime_excluded_files": [
+    "author_only/ground_truth.json"
+  ],
+  "role_scoped_files": [
+    "role_materials.json"
+  ],
+  "release_hash": null,
+  "approved_for_development": true,
+  "release_blockers": [
+    "Production release requires immutable snapshots for the supplemental official sources",
+    "Production claims require independent legal review; this does not block development"
+  ]
+}
