@@ -66,6 +66,18 @@ When `LLM_MODEL` is empty, the API uses the deterministic Fake Provider and neve
 to an external model. Successful Agent events and traces commit atomically. Provider errors,
 invalid structured output, and forbidden citations persist only a failed trace.
 
+## E2.2 real model provider
+
+Set `LLM_MODEL` and `LLM_API_KEY` to enable the OpenAI-compatible Chat Completions adapter.
+`LLM_BASE_URL` defaults to the official OpenAI API and may point to a compatible endpoint that
+supports strict `json_schema` response formats. Case context and user instructions are serialized
+as explicitly untrusted data; they cannot replace system rules.
+
+The adapter records prompt/completion tokens, latency, repair count, and configured cost estimates.
+Session token, cost, and elapsed-time budgets are checked before the request and again under the
+session row lock before persistence. CI and local tests continue to use Fake or Mock providers and
+never require a real API key.
+
 ## Quality gates
 
 ```powershell

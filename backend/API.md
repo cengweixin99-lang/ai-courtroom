@@ -99,8 +99,26 @@ Agent 输出必须通过严格 Schema，并接受证据或既有陈述的可追�
 失败或输出越权时返回 `502`，只保存失败 Trace，不写入庭审事件。
 
 Trace 查询接口只返回调用状态、Provider、模型、Token、延迟、成本和错误元数据，
-不会通过 API 暴露完整上下文快照。E2.1 默认在未配置 `LLM_MODEL` 时使用确定性的
-Fake Provider，不发起任何外部模型请求。
+不会通过 API 暴露完整上下文快照。未配置 `LLM_MODEL` 或设置
+`LLM_PROVIDER=fake` 时使用确定性的 Fake Provider，不发起任何外部模型请求。
+
+配置真实 OpenAI-compatible Provider：
+
+```env
+LLM_PROVIDER=openai
+LLM_MODEL=部署实际使用的模型 ID
+LLM_API_KEY=仅保存在本地环境变量或密钥服务中
+LLM_BASE_URL=https://api.openai.com/v1
+LLM_TIMEOUT_SECONDS=30
+LLM_MAX_OUTPUT_TOKENS=2000
+LLM_INPUT_COST_PER_MILLION_CNY=0
+LLM_OUTPUT_COST_PER_MILLION_CNY=0
+```
+
+`LLM_BASE_URL` 可替换为支持 Chat Completions 严格 `json_schema` 的兼容服务地址。
+系统不会猜测模型价格；两个成本参数必须按实际部署价格填写，为 `0` 时仍记录 Token，
+但成本估算为 `0`。每次调用前后都会检查会话 Token、成本和时间预算，超限返回 `429`
+并只保存失败 Trace。Provider 未配置返回 `503`，上游超时、拒绝或无效响应返回 `502`。
 
 ## 错误格式
 
@@ -117,5 +135,5 @@ Fake Provider，不发起任何外部模型请求。
 ```
 
 常见状态码：`403` 表示角色不可见，`404` 表示资源不存在，`409` 表示与当前会话
-状态冲突，`422` 表示请求结构或动作参数不合法，`502` 表示模型调用或输出校验失败且
-失败 Trace 已保存。
+状态冲突，`422` 表示请求结构或动作参数不合法，`429` 表示会话预算耗尽，`502` 表示
+模型调用或输出校验失败且失败 Trace 已保存，`503` 表示真实 Provider 未正确配置。

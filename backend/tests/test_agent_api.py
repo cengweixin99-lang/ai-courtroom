@@ -96,6 +96,19 @@ class ExplodingProvider:
         raise TimeoutError("provider timed out")
 
 
+class ExpensiveProvider(FakeAgentProvider):
+    async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        result = await super().generate(request)
+        return AgentProviderResult(
+            output=result.output,
+            provider="expensive-test",
+            model="over-budget",
+            input_tokens=1_000,
+            output_tokens=500,
+            estimated_cost_cny=21,
+        )
+
+
 @pytest_asyncio.fixture
 async def agent_api_client(
     session_factory: async_sessionmaker[AsyncSession],
@@ -364,3 +377,24 @@ async def test_prosecution_target_context_does_not_receive_defense_position(
     assert participant.id == "D01"
     assert participant.defense_position is None
     assert response.json()["output"]["target_id"] == "D01"
+
+
+async def test_over_budget_agent_call_persists_only_failed_trace(
+    agent_api_client: AsyncClient,
+) -> None:
+    _use_provider(ExpensiveProvider())
+    session_id = await _create_session(agent_api_client)
+    await _advance(agent_api_client, session_id, 2)
+
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={"actor_role": "defense", "action": "make_statement"},
+    )
+
+    assert response.status_code == 429
+    assert response.json()["error"]["code"] == "session_cost_budget_exceeded"
+    events = await agent_api_client.get(f"/api/v1/sessions/{session_id}/events")
+    assert len(events.json()) == 3
+    traces = await agent_api_client.get(f"/api/v1/sessions/{session_id}/traces")
+    assert traces.json()[0]["status"] == "failed"
+    assert traces.json()[0]["estimated_cost_cny"] == 21

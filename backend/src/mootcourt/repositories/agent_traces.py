@@ -1,13 +1,26 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mootcourt.db.models import AgentTraceModel
 
 AgentTraceRecord = AgentTraceModel
+
+
+@dataclass(frozen=True, slots=True)
+class SessionAgentUsage:
+    input_tokens: int
+    output_tokens: int
+    latency_ms: int
+    estimated_cost_cny: float
+
+    @property
+    def total_tokens(self) -> int:
+        return self.input_tokens + self.output_tokens
 
 
 class SqlAlchemyAgentTraceRepository:
@@ -62,4 +75,43 @@ class SqlAlchemyAgentTraceRepository:
                 .where(AgentTraceModel.session_id == session_id)
                 .order_by(AgentTraceModel.created_at, AgentTraceModel.id)
             )
+        )
+
+    async def usage_for_session(
+        self, session_id: str, *, lock_rows: bool = False
+    ) -> SessionAgentUsage:
+        if lock_rows:
+            # 会话行锁之后再锁定读取 Trace，确保并发调用看到最新已提交的预算消耗。
+            rows = list(
+                await self._session.scalars(
+                    select(AgentTraceModel)
+                    .where(AgentTraceModel.session_id == session_id)
+                    .with_for_update()
+                )
+            )
+            return SessionAgentUsage(
+                input_tokens=sum(item.input_tokens for item in rows),
+                output_tokens=sum(item.output_tokens for item in rows),
+                latency_ms=sum(item.latency_ms for item in rows),
+                estimated_cost_cny=sum(item.estimated_cost_cny for item in rows),
+            )
+        row = (
+            await self._session.execute(
+                select(
+                    func.coalesce(func.sum(AgentTraceModel.input_tokens), 0).label("input_tokens"),
+                    func.coalesce(func.sum(AgentTraceModel.output_tokens), 0).label(
+                        "output_tokens"
+                    ),
+                    func.coalesce(func.sum(AgentTraceModel.latency_ms), 0).label("latency_ms"),
+                    func.coalesce(func.sum(AgentTraceModel.estimated_cost_cny), 0.0).label(
+                        "estimated_cost_cny"
+                    ),
+                ).where(AgentTraceModel.session_id == session_id)
+            )
+        ).one()
+        return SessionAgentUsage(
+            input_tokens=int(row.input_tokens),
+            output_tokens=int(row.output_tokens),
+            latency_ms=int(row.latency_ms),
+            estimated_cost_cny=float(row.estimated_cost_cny),
         )

@@ -11,10 +11,11 @@ requires-python = ">=3.12"
 dependencies = [
   "alembic>=1.14,<2",
   "aiomysql>=0.2,<1",
+  "cryptography>=44,<47",
   "fastapi>=0.115,<1",
   "httpx>=0.28,<1",
   "langgraph>=0.4,<1",
-  "opensearch-py[async]>=2.8,<3",
+  "elasticsearch[async]>=8.19,<9",
   "pydantic-settings>=2.7,<3",
   "sqlalchemy[asyncio]>=2.0,<3",
   "sse-starlette>=2.2,<3",

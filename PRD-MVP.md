@@ -737,7 +737,7 @@ MVP 不开发通用法律爬虫。首案法源由人工从官方渠道收集、�
 | Agent 编排 | LangGraph |
 | 数据模型 | Pydantic |
 | 业务数据存储 | MySQL + SQLAlchemy |
-| 法律检索 | OpenSearch 单后端（BM25 + 向量 + 元数据过滤） |
+| 法律检索 | Elasticsearch 8.19.10 单后端（BM25 + 向量 + 元数据过滤） |
 | Embedding | 支持中文法律文本的嵌入模型，版本固定并记录 |
 | Reranker | P1：支持中文的交叉编码重排模型或受控 API |
 | 实时响应 | Server-Sent Events |
@@ -745,7 +745,7 @@ MVP 不开发通用法律爬虫。首案法源由人工从官方渠道收集、�
 | 部署 | Docker Compose |
 | 可观测性 | 结构化 trace 表，可选 LangSmith |
 
-Redis、任务队列和 WebSocket 不进入首版。法律 RAG 属于 P0，统一使用 OpenSearch 完成 BM25、向量检索和元数据过滤；不再引入 PostgreSQL/pgvector，避免同时维护多套数据库。若本地资源不足，可在开发阶段先用 OpenSearch BM25 + 元数据过滤建立基线，再启用同一后端的向量索引。
+Redis、任务队列和 WebSocket 不进入首版。法律 RAG 属于 P0，统一使用 Elasticsearch 8.19.10 完成 BM25、向量检索和元数据过滤；不再引入 PostgreSQL/pgvector，避免同时维护多套数据库。若本地资源不足，可在开发阶段先用 Elasticsearch BM25 + 元数据过滤建立基线，再启用同一后端的向量索引。Kibana 仅用于索引检查和检索调试，不作为 API 运行时依赖。
 
 ## 17. 里程碑（7 周）
 
@@ -839,7 +839,7 @@ Redis、任务队列和 WebSocket 不进入首版。法律 RAG 属于 P0，统�
 3. 哪些现实庭审环节被省略或简化，以及如何向用户标注；
 4. 谁负责法律审核，其审核意见和版本如何归档；
 5. 模型供应商、单场预算上限、最长回合和超时值；
-6. OpenSearch 运行方式及法律文本 Embedding、重排模型的具体版本；
+6. Elasticsearch 8.19.10 的索引参数及法律文本 Embedding、重排模型的具体版本；
 7. 训练数据、Eval 数据和试玩记录的保存期限及删除机制。
 
 ## 21. 后续版本候选

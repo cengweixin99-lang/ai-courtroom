@@ -8,7 +8,7 @@
 
 - Web：React、TypeScript、Vite、Vitest
 - API：FastAPI、Pydantic、SQLAlchemy、LangGraph、pytest
-- 数据：MySQL、OpenSearch
+- 数据：MySQL 8.0.46、Elasticsearch 8.19.10、Kibana 8.19.10
 - 通信：REST + Server-Sent Events
 - 本地编排：Docker Compose
 
@@ -30,6 +30,9 @@ docker compose up --build api
 ```
 
 API 文档位于 `http://localhost:8000/docs`，健康检查为 `http://localhost:8000/api/v1/health`。
+
+基础设施默认端口为 MySQL `3307`、Elasticsearch `9200`、Kibana `5601`。MySQL 使用
+`3307` 是为了避免与宿主机常见的本地 MySQL `3306` 冲突；容器内连接仍使用 `3306`。
 
 启动完整环境：
 
@@ -67,7 +70,7 @@ knowledge/legal/         官方法源快照及开发阶段条款基线
 evals/                   四类可复现 Eval 数据集入口
 data/authoring/          待审核的 E0 案卷创作数据
 PRD-MVP.md               产品需求
-compose.yaml             MySQL、OpenSearch、API、Web 编排
+compose.yaml             MySQL、Elasticsearch、Kibana、API、Web 编排
 ```
 
 校验首案数据包：
@@ -86,9 +89,10 @@ cd backend
 
 导入目录由命令参数指定，并未写死。运行时从数据库读取案卷，`author_only` 内容不会进入数据库。
 
-当前 E2.1 已提供受控 Agent 单回合接口：角色上下文按白名单构造，输出经过严格 Schema、
-证据权限和陈述可追溯性校验。未配置 `LLM_MODEL` 时使用本地 Fake Provider，不会向外部
-发送案卷内容。详细契约见 `backend/API.md`。
+当前 E2.2 已提供受控 Agent 单回合和真实 OpenAI-compatible Provider：角色上下文按
+白名单构造，案卷及用户输入作为不可信数据封装，输出经过严格 Schema、证据权限和陈述
+可追溯性校验。未配置 `LLM_MODEL` 时仍使用本地 Fake Provider，不会向外部发送案卷内容。
+详细契约见 `backend/API.md`。
 
 ## 数据与法律审核边界
 

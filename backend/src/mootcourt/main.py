@@ -9,12 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from mootcourt.api.router import api_router
 from mootcourt.core.config import get_settings
 from mootcourt.core.logging import configure_logging
+from mootcourt.db.session import dispose_engine
 
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     configure_logging()
-    yield
+    try:
+        yield
+    finally:
+        await dispose_engine()
 
 
 settings = get_settings()

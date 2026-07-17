@@ -46,7 +46,7 @@ def test_action_endpoint_documents_business_errors() -> None:
 def test_agent_endpoint_documents_failure_trace_response() -> None:
     operation = app.openapi()["paths"]["/api/v1/sessions/{session_id}/agent-turns"]["post"]
 
-    assert {"403", "404", "409", "422", "502"}.issubset(operation["responses"])
+    assert {"403", "404", "409", "422", "429", "502", "503"}.issubset(operation["responses"])
 
 
 def test_action_request_fields_have_descriptions() -> None:

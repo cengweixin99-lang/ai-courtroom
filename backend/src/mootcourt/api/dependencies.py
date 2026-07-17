@@ -1,8 +1,9 @@
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import Depends
+from fastapi import Depends, HTTPException, status
 
+from mootcourt.agents.openai_compatible import OpenAICompatibleProvider
 from mootcourt.agents.providers import AgentProvider, FakeAgentProvider
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.db.session import get_session_factory
@@ -27,10 +28,29 @@ RuntimeUnitOfWork = Annotated[SqlAlchemyUnitOfWork, Depends(get_unit_of_work)]
 def get_agent_provider(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AgentProvider:
-    # E2.1 先以确定性 Provider 验证安全与事务闭环；配置真实模型后必须显式接入对应适配器。
+    # 未配置模型时保持确定性 Fake 路径，确保本地开发和 CI 不依赖外部网络。
     if not settings.llm_model or settings.llm_provider == "fake":
         return FakeAgentProvider()
-    raise RuntimeError(f"LLM provider adapter is not implemented: {settings.llm_provider}")
+    if settings.llm_provider not in {"openai", "openai-compatible"}:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "llm_provider_unsupported", "message": settings.llm_provider},
+        )
+    api_key = settings.llm_api_key.get_secret_value()
+    if not api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "llm_not_configured", "message": "LLM_API_KEY is required"},
+        )
+    return OpenAICompatibleProvider(
+        api_key=api_key,
+        model=settings.llm_model,
+        base_url=settings.llm_base_url or "https://api.openai.com/v1",
+        timeout_seconds=settings.llm_timeout_seconds,
+        max_output_tokens=settings.llm_max_output_tokens,
+        input_cost_per_million_cny=settings.llm_input_cost_per_million_cny,
+        output_cost_per_million_cny=settings.llm_output_cost_per_million_cny,
+    )
 
 
 RuntimeAgentProvider = Annotated[AgentProvider, Depends(get_agent_provider)]

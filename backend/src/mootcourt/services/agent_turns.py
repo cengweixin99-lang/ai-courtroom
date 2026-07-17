@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from time import perf_counter
 
 from pydantic import TypeAdapter, ValidationError
 
+from mootcourt.agents.openai_compatible import AgentProviderError
 from mootcourt.agents.providers import (
     AgentProvider,
     AgentProviderRequest,
@@ -12,7 +14,7 @@ from mootcourt.agents.providers import (
 )
 from mootcourt.core.config import Settings
 from mootcourt.domain.courtroom import ActionRequest, CourtAction, CourtPhase, Role, validate_action
-from mootcourt.repositories.agent_traces import AgentTraceRecord
+from mootcourt.repositories.agent_traces import AgentTraceRecord, SessionAgentUsage
 from mootcourt.repositories.court_sessions import SessionEventRecord
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.schemas.agents import (
@@ -72,9 +74,12 @@ async def execute_agent_turn(
     session = await unit_of_work.court_sessions.get(session_id)
     if session is None:
         raise AgentTurnServiceError("session_not_found", "court session not found", 404)
+    initial_turns = session.turns_used
     _validate_agent_request(session.user_role, session.status, CourtPhase(session.phase), request)
     if session.turns_used >= settings.session_max_turns:
         raise AgentTurnServiceError("turn_limit_reached", "session turn limit reached")
+    usage = await unit_of_work.agent_traces.usage_for_session(session_id)
+    _validate_budget_before_call(session.created_at, usage, settings)
 
     try:
         context = await build_agent_context(
@@ -96,6 +101,22 @@ async def execute_agent_turn(
             unit_of_work, session_id, request, context, provider, invocation
         )
 
+    budget_error = _budget_error_after_call(session.created_at, usage, invocation, settings)
+    if budget_error is not None:
+        code, message = budget_error
+        failed = _InvocationResult(
+            output=None,
+            provider_result=invocation.provider_result,
+            raw_output=invocation.raw_output,
+            repair_count=invocation.repair_count,
+            latency_ms=invocation.latency_ms,
+            error_code=code,
+            error_message=message,
+        )
+        return await _record_failed_turn(
+            unit_of_work, session_id, request, context, provider, failed
+        )
+
     output_error = _validate_output(context, invocation.output)
     if output_error is not None:
         failed = _InvocationResult(
@@ -115,7 +136,11 @@ async def execute_agent_turn(
     locked = await unit_of_work.court_sessions.get_for_update(session_id)
     if locked is None:
         raise AgentTurnServiceError("session_not_found", "court session not found", 404)
-    if locked.phase != context.phase.value or locked.status != "active":
+    if (
+        locked.phase != context.phase.value
+        or locked.status != "active"
+        or locked.turns_used != initial_turns
+    ):
         changed = _InvocationResult(
             output=None,
             provider_result=invocation.provider_result,
@@ -130,6 +155,25 @@ async def execute_agent_turn(
         )
     if locked.turns_used >= settings.session_max_turns:
         raise AgentTurnServiceError("turn_limit_reached", "session turn limit reached")
+
+    latest_usage = await unit_of_work.agent_traces.usage_for_session(session_id, lock_rows=True)
+    latest_budget_error = _budget_error_after_call(
+        locked.created_at, latest_usage, invocation, settings
+    )
+    if latest_budget_error is not None:
+        code, message = latest_budget_error
+        failed = _InvocationResult(
+            output=None,
+            provider_result=invocation.provider_result,
+            raw_output=invocation.raw_output,
+            repair_count=invocation.repair_count,
+            latency_ms=invocation.latency_ms,
+            error_code=code,
+            error_message=message,
+        )
+        return await _record_failed_turn(
+            unit_of_work, session_id, request, context, provider, failed
+        )
 
     content = _output_content(invocation.output)
     _validate_agent_request(locked.user_role, locked.status, CourtPhase(locked.phase), request)
@@ -322,6 +366,16 @@ async def _invoke_provider(
                 repair_count=1,
                 latency_ms=_elapsed_ms(started),
             )
+    except AgentProviderError as exc:
+        return _InvocationResult(
+            output=None,
+            provider_result=first_result,
+            raw_output=first_result.output if first_result else None,
+            repair_count=1 if first_result else 0,
+            latency_ms=_elapsed_ms(started),
+            error_code=exc.code,
+            error_message=exc.message,
+        )
     except Exception as exc:
         return _InvocationResult(
             output=None,
@@ -470,3 +524,47 @@ def _event_view(event: SessionEventRecord) -> SessionEventView:
 
 def _elapsed_ms(started: float) -> int:
     return max(0, round((perf_counter() - started) * 1_000))
+
+
+def _validate_budget_before_call(
+    created_at: datetime,
+    usage: SessionAgentUsage,
+    settings: Settings,
+) -> None:
+    if usage.total_tokens >= settings.session_max_tokens:
+        raise AgentTurnServiceError(
+            "session_token_budget_exceeded", "session token budget is exhausted", 429
+        )
+    if usage.estimated_cost_cny >= settings.session_max_cost_cny:
+        raise AgentTurnServiceError(
+            "session_cost_budget_exceeded", "session cost budget is exhausted", 429
+        )
+    if _session_elapsed_seconds(created_at) >= settings.session_max_seconds:
+        raise AgentTurnServiceError(
+            "session_time_budget_exceeded", "session time budget is exhausted", 429
+        )
+
+
+def _budget_error_after_call(
+    created_at: datetime,
+    usage: SessionAgentUsage,
+    invocation: _InvocationResult,
+    settings: Settings,
+) -> tuple[str, str] | None:
+    result = invocation.provider_result
+    if result is None:
+        return None
+    total_tokens = usage.total_tokens + result.input_tokens + result.output_tokens
+    if total_tokens > settings.session_max_tokens:
+        return "session_token_budget_exceeded", "model call exceeded the session token budget"
+    total_cost = usage.estimated_cost_cny + result.estimated_cost_cny
+    if total_cost > settings.session_max_cost_cny:
+        return "session_cost_budget_exceeded", "model call exceeded the session cost budget"
+    if _session_elapsed_seconds(created_at) > settings.session_max_seconds:
+        return "session_time_budget_exceeded", "model call exceeded the session time budget"
+    return None
+
+
+def _session_elapsed_seconds(created_at: datetime) -> float:
+    normalized = created_at if created_at.tzinfo is not None else created_at.replace(tzinfo=UTC)
+    return max(0, (datetime.now(UTC) - normalized).total_seconds())

@@ -2,14 +2,15 @@ name: mootcourt-lab
 
 services:
   mysql:
-    image: mysql:8.4
+    image: mysql:8.0.46
+    pull_policy: never
     environment:
       MYSQL_DATABASE: ${MYSQL_DATABASE:-mootcourt}
       MYSQL_USER: ${MYSQL_USER:-mootcourt}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD:-change-me}
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-change-root-password}
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-3307}:3306"
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
@@ -19,18 +20,19 @@ services:
       retries: 12
     restart: unless-stopped
 
-  opensearch:
-    image: opensearchproject/opensearch:2.19.1
+  elasticsearch:
+    image: docker-elasticsearch:8.19.10
+    pull_policy: never
     environment:
       discovery.type: single-node
-      plugins.security.disabled: "true"
+      xpack.security.enabled: "false"
+      xpack.security.enrollment.enabled: "false"
       bootstrap.memory_lock: "true"
-      OPENSEARCH_JAVA_OPTS: "-Xms512m -Xmx512m"
+      ES_JAVA_OPTS: "-Xms512m -Xmx512m"
     ports:
       - "9200:9200"
-      - "9600:9600"
     volumes:
-      - opensearch-data:/usr/share/opensearch/data
+      - elasticsearch-data:/usr/share/elasticsearch/data
     ulimits:
       memlock:
         soft: -1
@@ -42,6 +44,19 @@ services:
       retries: 20
     restart: unless-stopped
 
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.19.10
+    pull_policy: never
+    environment:
+      ELASTICSEARCH_HOSTS: http://elasticsearch:9200
+      TELEMETRY_ENABLED: "false"
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: unless-stopped
+
   api:
     build:
       context: ./backend
@@ -50,13 +65,13 @@ services:
         required: false
     environment:
       DATABASE_URL: ${DATABASE_URL:-mysql+aiomysql://mootcourt:change-me@mysql:3306/mootcourt}
-      OPENSEARCH_URL: ${OPENSEARCH_URL:-http://opensearch:9200}
+      ELASTICSEARCH_URL: ${ELASTICSEARCH_URL:-http://elasticsearch:9200}
     ports:
       - "${API_PORT:-8000}:8000"
     depends_on:
       mysql:
         condition: service_healthy
-      opensearch:
+      elasticsearch:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8000/api/v1/health"]
@@ -79,4 +94,4 @@ services:
 
 volumes:
   mysql-data:
-  opensearch-data:
+  elasticsearch-data:
