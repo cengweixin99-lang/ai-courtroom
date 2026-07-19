@@ -1,0 +1,17 @@
+{
+  "schema_version": "1.0.0",
+  "models": [
+    {
+      "id": "ollama-bge-m3-790764642607-1024-candidate",
+      "provider": "openai-compatible",
+      "model": "bge-m3",
+      "embedding_version": "ollama-bge-m3-790764642607-1024-v1",
+      "dimensions": 1024,
+      "language_scope": ["zh", "multilingual"],
+      "intended_use": "中华人民共和国刑事法律条款与单一法律问题的候选召回",
+      "review_status": "automated_eval_passed_pending_human_review",
+      "enabled_for_runtime": false,
+      "notes": "Ollama 0.32.1，本地模型ID 790764642607，权重层 SHA-256 daec91ffb5dd0c27411bd71f29932917c49cf529a641d0168496c3a501e3062c。2026-07-18以Elasticsearch原始cosine阈值0.78完成20条真实hybrid Eval并通过自动准入：Recall@5=1.0、Precision@5=0.875、MRR=0.96875、有效期过滤=1.0、拒答=1.0。人工复核新增候选前不得启用运行时。"
+    }
+  ]
+}

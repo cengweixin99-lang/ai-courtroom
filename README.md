@@ -94,6 +94,39 @@ cd backend
 可追溯性校验。未配置 `LLM_MODEL` 时仍使用本地 Fake Provider，不会向外部发送案卷内容。
 详细契约见 `backend/API.md`。
 
+M3.1 已提供 Elasticsearch 条款级 BM25：法源清单校验、幂等索引、案件来源白名单、
+法域、生效日期、效力状态和审核状态过滤，以及 `INSUFFICIENT_LEGAL_AUTHORITY` 安全
+失败。首次使用前执行 `mootcourt-index-legal knowledge/legal/source_manifest.json`。
+
+M3.2 已提供 20 条法律检索标注集和 `mootcourt-eval-legal` 门禁命令，使用真实案件
+LegalProfile 与 Elasticsearch 检索链计算 Recall@5、Precision@5、MRR、有效期过滤准确率
+和拒答准确率，并保存逐案失败 trace。当前基线报告位于
+`evals/legal_rag/results/bm25_baseline_report.json`。
+
+M3.3 已加入可选的 OpenAI-compatible 法律向量 Provider、Elasticsearch `dense_vector`/kNN
+和应用层 RRF 混合检索。向量与 BM25 使用完全相同的案件法源白名单和版本过滤；默认仍
+关闭向量能力，只有配置并重新索引同一 `LEGAL_EMBEDDING_VERSION` 后才启用。
+
+首个工程候选模型登记为 Ollama `bge-m3`（模型 ID `790764642607`，1024 维），当前状态为
+`automated_eval_passed_pending_human_review`，仍不能直接用于运行时 API。真实 hybrid Eval
+已通过版本化自动门禁；人工检查逐案 Trace 后，才可显式修改模型档案的运行时准入状态。
+
+M3.4 已加入法律检索审计和引用真实性校验：每次检索返回 `trace_id`，数据库保存案件包、
+LegalProfile、强制过滤条件、候选快照、两路分数与耗时；后续引用必须逐字段匹配该 Trace，
+伪造法源、错误条款号、篡改原文、来源或版本哈希都会被程序拦截。
+
+M4 第一批已完成证据状态台账、结构化证据质证和三类问题制止请求。举证校验证据存在性、
+角色权限和重复提交；质证明确真实性、合法性、关联性或证明力维度；无关、重复和不当问题
+请求写入公开庭审记录，其中重复问题由程序确定性识别，其余保持待控制者复核。
+
+M5.0 已补齐本庭新增陈述审核和结构化教学复盘。新增陈述可纳入或排除庭审记录，但不会
+自动关联事实；复盘只使用公开庭审材料、已提交证据、冻结构成要件和当前案件版本的法律
+检索 Trace。必要法源不足时停止生成，开发案件不会输出真实法律结论。
+
+M5 统一 Eval Runner 已覆盖 PRD 的 50 条最低集：程序权限 15 条、参与人边界 10 条、
+法律 RAG 20 条、端到端庭审 5 条。报告包含逐条会话/检索 Trace、可靠性门槛、Token、
+成本、延迟和修复比例，任一门槛失败时命令以非零状态退出。
+
 ## 数据与法律审核边界
 
 CASE-001 已标记为 `DEVELOPMENT_READY`：法域固定为上海市，刑法、盗窃司法解释、刑诉法证明责任和证明标准已形成可追溯的开发基线，可进入 E1。开发状态只允许带免责声明的教学模拟分析，不代表现实法律结论。

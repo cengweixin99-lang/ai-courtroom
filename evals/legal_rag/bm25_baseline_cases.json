@@ -1,0 +1,214 @@
+{
+  "dataset": "case_001_legal_bm25_baseline",
+  "version": "1.0.0",
+  "index_version": "v1",
+  "top_k": 5,
+  "thresholds": {
+    "recall_at_k": 0.9,
+    "precision_at_k": 0.7,
+    "validity_filter_accuracy": 1.0,
+    "refusal_accuracy": 0.95
+  },
+  "cases": [
+    {
+      "id": "EVAL-RAG-001",
+      "description": "按条款号检索现行盗窃罪条文，并排除2009历史版本。",
+      "category": "article_lookup",
+      "query": "盗窃罪第二百六十四条的入罪条件",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CRIMINAL-LAW-264"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-002",
+      "description": "检索盗窃罪列举的行为类型。",
+      "category": "substantive_law",
+      "query": "盗窃公私财物数额较大、多次盗窃、入户盗窃、携带凶器盗窃和扒窃如何处罚",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CRIMINAL-LAW-264"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-003",
+      "description": "检索盗窃数额较大、巨大和特别巨大的全国幅度。",
+      "category": "judicial_interpretation",
+      "query": "盗窃数额较大、数额巨大和数额特别巨大的金额标准",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-THEFT-INTERPRETATION-2013-1"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-004",
+      "description": "检索省级司法机关确定本地区盗窃数额标准的规则。",
+      "category": "judicial_interpretation",
+      "query": "各省高级人民法院人民检察院能否确定本地区盗窃数额标准",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-THEFT-INTERPRETATION-2013-1"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-005",
+      "description": "检索被盗财物具有有效价格证明时的数额认定方法。",
+      "category": "valuation_rule",
+      "query": "被盗财物有有效价格证明时怎样认定盗窃数额",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-THEFT-INTERPRETATION-2013-4-1"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-006",
+      "description": "检索没有有效价格证明时的估价规则。",
+      "category": "valuation_rule",
+      "query": "没有有效价格证明或者价格证明明显不合理是否应委托估价机构估价",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-THEFT-INTERPRETATION-2013-4-1"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-007",
+      "description": "检索犯罪概念及情节显著轻微但书。",
+      "category": "substantive_law",
+      "query": "什么行为是犯罪，情节显著轻微危害不大是否认为是犯罪",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CRIMINAL-LAW-13"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-008",
+      "description": "检索故意犯罪定义。",
+      "category": "substantive_law",
+      "query": "明知行为会发生危害社会结果并希望或者放任结果发生是否属于故意犯罪",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CRIMINAL-LAW-14"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-009",
+      "description": "检索已满十六周岁人员的刑事责任规则。",
+      "category": "criminal_capacity",
+      "query": "已满十六周岁的人犯罪是否应当负刑事责任",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CRIMINAL-LAW-17-1"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-010",
+      "description": "检索刑事诉讼证据种类。",
+      "category": "evidence_rule",
+      "query": "刑事案件中物证书证证人证言电子数据是否属于证据",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CPL-50"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-011",
+      "description": "检索证据须经查证属实才能定案的规则。",
+      "category": "evidence_rule",
+      "query": "证据是否必须经过查证属实才能作为定案根据",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CPL-50"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-012",
+      "description": "检索公诉案件举证责任。",
+      "category": "burden_of_proof",
+      "query": "公诉案件中被告人有罪的举证责任由谁承担",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CPL-51"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-013",
+      "description": "检索自诉案件举证责任。",
+      "category": "burden_of_proof",
+      "query": "自诉案件中证明被告人有罪的举证责任由谁承担",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CPL-51"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-014",
+      "description": "检索只有被告人供述而无其他证据时的定罪规则。",
+      "category": "standard_of_proof",
+      "query": "只有被告人供述没有其他证据能否认定有罪和处以刑罚",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CPL-55"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-015",
+      "description": "检索排除合理怀疑证明标准。",
+      "category": "standard_of_proof",
+      "query": "综合全案证据对所认定事实排除合理怀疑的证明标准",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CPL-55"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-016",
+      "description": "检索证据确实充分的三个条件。",
+      "category": "standard_of_proof",
+      "query": "刑事案件证据确实充分应当符合哪些条件",
+      "case_id": "CASE-001",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": ["LS-CPL-55"],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-017",
+      "description": "虚构法域问题不得由本案法源库猜测回答。",
+      "category": "refusal",
+      "query": "火星殖民地税务法第九千条规定什么",
+      "case_id": "CASE-001",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-018",
+      "description": "本案未收录的海商法问题应拒答。",
+      "category": "refusal",
+      "query": "远洋船舶共同海损的理算规则是什么",
+      "case_id": "CASE-001",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-019",
+      "description": "本案未收录的专利法问题应拒答。",
+      "category": "refusal",
+      "query": "发明专利的新颖性宽限期如何计算",
+      "case_id": "CASE-001",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    },
+    {
+      "id": "EVAL-RAG-020",
+      "description": "本案未收录的劳动合同问题应拒答。",
+      "category": "refusal",
+      "query": "劳动合同经济补偿金按几个月工资计算",
+      "case_id": "CASE-001",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": ["LS-CRIMINAL-LAW-264-2009-HISTORICAL"]
+    }
+  ]
+}

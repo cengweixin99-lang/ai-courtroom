@@ -5,11 +5,12 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
 from mootcourt.api.dependencies import RuntimeAgentProvider, RuntimeUnitOfWork
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.schemas.agents import AgentTraceStatus, AgentTraceView, AgentTurnRequest
-from mootcourt.schemas.runtime import AgentTurnResponse
+from mootcourt.schemas.runtime import AgentTurnResponse, ParticipantStatementTraceView
 from mootcourt.services.agent_turns import (
     AgentTurnServiceError,
     execute_agent_turn,
     list_agent_traces,
+    list_participant_statement_traces,
 )
 
 router = APIRouter(prefix="/sessions", tags=["agents"])
@@ -77,6 +78,25 @@ async def get_agent_traces(
 ) -> list[AgentTraceView]:
     """返回调用状态、模型、Token、延迟、成本和错误，不暴露完整提示词快照。"""
     traces = await list_agent_traces(unit_of_work, session_id)
+    if traces is None:
+        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    return traces
+
+
+@router.get(
+    "/{session_id}/participant-statement-traces",
+    response_model=list[ParticipantStatementTraceView],
+    operation_id="list_participant_statement_traces",
+    summary="获取参与人陈述一致性留痕",
+    response_description="证人或被告人回答引用的既有陈述、关联事实及确定性分类",
+    responses={404: {"description": "庭审会话不存在"}},
+)
+async def get_participant_statement_traces(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: RuntimeUnitOfWork,
+) -> list[ParticipantStatementTraceView]:
+    """返回可审计的一致性记录；系统不以字符串规则推断语义矛盾。"""
+    traces = await list_participant_statement_traces(unit_of_work, session_id)
     if traces is None:
         raise HTTPException(status_code=404, detail={"code": "session_not_found"})
     return traces

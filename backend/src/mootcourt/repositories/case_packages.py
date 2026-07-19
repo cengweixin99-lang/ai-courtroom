@@ -85,6 +85,7 @@ class SqlAlchemyCasePackageRepository:
                 selectinload(CasePackageModel.evidence),
                 selectinload(CasePackageModel.participants),
                 selectinload(CasePackageModel.role_materials),
+                selectinload(CasePackageModel.legal_sources),
             )
         )
 

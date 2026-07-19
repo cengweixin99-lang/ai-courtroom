@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from pathlib import Path
 
+import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
@@ -13,8 +14,11 @@ from mootcourt.agents.providers import (
     FakeAgentProvider,
 )
 from mootcourt.api.dependencies import get_agent_provider, get_unit_of_work
+from mootcourt.core.config import Settings
 from mootcourt.main import app
+from mootcourt.repositories.agent_traces import SessionAgentUsage
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
+from mootcourt.services.agent_turns import AgentTurnServiceError, _validate_budget_before_call
 from mootcourt.services.case_importer import import_case_package
 
 CASE_PACKAGE = Path(__file__).parents[2] / "data" / "authoring" / "CASE-001"
@@ -109,6 +113,30 @@ class ExpensiveProvider(FakeAgentProvider):
         )
 
 
+class NewDefendantStatementProvider:
+    @property
+    def provider_name(self) -> str:
+        return "new-statement-test"
+
+    @property
+    def model_name(self) -> str:
+        return "new-statement"
+
+    async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        return AgentProviderResult(
+            output={
+                "kind": "defendant",
+                "answer": "我在本庭补充说明，当晚还曾在门口停留。",
+                "supported_by_statement_ids": [],
+                "new_statement": True,
+                "certainty": "medium",
+                "refused_reason": None,
+            },
+            provider=self.provider_name,
+            model=self.model_name,
+        )
+
+
 @pytest_asyncio.fixture
 async def agent_api_client(
     session_factory: async_sessionmaker[AsyncSession],
@@ -181,6 +209,31 @@ async def test_advocate_agent_turn_persists_event_and_trace(
     assert traces.json()[0]["status"] == "succeeded"
 
 
+async def test_agent_evidence_submission_is_visible_immediately(
+    agent_api_client: AsyncClient,
+) -> None:
+    provider = CapturingFakeProvider()
+    _use_provider(provider)
+    session_id = await _create_session(agent_api_client, user_role="defense")
+    await _advance(agent_api_client, session_id, 3)
+
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "prosecution",
+            "action": "submit_evidence",
+            "evidence_ids": ["E01"],
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["session"]["submitted_evidence_ids"] == ["E01"]
+    # 成功响应返回后，新请求必须立即看到已经提交的证据，不允许短暂回退为未提交。
+    statuses = await agent_api_client.get(f"/api/v1/sessions/{session_id}/evidence-statuses")
+    by_id = {item["evidence_id"]: item for item in statuses.json()}
+    assert by_id["E01"]["status"] == "submitted"
+
+
 async def test_witness_context_excludes_private_and_forbidden_material(
     agent_api_client: AsyncClient,
 ) -> None:
@@ -209,6 +262,21 @@ async def test_witness_context_excludes_private_and_forbidden_material(
     assert "forbidden_fact_ids" not in serialized
     assert "F04" not in serialized
     assert response.json()["output"]["supported_by_statement_ids"] == ["W01-S01"]
+
+    traces = await agent_api_client.get(
+        f"/api/v1/sessions/{session_id}/participant-statement-traces"
+    )
+    assert traces.status_code == 200
+    trace = traces.json()[0]
+    assert trace["event_sequence_number"] == response.json()["event"]["sequence_number"]
+    assert trace["participant_id"] == "W01"
+    assert trace["supported_statement_ids"] == ["W01-S01"]
+    assert trace["related_fact_ids"] == ["F03"]
+    assert trace["consistency_status"] == "SUPPORTED_BY_PRIOR_STATEMENT"
+
+    summary = await agent_api_client.get(f"/api/v1/sessions/{session_id}/evidence-fact-summary")
+    by_id = {item["fact_id"]: item for item in summary.json()}
+    assert by_id["F03"]["appeared_statement_ids"] == ["W01-S01"]
 
 
 async def test_invalid_output_is_repaired_once_and_only_trace_is_persisted(
@@ -324,6 +392,58 @@ async def test_defendant_agent_uses_only_known_participant_context(
     assert "forbidden_fact_ids" not in serialized
 
 
+async def test_new_defendant_statement_requires_controller_review(
+    agent_api_client: AsyncClient,
+) -> None:
+    _use_provider(NewDefendantStatementProvider())
+    session_id = await _create_session(agent_api_client)
+    await _advance(agent_api_client, session_id, 1)
+
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "defendant",
+            "participant_id": "D01",
+            "action": "make_statement",
+        },
+    )
+    traces = await agent_api_client.get(
+        f"/api/v1/sessions/{session_id}/participant-statement-traces"
+    )
+    trace = traces.json()[0]
+    resolution = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/participant-statement-traces/{trace['id']}/resolution",
+        json={
+            "resolution": "INCLUDED_IN_RECORD",
+            "reason": "作为本庭新增陈述保留，但不自动认定相关事实。",
+        },
+    )
+    after = await agent_api_client.get(
+        f"/api/v1/sessions/{session_id}/participant-statement-traces"
+    )
+
+    assert response.status_code == 200
+    assert trace["consistency_status"] == "NEW_STATEMENT_PENDING_REVIEW"
+    assert trace["related_fact_ids"] == []
+    assert trace["review_status"] is None
+    assert resolution.status_code == 200
+    assert resolution.json()["resolution"] == "INCLUDED_IN_RECORD"
+    assert after.json()[0]["review_status"] == "INCLUDED_IN_RECORD"
+
+    repeated = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/participant-statement-traces/{trace['id']}/resolution",
+        json={"resolution": "EXCLUDED_FROM_RECORD", "reason": "重复审核。"},
+    )
+    other_session_id = await _create_session(agent_api_client, user_role="defense")
+    wrong_session = await agent_api_client.post(
+        f"/api/v1/sessions/{other_session_id}/participant-statement-traces/{trace['id']}/resolution",
+        json={"resolution": "EXCLUDED_FROM_RECORD", "reason": "跨会话审核。"},
+    )
+    assert repeated.status_code == 409
+    assert repeated.json()["detail"]["code"] == "new_statement_already_reviewed"
+    assert wrong_session.status_code == 404
+
+
 async def test_witness_role_rejects_defendant_participant(
     agent_api_client: AsyncClient,
 ) -> None:
@@ -398,3 +518,29 @@ async def test_over_budget_agent_call_persists_only_failed_trace(
     traces = await agent_api_client.get(f"/api/v1/sessions/{session_id}/traces")
     assert traces.json()[0]["status"] == "failed"
     assert traces.json()[0]["estimated_cost_cny"] == 21
+
+
+def test_idle_time_does_not_consume_agent_time_budget() -> None:
+    usage = SessionAgentUsage(
+        input_tokens=0,
+        output_tokens=0,
+        latency_ms=0,
+        estimated_cost_cny=0,
+    )
+
+    # 会话的自然存活时间不再参与预算，恢复旧会话时仍允许继续调用 Agent。
+    _validate_budget_before_call(usage, Settings(session_max_seconds=1))
+
+
+def test_accumulated_agent_latency_exhausts_time_budget() -> None:
+    usage = SessionAgentUsage(
+        input_tokens=0,
+        output_tokens=0,
+        latency_ms=1_000,
+        estimated_cost_cny=0,
+    )
+
+    with pytest.raises(AgentTurnServiceError) as caught:
+        _validate_budget_before_call(usage, Settings(session_max_seconds=1))
+
+    assert caught.value.code == "session_time_budget_exceeded"

@@ -1,0 +1,43 @@
+{
+  "schema_version": "1.0.0",
+  "dataset_id": "CASE-001-LEGAL-BASELINE-2026-07-14",
+  "index_version": "v1",
+  "purpose": "CASE-001 开发阶段法律检索基线，不允许据此生成现实法律结论。",
+  "source_data_path": "../../data/authoring/CASE-001/legal_sources.json",
+  "approved_for_development_retrieval": true,
+  "legal_conclusion_allowed": false,
+  "approved_review_statuses": [
+    "verified",
+    "official_publication_verified_historical_version"
+  ],
+  "approved_source_ids": [
+    "LS-CRIMINAL-LAW-13",
+    "LS-CRIMINAL-LAW-14",
+    "LS-CRIMINAL-LAW-17-1",
+    "LS-CRIMINAL-LAW-264",
+    "LS-THEFT-INTERPRETATION-2013-1",
+    "LS-THEFT-INTERPRETATION-2013-4-1",
+    "LS-CPL-50",
+    "LS-CPL-51",
+    "LS-CPL-55",
+    "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+  ],
+  "snapshot_requirements": [
+    {
+      "path": "snapshots/npc-criminal-law-20201226.pdf",
+      "sha256": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+      "required_for_release": true,
+      "source_ids": [
+        "LS-CRIMINAL-LAW-13",
+        "LS-CRIMINAL-LAW-14",
+        "LS-CRIMINAL-LAW-17-1",
+        "LS-CRIMINAL-LAW-264"
+      ]
+    }
+  ],
+  "release_blockers": [
+    "当前工作区缺少 snapshots/npc-criminal-law-20201226.pdf，发布前必须恢复并复核 SHA-256。",
+    "盗窃司法解释和刑事诉讼法仍需固化官方详情记录 ID 或官方快照哈希。",
+    "独立法律专业人员复核完成前不得开放确定性法律结论。"
+  ]
+}

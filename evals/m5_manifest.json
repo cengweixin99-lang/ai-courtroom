@@ -1,0 +1,8 @@
+{
+  "suite": "mootcourt_mvp_m5",
+  "version": "1.0.0",
+  "procedure_permissions": "procedure_permissions/cases.json",
+  "participant_boundaries": "participant_boundaries/cases.json",
+  "legal_rag": "legal_rag/bm25_baseline_cases.json",
+  "end_to_end": "end_to_end/cases.json"
+}

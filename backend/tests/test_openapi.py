@@ -9,9 +9,38 @@ EXPECTED_OPERATIONS = {
     ("/api/v1/sessions", "post"): "create_court_session",
     ("/api/v1/sessions/{session_id}", "get"): "get_court_session",
     ("/api/v1/sessions/{session_id}/events", "get"): "list_court_session_events",
+    (
+        "/api/v1/sessions/{session_id}/evidence-statuses",
+        "get",
+    ): "list_session_evidence_statuses",
+    (
+        "/api/v1/sessions/{session_id}/procedural-requests",
+        "get",
+    ): "list_session_procedural_requests",
+    (
+        "/api/v1/sessions/{session_id}/procedural-requests/{request_id}/resolution",
+        "post",
+    ): "resolve_session_procedural_request",
+    (
+        "/api/v1/sessions/{session_id}/evidence-fact-summary",
+        "get",
+    ): "get_session_evidence_fact_summary",
     ("/api/v1/sessions/{session_id}/actions", "post"): "apply_court_session_action",
     ("/api/v1/sessions/{session_id}/agent-turns", "post"): "execute_agent_turn",
     ("/api/v1/sessions/{session_id}/traces", "get"): "list_agent_traces",
+    (
+        "/api/v1/sessions/{session_id}/participant-statement-traces",
+        "get",
+    ): "list_participant_statement_traces",
+    (
+        "/api/v1/sessions/{session_id}/participant-statement-traces/{trace_id}/resolution",
+        "post",
+    ): "resolve_session_new_statement",
+    ("/api/v1/sessions/{session_id}/review", "post"): "generate_session_court_review",
+    ("/api/v1/sessions/{session_id}/review", "get"): "get_session_court_review",
+    ("/api/v1/legal/search", "post"): "search_case_law",
+    ("/api/v1/legal/search-traces/{trace_id}", "get"): "get_legal_search_trace",
+    ("/api/v1/legal/citations/validate", "post"): "validate_legal_citations",
 }
 HTTP_METHODS = {"get", "post", "put", "patch", "delete", "options", "head", "trace"}
 
@@ -52,12 +81,39 @@ def test_agent_endpoint_documents_failure_trace_response() -> None:
 def test_action_request_fields_have_descriptions() -> None:
     properties = app.openapi()["components"]["schemas"]["SessionActionRequest"]["properties"]
 
-    assert {"action", "target_id", "evidence_ids", "content"} == set(properties)
+    assert {
+        "action",
+        "target_id",
+        "evidence_ids",
+        "content",
+        "procedural_request_type",
+        "target_event_sequence",
+        "challenge_dimensions",
+    } == set(properties)
     assert all(field.get("description") for field in properties.values())
 
 
 def test_openapi_tags_have_descriptions() -> None:
     tags = app.openapi()["tags"]
 
-    assert {tag["name"] for tag in tags} == {"system", "cases", "sessions", "agents"}
+    assert {tag["name"] for tag in tags} == {
+        "system",
+        "cases",
+        "sessions",
+        "agents",
+        "legal-search",
+    }
     assert all(tag.get("description") for tag in tags)
+
+
+def test_legal_search_documents_hybrid_scores() -> None:
+    schemas = app.openapi()["components"]["schemas"]
+    hit_properties = schemas["LegalSearchHit"]["properties"]
+    response_properties = schemas["LegalSearchResponse"]["properties"]
+
+    assert hit_properties["score"]["description"]
+    assert hit_properties["bm25_score"]["description"]
+    assert hit_properties["vector_score"]["description"]
+    assert response_properties["retrieval_mode"]["description"]
+    assert response_properties["embedding_version"]["description"]
+    assert response_properties["trace_id"]["description"]

@@ -4,19 +4,40 @@ from fastapi import APIRouter, Depends, HTTPException, Path, status
 
 from mootcourt.api.dependencies import RuntimeUnitOfWork
 from mootcourt.core.config import Settings, get_settings
+from mootcourt.schemas.reviews import (
+    CourtReviewGenerateRequest,
+    CourtReviewReport,
+    NewStatementResolutionRequest,
+    NewStatementResolutionResponse,
+)
 from mootcourt.schemas.runtime import (
+    EvidenceFactSummaryView,
+    EvidenceStatusView,
+    ProceduralRequestResolutionRequest,
+    ProceduralRequestResolutionResponse,
+    ProceduralRequestView,
     SessionActionRequest,
     SessionActionResponse,
     SessionCreate,
     SessionEventView,
     SessionView,
 )
+from mootcourt.services.court_reviews import (
+    CourtReviewServiceError,
+    generate_court_review,
+    get_court_review,
+    resolve_new_statement,
+)
 from mootcourt.services.court_sessions import (
     SessionServiceError,
     apply_session_action,
     create_court_session,
+    get_evidence_fact_summary,
     get_session_view,
+    list_evidence_statuses,
+    list_procedural_requests,
     list_session_events,
+    resolve_procedural_request,
 )
 
 router = APIRouter(prefix="/sessions", tags=["sessions"])
@@ -86,6 +107,162 @@ async def get_events(
     if events is None:
         raise HTTPException(status_code=404, detail={"code": "session_not_found"})
     return events
+
+
+@router.get(
+    "/{session_id}/evidence-statuses",
+    response_model=list[EvidenceStatusView],
+    operation_id="list_session_evidence_statuses",
+    summary="获取会话证据状态台账",
+    response_description="证据可见性、未提交或已提交状态及提交信息",
+    responses={404: {"description": "庭审会话不存在"}},
+)
+async def get_evidence_statuses(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: RuntimeUnitOfWork,
+) -> list[EvidenceStatusView]:
+    """返回确定性证据状态，不暴露当前角色无权访问的证据正文。"""
+    result = await list_evidence_statuses(unit_of_work, session_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    return result
+
+
+@router.get(
+    "/{session_id}/procedural-requests",
+    response_model=list[ProceduralRequestView],
+    operation_id="list_session_procedural_requests",
+    summary="获取会话程序请求和质证记录",
+    response_description="问题制止请求、证据质证维度及处理状态",
+    responses={404: {"description": "庭审会话不存在"}},
+)
+async def get_procedural_requests(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: RuntimeUnitOfWork,
+) -> list[ProceduralRequestView]:
+    """返回已写入公开庭审记录的结构化程序请求，不调用模型生成裁定。"""
+    result = await list_procedural_requests(unit_of_work, session_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    return result
+
+
+@router.post(
+    "/{session_id}/procedural-requests/{request_id}/resolution",
+    response_model=ProceduralRequestResolutionResponse,
+    operation_id="resolve_session_procedural_request",
+    summary="处理会话程序请求",
+    response_description="教学控制者处理结果及对应公开庭审事件",
+    responses={
+        404: {"description": "庭审会话或当前会话内的程序请求不存在"},
+        409: {"description": "程序请求已经处理"},
+        422: {"description": "处理结果与程序请求类型不匹配"},
+    },
+)
+async def submit_procedural_request_resolution(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    request_id: Annotated[str, Path(description="程序请求唯一标识")],
+    request: ProceduralRequestResolutionRequest,
+    unit_of_work: RuntimeUnitOfWork,
+) -> ProceduralRequestResolutionResponse:
+    """由教学流程控制者处理程序请求；当前版本尚未接入真实身份认证。"""
+    try:
+        return await resolve_procedural_request(unit_of_work, session_id, request_id, request)
+    except SessionServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": exc.message}
+        ) from exc
+
+
+@router.get(
+    "/{session_id}/evidence-fact-summary",
+    response_model=list[EvidenceFactSummaryView],
+    operation_id="get_session_evidence_fact_summary",
+    summary="获取证据使用与事实支持汇总",
+    response_description="案卷事实的关联证据、提交情况及已出现陈述，不作事实认定",
+    responses={404: {"description": "庭审会话不存在"}},
+)
+async def get_session_evidence_fact_summary(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: RuntimeUnitOfWork,
+) -> list[EvidenceFactSummaryView]:
+    """提供确定性的材料使用汇总；support_status 不表示法院已经认定事实成立。"""
+    result = await get_evidence_fact_summary(unit_of_work, session_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    return result
+
+
+@router.post(
+    "/{session_id}/participant-statement-traces/{trace_id}/resolution",
+    response_model=NewStatementResolutionResponse,
+    operation_id="resolve_session_new_statement",
+    summary="审核本庭新增陈述",
+    response_description="教学控制者决定是否将新增陈述纳入本庭记录",
+    responses={
+        404: {"description": "会话或陈述留痕不存在"},
+        409: {"description": "新增陈述已经审核"},
+        422: {"description": "该留痕不是本庭新增陈述"},
+    },
+)
+async def submit_new_statement_resolution(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    trace_id: Annotated[str, Path(description="参与人陈述留痕唯一标识")],
+    request: NewStatementResolutionRequest,
+    unit_of_work: RuntimeUnitOfWork,
+) -> NewStatementResolutionResponse:
+    """审核只决定陈述是否进入庭审记录，不自动建立事实支持关系。"""
+    try:
+        return await resolve_new_statement(unit_of_work, session_id, trace_id, request)
+    except CourtReviewServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": exc.message}
+        ) from exc
+
+
+@router.post(
+    "/{session_id}/review",
+    response_model=CourtReviewReport,
+    operation_id="generate_session_court_review",
+    summary="生成结构化教学复盘",
+    response_description="基于公开庭审材料、冻结构成要件和已核验法源的结构化复盘",
+    responses={
+        404: {"description": "庭审会话不存在"},
+        409: {"description": "阶段不允许、审核未完成或复盘已经存在"},
+        422: {"description": "法律 Trace 不属于本案或必要法源不足"},
+    },
+)
+async def create_session_court_review(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    request: CourtReviewGenerateRequest,
+    unit_of_work: RuntimeUnitOfWork,
+) -> CourtReviewReport:
+    """不调用自由裁判 Agent；每个构成要件必须具有可核验法源和本庭事实状态。"""
+    try:
+        return await generate_court_review(unit_of_work, session_id, request)
+    except CourtReviewServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": exc.message}
+        ) from exc
+
+
+@router.get(
+    "/{session_id}/review",
+    response_model=CourtReviewReport,
+    operation_id="get_session_court_review",
+    summary="获取结构化教学复盘",
+    response_description="会话已生成的事实、构成要件和法源可追溯报告",
+    responses={404: {"description": "会话或复盘不存在"}},
+)
+async def get_session_court_review(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: RuntimeUnitOfWork,
+) -> CourtReviewReport:
+    """返回持久化复盘快照，避免后续案卷版本变化影响既有教学记录。"""
+    result = await get_court_review(unit_of_work, session_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail={"code": "court_review_not_found"})
+    return result
 
 
 @router.post(

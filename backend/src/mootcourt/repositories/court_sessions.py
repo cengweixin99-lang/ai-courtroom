@@ -1,20 +1,28 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mootcourt.db.models import (
+    CourtReviewModel,
     CourtSessionModel,
     EvidenceModel,
     EvidenceSubmissionModel,
+    FactModel,
     ParticipantModel,
+    ParticipantStatementTraceModel,
+    ProceduralRequestModel,
     SessionEventModel,
 )
 
 CourtSessionRecord = CourtSessionModel
 SessionEventRecord = SessionEventModel
+ProceduralRequestRecord = ProceduralRequestModel
+ParticipantStatementTraceRecord = ParticipantStatementTraceModel
+CourtReviewRecord = CourtReviewModel
 
 
 class SqlAlchemyCourtSessionRepository:
@@ -74,6 +82,33 @@ class SqlAlchemyCourtSessionRepository:
             )
         )
 
+    async def list_evidence_submissions(self, session_id: str) -> list[EvidenceSubmissionModel]:
+        return list(
+            await self._session.scalars(
+                select(EvidenceSubmissionModel)
+                .where(EvidenceSubmissionModel.session_id == session_id)
+                .order_by(EvidenceSubmissionModel.id)
+            )
+        )
+
+    async def list_package_evidence(self, package_id: int) -> list[EvidenceModel]:
+        return list(
+            await self._session.scalars(
+                select(EvidenceModel)
+                .where(EvidenceModel.package_id == package_id)
+                .order_by(EvidenceModel.evidence_id)
+            )
+        )
+
+    async def list_package_facts(self, package_id: int) -> list[FactModel]:
+        return list(
+            await self._session.scalars(
+                select(FactModel)
+                .where(FactModel.package_id == package_id)
+                .order_by(FactModel.fact_id)
+            )
+        )
+
     # 获取会话事件列表
     async def list_events(self, session_id: str) -> list[SessionEventModel]:
         return list(
@@ -96,6 +131,31 @@ class SqlAlchemyCourtSessionRepository:
         # 数据库倒序取最近 N 条更高效，交给模型前恢复为庭审发生顺序。
         rows.reverse()
         return rows
+
+    async def get_event_by_sequence(
+        self, session_id: str, sequence_number: int
+    ) -> SessionEventModel | None:
+        return await self._session.scalar(
+            select(SessionEventModel).where(
+                SessionEventModel.session_id == session_id,
+                SessionEventModel.sequence_number == sequence_number,
+            )
+        )
+
+    async def earlier_question_events(
+        self, session_id: str, before_sequence: int
+    ) -> list[SessionEventModel]:
+        return list(
+            await self._session.scalars(
+                select(SessionEventModel)
+                .where(
+                    SessionEventModel.session_id == session_id,
+                    SessionEventModel.sequence_number < before_sequence,
+                    SessionEventModel.action == "question_participant",
+                )
+                .order_by(SessionEventModel.sequence_number)
+            )
+        )
 
     # 按 ID 查询证据
     async def evidence_by_ids(
@@ -143,6 +203,171 @@ class SqlAlchemyCourtSessionRepository:
                 )
                 for evidence_id in evidence_ids
             ]
+        )
+
+    async def add_procedural_request(
+        self,
+        *,
+        session_id: str,
+        request_type: str,
+        raised_by: str,
+        event_sequence_number: int,
+        target_event_sequence: int | None,
+        evidence_ids: list[str],
+        challenge_dimensions: list[str],
+        content: str,
+        status: str,
+    ) -> ProceduralRequestModel:
+        model = ProceduralRequestModel(
+            session_id=session_id,
+            request_type=request_type,
+            raised_by=raised_by,
+            event_sequence_number=event_sequence_number,
+            target_event_sequence=target_event_sequence,
+            evidence_ids=evidence_ids,
+            challenge_dimensions=challenge_dimensions,
+            content=content,
+            status=status,
+        )
+        self._session.add(model)
+        await self._session.flush()
+        await self._session.refresh(model)
+        return model
+
+    async def list_procedural_requests(self, session_id: str) -> list[ProceduralRequestModel]:
+        return list(
+            await self._session.scalars(
+                select(ProceduralRequestModel)
+                .where(ProceduralRequestModel.session_id == session_id)
+                .order_by(ProceduralRequestModel.event_sequence_number)
+            )
+        )
+
+    async def get_procedural_request_for_update(
+        self, session_id: str, request_id: str
+    ) -> ProceduralRequestModel | None:
+        return await self._session.scalar(
+            select(ProceduralRequestModel)
+            .where(
+                ProceduralRequestModel.id == request_id,
+                ProceduralRequestModel.session_id == session_id,
+            )
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    async def resolve_procedural_request(
+        self,
+        model: ProceduralRequestModel,
+        *,
+        resolution: str,
+        reason: str,
+        event_sequence_number: int,
+        resolved_at: datetime,
+    ) -> None:
+        model.resolution = resolution
+        model.resolution_reason = reason
+        model.resolution_event_sequence = event_sequence_number
+        model.resolved_at = resolved_at
+        model.status = "resolved"
+        await self._session.flush()
+
+    async def add_participant_statement_trace(
+        self,
+        *,
+        session_id: str,
+        participant_id: str,
+        actor_role: str,
+        event_sequence_number: int,
+        answer: str,
+        supported_statement_ids: list[str],
+        related_fact_ids: list[str],
+        consistency_status: str,
+        new_statement: bool,
+        refused_reason: str | None,
+    ) -> ParticipantStatementTraceModel:
+        model = ParticipantStatementTraceModel(
+            session_id=session_id,
+            participant_id=participant_id,
+            actor_role=actor_role,
+            event_sequence_number=event_sequence_number,
+            answer=answer,
+            supported_statement_ids=supported_statement_ids,
+            related_fact_ids=related_fact_ids,
+            consistency_status=consistency_status,
+            new_statement=new_statement,
+            refused_reason=refused_reason,
+        )
+        self._session.add(model)
+        await self._session.flush()
+        await self._session.refresh(model)
+        return model
+
+    async def list_participant_statement_traces(
+        self, session_id: str
+    ) -> list[ParticipantStatementTraceModel]:
+        return list(
+            await self._session.scalars(
+                select(ParticipantStatementTraceModel)
+                .where(ParticipantStatementTraceModel.session_id == session_id)
+                .order_by(ParticipantStatementTraceModel.event_sequence_number)
+            )
+        )
+
+    async def get_participant_statement_trace_for_update(
+        self, session_id: str, trace_id: str
+    ) -> ParticipantStatementTraceModel | None:
+        return await self._session.scalar(
+            select(ParticipantStatementTraceModel)
+            .where(
+                ParticipantStatementTraceModel.id == trace_id,
+                ParticipantStatementTraceModel.session_id == session_id,
+            )
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    async def resolve_participant_statement_trace(
+        self,
+        model: ParticipantStatementTraceModel,
+        *,
+        resolution: str,
+        reason: str,
+        event_sequence_number: int,
+        reviewed_at: datetime,
+    ) -> None:
+        model.review_status = resolution
+        model.review_reason = reason
+        model.review_event_sequence = event_sequence_number
+        model.reviewed_at = reviewed_at
+        await self._session.flush()
+
+    async def add_court_review(
+        self,
+        *,
+        review_id: str,
+        session_id: str,
+        event_sequence_number: int,
+        legal_search_trace_ids: list[str],
+        report: dict[str, Any],
+        created_at: datetime,
+    ) -> CourtReviewModel:
+        model = CourtReviewModel(
+            id=review_id,
+            session_id=session_id,
+            event_sequence_number=event_sequence_number,
+            legal_search_trace_ids=legal_search_trace_ids,
+            report=report,
+            created_at=created_at,
+        )
+        self._session.add(model)
+        await self._session.flush()
+        await self._session.refresh(model)
+        return model
+
+    async def get_court_review(self, session_id: str) -> CourtReviewModel | None:
+        return await self._session.scalar(
+            select(CourtReviewModel).where(CourtReviewModel.session_id == session_id)
         )
 
     async def next_event_sequence(self, session_id: str) -> int:

@@ -7,7 +7,17 @@ from mootcourt.agents.openai_compatible import OpenAICompatibleProvider
 from mootcourt.agents.providers import AgentProvider, FakeAgentProvider
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.db.session import get_session_factory
+from mootcourt.repositories.legal_search import (
+    ElasticsearchLegalSearchRepository,
+    LegalSearchRepository,
+)
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
+from mootcourt.search.client import get_elasticsearch_client
+from mootcourt.search.embeddings import (
+    EmbeddingProvider,
+    EmbeddingProviderError,
+    build_embedding_provider,
+)
 
 
 async def get_unit_of_work() -> AsyncIterator[SqlAlchemyUnitOfWork]:
@@ -22,7 +32,11 @@ async def get_unit_of_work() -> AsyncIterator[SqlAlchemyUnitOfWork]:
 
 
 # 依赖注入
-RuntimeUnitOfWork = Annotated[SqlAlchemyUnitOfWork, Depends(get_unit_of_work)]
+# 数据库事务必须在响应发送前提交，避免客户端收到成功响应后立即读取到旧状态。
+RuntimeUnitOfWork = Annotated[
+    SqlAlchemyUnitOfWork,
+    Depends(get_unit_of_work, scope="function"),
+]
 
 
 def get_agent_provider(
@@ -54,3 +68,46 @@ def get_agent_provider(
 
 
 RuntimeAgentProvider = Annotated[AgentProvider, Depends(get_agent_provider)]
+
+
+def get_legal_search_repository(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> LegalSearchRepository:
+    index_name = (
+        f"{settings.elasticsearch_index_prefix}-legal-articles-"
+        f"{settings.elasticsearch_legal_index_version}"
+    )
+    return ElasticsearchLegalSearchRepository(
+        get_elasticsearch_client(),
+        index_name,
+        embedding_dimensions=(
+            settings.legal_embedding_dimensions if settings.legal_embedding_enabled else None
+        ),
+        vector_similarity_threshold=settings.legal_vector_similarity_threshold,
+        hybrid_candidate_multiplier=settings.legal_hybrid_candidate_multiplier,
+        rrf_rank_constant=settings.legal_rrf_rank_constant,
+    )
+
+
+RuntimeLegalSearchRepository = Annotated[
+    LegalSearchRepository,
+    Depends(get_legal_search_repository),
+]
+
+
+def get_legal_embedding_provider(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> EmbeddingProvider | None:
+    try:
+        return build_embedding_provider(settings)
+    except EmbeddingProviderError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail={"code": "legal_embedding_not_configured", "message": str(exc)},
+        ) from exc
+
+
+RuntimeLegalEmbeddingProvider = Annotated[
+    EmbeddingProvider | None,
+    Depends(get_legal_embedding_provider),
+]

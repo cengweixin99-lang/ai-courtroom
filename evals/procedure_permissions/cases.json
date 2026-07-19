@@ -1,0 +1,98 @@
+{
+  "dataset": "procedure_permissions",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "EVAL-PROC-001", "description": "开庭阶段不得举证", "metric": "illegal_stage",
+      "user_role": "prosecution", "advance_count": 0,
+      "action": {"action": "submit_evidence", "evidence_ids": ["E03"]},
+      "expected_code": "action_not_allowed", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-002", "description": "开庭阶段不得发表公诉意见", "metric": "illegal_stage",
+      "user_role": "prosecution", "advance_count": 0,
+      "action": {"action": "make_statement", "content": "意见"},
+      "expected_code": "action_not_allowed", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-003", "description": "辩方不得在公诉方举证阶段举证", "metric": "illegal_stage",
+      "user_role": "defense", "advance_count": 3,
+      "action": {"action": "submit_evidence", "evidence_ids": ["E10"]},
+      "expected_code": "action_not_allowed", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-004", "description": "公诉方不得在辩方举证阶段举证", "metric": "illegal_stage",
+      "user_role": "prosecution", "advance_count": 4,
+      "action": {"action": "submit_evidence", "evidence_ids": ["E03"]},
+      "expected_code": "action_not_allowed", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-005", "description": "不存在的证据不得举证", "metric": "nonexistent_evidence",
+      "user_role": "prosecution", "advance_count": 3,
+      "action": {"action": "submit_evidence", "evidence_ids": ["E99"]},
+      "expected_code": "unknown_evidence", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-006", "description": "不存在的证据不得质证", "metric": "nonexistent_evidence",
+      "user_role": "prosecution", "advance_count": 4,
+      "action": {"action": "challenge_evidence", "evidence_ids": ["E99"], "content": "质证", "challenge_dimensions": ["AUTHENTICITY"]},
+      "expected_code": "unknown_evidence", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-007", "description": "同一证据不得重复举证", "metric": "procedure_permissions",
+      "user_role": "prosecution", "advance_count": 3,
+      "setup_actions": [{"action": "submit_evidence", "evidence_ids": ["E03"]}],
+      "action": {"action": "submit_evidence", "evidence_ids": ["E03"]},
+      "expected_code": "evidence_already_submitted", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-008", "description": "未提交证据不得质证", "metric": "procedure_permissions",
+      "user_role": "defense", "advance_count": 3,
+      "action": {"action": "challenge_evidence", "evidence_ids": ["E03"], "content": "质证", "challenge_dimensions": ["AUTHENTICITY"]},
+      "expected_code": "evidence_not_submitted", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-009", "description": "证据质证必须选择维度", "metric": "procedure_permissions",
+      "user_role": "defense", "advance_count": 3, "pre_submitted_evidence_ids": ["E03"],
+      "action": {"action": "challenge_evidence", "evidence_ids": ["E03"], "content": "质证"},
+      "expected_code": "challenge_dimension_required", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-010", "description": "不得询问不存在的参与人", "metric": "procedure_permissions",
+      "user_role": "prosecution", "advance_count": 5,
+      "action": {"action": "question_participant", "target_id": "W99", "content": "请回答"},
+      "expected_code": "unknown_participant", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-011", "description": "发问必须指定参与人", "metric": "procedure_permissions",
+      "user_role": "prosecution", "advance_count": 5,
+      "action": {"action": "question_participant", "content": "请回答"},
+      "expected_code": "target_required", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-012", "description": "问题制止请求必须指向发问事件", "metric": "procedure_permissions",
+      "user_role": "prosecution", "advance_count": 5,
+      "action": {"action": "raise_procedural_request", "procedural_request_type": "IMPROPER_QUESTION", "target_event_sequence": 1, "content": "请求制止"},
+      "expected_code": "target_event_not_question", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-013", "description": "问题制止请求必须提供目标事件", "metric": "procedure_permissions",
+      "user_role": "prosecution", "advance_count": 5,
+      "action": {"action": "raise_procedural_request", "procedural_request_type": "IMPROPER_QUESTION", "content": "请求制止"},
+      "expected_code": "target_event_required", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-014", "description": "非重复问题不得标记为重复", "metric": "procedure_permissions",
+      "user_role": "prosecution", "advance_count": 5,
+      "setup_actions": [{"action": "question_participant", "target_id": "W01", "content": "你是否看清离开人员的面部？"}],
+      "action": {"action": "raise_procedural_request", "procedural_request_type": "REPETITIVE_QUESTION", "target_event_sequence": 7, "content": "请求制止重复发问"},
+      "expected_code": "question_not_repetitive", "expected_allowed": false
+    },
+    {
+      "id": "EVAL-PROC-015", "description": "证人询问阶段可向存在的证人发问", "metric": "procedure_permissions",
+      "user_role": "prosecution", "advance_count": 5,
+      "action": {"action": "question_participant", "target_id": "W01", "content": "请说明当晚所见"},
+      "expected_code": "allowed", "expected_allowed": true
+    }
+  ]
+}

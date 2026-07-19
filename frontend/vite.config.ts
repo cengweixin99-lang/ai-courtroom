@@ -7,6 +7,13 @@ export default defineConfig({
   plugins: [react()],
   server: {
     port: 5173,
+    proxy: {
+      // 本地前端只访问同源 /api，后端地址可通过环境变量覆盖。
+      '/api': {
+        target: process.env.MOOTCOURT_API_PROXY_TARGET ?? 'http://127.0.0.1:8011',
+        changeOrigin: true,
+      },
+    },
   },
   test: {
     environment: 'jsdom',

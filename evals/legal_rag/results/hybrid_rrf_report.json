@@ -1,0 +1,892 @@
+{
+  "dataset": "case_001_legal_bm25_baseline",
+  "dataset_version": "1.0.0",
+  "index_name": "mootcourt-legal-articles-v1",
+  "top_k": 5,
+  "thresholds": {
+    "recall_at_k": 0.9,
+    "precision_at_k": 0.7,
+    "validity_filter_accuracy": 1.0,
+    "refusal_accuracy": 0.95
+  },
+  "metrics": {
+    "case_count": 20,
+    "positive_case_count": 16,
+    "refusal_case_count": 4,
+    "validity_filter_case_count": 20,
+    "recall_at_k": 1.0,
+    "precision_at_k": 0.875,
+    "mean_reciprocal_rank": 0.96875,
+    "validity_filter_accuracy": 1.0,
+    "refusal_accuracy": 1.0
+  },
+  "cases": [
+    {
+      "id": "EVAL-RAG-001",
+      "category": "article_lookup",
+      "query": "盗窃罪第二百六十四条的入罪条件",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-1",
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-THEFT-INTERPRETATION-2013-1",
+          "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+          "article_number": "第一条第一款、第二款",
+          "text": "盗窃公私财物价值一千元至三千元以上、三万元至十万元以上、三十万元至五十万元以上的，应当分别认定为刑法第二百六十四条规定的“数额较大”、“数额巨大”、“数额特别巨大”。各省、自治区、直辖市高级人民法院、人民检察院可以根据本地区经济发展状况，并考虑社会治安状况，在前款规定的数额幅度内，确定本地区执行的具体数额标准，报最高人民法院、最高人民检察院批准。",
+          "jurisdiction": "PRC",
+          "effective_from": "2013-04-04",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "judicial_interpretation_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 34.880547,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        },
+        {
+          "source_id": "LS-CRIMINAL-LAW-264",
+          "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+          "article_number": "第二百六十四条",
+          "text": "盗窃公私财物，数额较大的，或者多次盗窃、入户盗窃、携带凶器盗窃、扒窃的，处三年以下有期徒刑、拘役或者管制，并处或者单处罚金；数额巨大或者有其他严重情节的，处三年以上十年以下有期徒刑，并处罚金；数额特别巨大或者有其他特别严重情节的，处十年以上有期徒刑或者无期徒刑，并处罚金或者没收财产。",
+          "jurisdiction": "PRC",
+          "effective_from": "2021-03-01",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+          "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+          "score": 0.016129032258064516,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 10.0,
+          "vector_score": null,
+          "bm25_rank": 2,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.5,
+      "reciprocal_rank": 0.5,
+      "latency_ms": 1605.338200000915,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-002",
+      "category": "substantive_law",
+      "query": "盗窃公私财物数额较大、多次盗窃、入户盗窃、携带凶器盗窃和扒窃如何处罚",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CRIMINAL-LAW-264",
+          "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+          "article_number": "第二百六十四条",
+          "text": "盗窃公私财物，数额较大的，或者多次盗窃、入户盗窃、携带凶器盗窃、扒窃的，处三年以下有期徒刑、拘役或者管制，并处或者单处罚金；数额巨大或者有其他严重情节的，处三年以上十年以下有期徒刑，并处罚金；数额特别巨大或者有其他特别严重情节的，处十年以上有期徒刑或者无期徒刑，并处罚金或者没收财产。",
+          "jurisdiction": "PRC",
+          "effective_from": "2021-03-01",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+          "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+          "score": 0.03278688524590164,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 120.36054,
+          "vector_score": 0.9041519,
+          "bm25_rank": 1,
+          "vector_rank": 1
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1312.7194000007876,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-003",
+      "category": "judicial_interpretation",
+      "query": "盗窃数额较大、数额巨大和数额特别巨大的金额标准",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-1",
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-THEFT-INTERPRETATION-2013-1",
+          "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+          "article_number": "第一条第一款、第二款",
+          "text": "盗窃公私财物价值一千元至三千元以上、三万元至十万元以上、三十万元至五十万元以上的，应当分别认定为刑法第二百六十四条规定的“数额较大”、“数额巨大”、“数额特别巨大”。各省、自治区、直辖市高级人民法院、人民检察院可以根据本地区经济发展状况，并考虑社会治安状况，在前款规定的数额幅度内，确定本地区执行的具体数额标准，报最高人民法院、最高人民检察院批准。",
+          "jurisdiction": "PRC",
+          "effective_from": "2013-04-04",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "judicial_interpretation_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.03252247488101534,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 74.38872,
+          "vector_score": 0.9015622,
+          "bm25_rank": 2,
+          "vector_rank": 1
+        },
+        {
+          "source_id": "LS-CRIMINAL-LAW-264",
+          "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+          "article_number": "第二百六十四条",
+          "text": "盗窃公私财物，数额较大的，或者多次盗窃、入户盗窃、携带凶器盗窃、扒窃的，处三年以下有期徒刑、拘役或者管制，并处或者单处罚金；数额巨大或者有其他严重情节的，处三年以上十年以下有期徒刑，并处罚金；数额特别巨大或者有其他特别严重情节的，处十年以上有期徒刑或者无期徒刑，并处罚金或者没收财产。",
+          "jurisdiction": "PRC",
+          "effective_from": "2021-03-01",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+          "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 74.89942,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.5,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1307.9601999997976,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-004",
+      "category": "judicial_interpretation",
+      "query": "各省高级人民法院人民检察院能否确定本地区盗窃数额标准",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-1"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-THEFT-INTERPRETATION-2013-1",
+          "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+          "article_number": "第一条第一款、第二款",
+          "text": "盗窃公私财物价值一千元至三千元以上、三万元至十万元以上、三十万元至五十万元以上的，应当分别认定为刑法第二百六十四条规定的“数额较大”、“数额巨大”、“数额特别巨大”。各省、自治区、直辖市高级人民法院、人民检察院可以根据本地区经济发展状况，并考虑社会治安状况，在前款规定的数额幅度内，确定本地区执行的具体数额标准，报最高人民法院、最高人民检察院批准。",
+          "jurisdiction": "PRC",
+          "effective_from": "2013-04-04",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "judicial_interpretation_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 122.370094,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1291.0556999995606,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-005",
+      "category": "valuation_rule",
+      "query": "被盗财物有有效价格证明时怎样认定盗窃数额",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-4-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-4-1"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-THEFT-INTERPRETATION-2013-4-1",
+          "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+          "article_number": "第四条第一项",
+          "text": "被盗财物有有效价格证明的，根据有效价格证明认定；无有效价格证明，或者根据价格证明认定盗窃数额明显不合理的，应当按照有关规定委托估价机构估价。",
+          "jurisdiction": "PRC",
+          "effective_from": "2013-04-04",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "judicial_interpretation_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.03278688524590164,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 78.11256,
+          "vector_score": 0.9147792,
+          "bm25_rank": 1,
+          "vector_rank": 1
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1244.7829000011552,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-006",
+      "category": "valuation_rule",
+      "query": "没有有效价格证明或者价格证明明显不合理是否应委托估价机构估价",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-4-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-4-1"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-THEFT-INTERPRETATION-2013-4-1",
+          "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+          "article_number": "第四条第一项",
+          "text": "被盗财物有有效价格证明的，根据有效价格证明认定；无有效价格证明，或者根据价格证明认定盗窃数额明显不合理的，应当按照有关规定委托估价机构估价。",
+          "jurisdiction": "PRC",
+          "effective_from": "2013-04-04",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "judicial_interpretation_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 164.792,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1152.5552999992215,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-007",
+      "category": "substantive_law",
+      "query": "什么行为是犯罪，情节显著轻微危害不大是否认为是犯罪",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-13"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CRIMINAL-LAW-13"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CRIMINAL-LAW-13",
+          "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+          "article_number": "第十三条",
+          "text": "一切危害国家主权、领土完整和安全，分裂国家、颠覆人民民主专政的政权和推翻社会主义制度，破坏社会秩序和经济秩序，侵犯国有财产或者劳动群众集体所有的财产，侵犯公民私人所有的财产，侵犯公民的人身权利、民主权利和其他权利，以及其他危害社会的行为，依照法律应当受刑罚处罚的，都是犯罪，但是情节显著轻微危害不大的，不认为是犯罪。",
+          "jurisdiction": "PRC",
+          "effective_from": "2021-03-01",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+          "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 80.44423,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1209.0917000004993,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-008",
+      "category": "substantive_law",
+      "query": "明知行为会发生危害社会结果并希望或者放任结果发生是否属于故意犯罪",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-14"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CRIMINAL-LAW-14"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CRIMINAL-LAW-14",
+          "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+          "article_number": "第十四条",
+          "text": "明知自己的行为会发生危害社会的结果，并且希望或者放任这种结果发生，因而构成犯罪的，是故意犯罪。故意犯罪，应当负刑事责任。",
+          "jurisdiction": "PRC",
+          "effective_from": "2021-03-01",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+          "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+          "score": 0.03278688524590164,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 178.13377,
+          "vector_score": 0.90977526,
+          "bm25_rank": 1,
+          "vector_rank": 1
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1236.8782000012288,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-009",
+      "category": "criminal_capacity",
+      "query": "已满十六周岁的人犯罪是否应当负刑事责任",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-17-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CRIMINAL-LAW-17-1",
+        "LS-CRIMINAL-LAW-14"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CRIMINAL-LAW-17-1",
+          "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+          "article_number": "第十七条第一款",
+          "text": "已满十六周岁的人犯罪，应当负刑事责任。",
+          "jurisdiction": "PRC",
+          "effective_from": "2021-03-01",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+          "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+          "score": 0.03278688524590164,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 79.99679,
+          "vector_score": 0.92233896,
+          "bm25_rank": 1,
+          "vector_rank": 1
+        },
+        {
+          "source_id": "LS-CRIMINAL-LAW-14",
+          "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+          "article_number": "第十四条",
+          "text": "明知自己的行为会发生危害社会的结果，并且希望或者放任这种结果发生，因而构成犯罪的，是故意犯罪。故意犯罪，应当负刑事责任。",
+          "jurisdiction": "PRC",
+          "effective_from": "2021-03-01",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+          "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+          "score": 0.016129032258064516,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 35.727924,
+          "vector_score": null,
+          "bm25_rank": 2,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.5,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1260.6040999999095,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-010",
+      "category": "evidence_rule",
+      "query": "刑事案件中物证书证证人证言电子数据是否属于证据",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-50"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-50",
+        "LS-CPL-55"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CPL-50",
+          "instrument_title": "中华人民共和国刑事诉讼法",
+          "article_number": "第五十条",
+          "text": "可以用于证明案件事实的材料，都是证据。证据包括：（一）物证；（二）书证；（三）证人证言；（四）被害人陈述；（五）犯罪嫌疑人、被告人供述和辩解；（六）鉴定意见；（七）勘验、检查、辨认、侦查实验等笔录；（八）视听资料、电子数据。证据必须经过查证属实，才能作为定案的根据。",
+          "jurisdiction": "PRC",
+          "effective_from": "2018-10-26",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 92.2681,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        },
+        {
+          "source_id": "LS-CPL-55",
+          "instrument_title": "中华人民共和国刑事诉讼法",
+          "article_number": "第五十五条",
+          "text": "对一切案件的判处都要重证据，重调查研究，不轻信口供。只有被告人供述，没有其他证据的，不能认定被告人有罪和处以刑罚；没有被告人供述，证据确实、充分的，可以认定被告人有罪和处以刑罚。证据确实、充分，应当符合以下条件：（一）定罪量刑的事实都有证据证明；（二）据以定案的证据均经法定程序查证属实；（三）综合全案证据，对所认定事实已排除合理怀疑。",
+          "jurisdiction": "PRC",
+          "effective_from": "2018-10-26",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.016129032258064516,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 55.33023,
+          "vector_score": null,
+          "bm25_rank": 2,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.5,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1266.2149999996473,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-011",
+      "category": "evidence_rule",
+      "query": "证据是否必须经过查证属实才能作为定案根据",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-50"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-50"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CPL-50",
+          "instrument_title": "中华人民共和国刑事诉讼法",
+          "article_number": "第五十条",
+          "text": "可以用于证明案件事实的材料，都是证据。证据包括：（一）物证；（二）书证；（三）证人证言；（四）被害人陈述；（五）犯罪嫌疑人、被告人供述和辩解；（六）鉴定意见；（七）勘验、检查、辨认、侦查实验等笔录；（八）视听资料、电子数据。证据必须经过查证属实，才能作为定案的根据。",
+          "jurisdiction": "PRC",
+          "effective_from": "2018-10-26",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 94.78034,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1190.9618999998202,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-012",
+      "category": "burden_of_proof",
+      "query": "公诉案件中被告人有罪的举证责任由谁承担",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-51"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-51"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CPL-51",
+          "instrument_title": "中华人民共和国刑事诉讼法",
+          "article_number": "第五十一条",
+          "text": "公诉案件中被告人有罪的举证责任由人民检察院承担，自诉案件中被告人有罪的举证责任由自诉人承担。",
+          "jurisdiction": "PRC",
+          "effective_from": "2018-10-26",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.03278688524590164,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 107.43804,
+          "vector_score": 0.90598536,
+          "bm25_rank": 1,
+          "vector_rank": 1
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1236.1746999995376,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-013",
+      "category": "burden_of_proof",
+      "query": "自诉案件中证明被告人有罪的举证责任由谁承担",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-51"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-51"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CPL-51",
+          "instrument_title": "中华人民共和国刑事诉讼法",
+          "article_number": "第五十一条",
+          "text": "公诉案件中被告人有罪的举证责任由人民检察院承担，自诉案件中被告人有罪的举证责任由自诉人承担。",
+          "jurisdiction": "PRC",
+          "effective_from": "2018-10-26",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.03278688524590164,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 114.73276,
+          "vector_score": 0.90029764,
+          "bm25_rank": 1,
+          "vector_rank": 1
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1231.837399998767,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-014",
+      "category": "standard_of_proof",
+      "query": "只有被告人供述没有其他证据能否认定有罪和处以刑罚",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-55"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-55"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CPL-55",
+          "instrument_title": "中华人民共和国刑事诉讼法",
+          "article_number": "第五十五条",
+          "text": "对一切案件的判处都要重证据，重调查研究，不轻信口供。只有被告人供述，没有其他证据的，不能认定被告人有罪和处以刑罚；没有被告人供述，证据确实、充分的，可以认定被告人有罪和处以刑罚。证据确实、充分，应当符合以下条件：（一）定罪量刑的事实都有证据证明；（二）据以定案的证据均经法定程序查证属实；（三）综合全案证据，对所认定事实已排除合理怀疑。",
+          "jurisdiction": "PRC",
+          "effective_from": "2018-10-26",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 85.45656,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1215.7748999998148,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-015",
+      "category": "standard_of_proof",
+      "query": "综合全案证据对所认定事实排除合理怀疑的证明标准",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-55"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-55"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CPL-55",
+          "instrument_title": "中华人民共和国刑事诉讼法",
+          "article_number": "第五十五条",
+          "text": "对一切案件的判处都要重证据，重调查研究，不轻信口供。只有被告人供述，没有其他证据的，不能认定被告人有罪和处以刑罚；没有被告人供述，证据确实、充分的，可以认定被告人有罪和处以刑罚。证据确实、充分，应当符合以下条件：（一）定罪量刑的事实都有证据证明；（二）据以定案的证据均经法定程序查证属实；（三）综合全案证据，对所认定事实已排除合理怀疑。",
+          "jurisdiction": "PRC",
+          "effective_from": "2018-10-26",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 96.48221,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1247.7842999996938,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-016",
+      "category": "standard_of_proof",
+      "query": "刑事案件证据确实充分应当符合哪些条件",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-55"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-55"
+      ],
+      "retrieved_hits": [
+        {
+          "source_id": "LS-CPL-55",
+          "instrument_title": "中华人民共和国刑事诉讼法",
+          "article_number": "第五十五条",
+          "text": "对一切案件的判处都要重证据，重调查研究，不轻信口供。只有被告人供述，没有其他证据的，不能认定被告人有罪和处以刑罚；没有被告人供述，证据确实、充分的，可以认定被告人有罪和处以刑罚。证据确实、充分，应当符合以下条件：（一）定罪量刑的事实都有证据证明；（二）据以定案的证据均经法定程序查证属实；（三）综合全案证据，对所认定事实已排除合理怀疑。",
+          "jurisdiction": "PRC",
+          "effective_from": "2018-10-26",
+          "effective_to": null,
+          "status": "effective",
+          "review_status": "verified",
+          "authority_level": "law_current_official",
+          "official_source_url": "https://flk.npc.gov.cn/",
+          "version_hash": null,
+          "score": 0.01639344262295082,
+          "retrieval_mode": "hybrid_rrf",
+          "bm25_score": 70.7038,
+          "vector_score": null,
+          "bm25_rank": 1,
+          "vector_rank": null
+        }
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 1213.2201999993413,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-017",
+      "category": "refusal",
+      "query": "火星殖民地税务法第九千条规定什么",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [],
+      "retrieved_hits": [],
+      "recall_at_k": null,
+      "precision_at_k": 0.0,
+      "reciprocal_rank": null,
+      "latency_ms": 1182.0979000003717,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-018",
+      "category": "refusal",
+      "query": "远洋船舶共同海损的理算规则是什么",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [],
+      "retrieved_hits": [],
+      "recall_at_k": null,
+      "precision_at_k": 0.0,
+      "reciprocal_rank": null,
+      "latency_ms": 1237.7479999995558,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-019",
+      "category": "refusal",
+      "query": "发明专利的新颖性宽限期如何计算",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [],
+      "retrieved_hits": [],
+      "recall_at_k": null,
+      "precision_at_k": 0.0,
+      "reciprocal_rank": null,
+      "latency_ms": 1176.4648999997007,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-020",
+      "category": "refusal",
+      "query": "劳动合同经济补偿金按几个月工资计算",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [],
+      "retrieved_hits": [],
+      "recall_at_k": null,
+      "precision_at_k": 0.0,
+      "reciprocal_rank": null,
+      "latency_ms": 1244.2812000008416,
+      "failures": [],
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "retrieval_mode": "hybrid_rrf",
+  "embedding_version": "ollama-bge-m3-790764642607-1024-v1"
+}

@@ -1,0 +1,86 @@
+{
+  "policy_id": "LEGAL-HYBRID-ADMISSION-V1",
+  "policy_version": "1.0.0",
+  "dataset": "case_001_legal_bm25_baseline",
+  "baseline_report": "evals\\legal_rag\\results\\bm25_baseline_report.json",
+  "candidate_report": "evals\\legal_rag\\results\\hybrid_rrf_report.json",
+  "candidate_embedding_version": "ollama-bge-m3-790764642607-1024-v1",
+  "recall_at_k": {
+    "baseline": 1.0,
+    "candidate": 1.0,
+    "delta": 0.0
+  },
+  "precision_at_k": {
+    "baseline": 0.875,
+    "candidate": 0.875,
+    "delta": 0.0
+  },
+  "mean_reciprocal_rank": {
+    "baseline": 0.9375,
+    "candidate": 0.96875,
+    "delta": 0.03125
+  },
+  "validity_filter_accuracy": {
+    "baseline": 1.0,
+    "candidate": 1.0,
+    "delta": 0.0
+  },
+  "refusal_accuracy": {
+    "baseline": 1.0,
+    "candidate": 1.0,
+    "delta": 0.0
+  },
+  "checks": [
+    {
+      "name": "retrieval_modes",
+      "passed": true,
+      "message": "expected bm25 -> hybrid_rrf"
+    },
+    {
+      "name": "candidate_embedding_version",
+      "passed": true,
+      "message": "candidate report must freeze a non-empty embedding version"
+    },
+    {
+      "name": "same_dataset",
+      "passed": true,
+      "message": "dataset, dataset version, and top_k must match"
+    },
+    {
+      "name": "same_case_set",
+      "passed": true,
+      "message": "baseline and candidate must contain the same Eval case IDs"
+    },
+    {
+      "name": "candidate_eval_gate",
+      "passed": true,
+      "message": "candidate must pass its standalone PRD thresholds"
+    },
+    {
+      "name": "recall_at_k",
+      "passed": true,
+      "message": "candidate=1.0000, minimum=0.9000, baseline=1.0000, max_regression=0.0000"
+    },
+    {
+      "name": "precision_at_k",
+      "passed": true,
+      "message": "candidate=0.8750, minimum=0.7000, baseline=0.8750, max_regression=0.1000"
+    },
+    {
+      "name": "mean_reciprocal_rank",
+      "passed": true,
+      "message": "candidate=0.9688, minimum=0.8000, baseline=0.9375, max_regression=0.0500"
+    },
+    {
+      "name": "validity_filter_accuracy",
+      "passed": true,
+      "message": "candidate must be >= 1.0000"
+    },
+    {
+      "name": "refusal_accuracy",
+      "passed": true,
+      "message": "candidate must be >= 1.0000"
+    }
+  ],
+  "admitted": true
+}

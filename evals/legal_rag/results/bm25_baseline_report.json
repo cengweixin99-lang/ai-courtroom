@@ -1,0 +1,456 @@
+{
+  "dataset": "case_001_legal_bm25_baseline",
+  "dataset_version": "1.0.0",
+  "index_name": "mootcourt-legal-articles-v1",
+  "top_k": 5,
+  "thresholds": {
+    "recall_at_k": 0.9,
+    "precision_at_k": 0.7,
+    "validity_filter_accuracy": 1.0,
+    "refusal_accuracy": 0.95
+  },
+  "metrics": {
+    "case_count": 20,
+    "positive_case_count": 16,
+    "refusal_case_count": 4,
+    "validity_filter_case_count": 20,
+    "recall_at_k": 1.0,
+    "precision_at_k": 0.875,
+    "mean_reciprocal_rank": 0.9375,
+    "validity_filter_accuracy": 1.0,
+    "refusal_accuracy": 1.0
+  },
+  "cases": [
+    {
+      "id": "EVAL-RAG-001",
+      "category": "article_lookup",
+      "query": "盗窃罪第二百六十四条的入罪条件",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-1",
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.5,
+      "reciprocal_rank": 0.5,
+      "latency_ms": 59.82880000010482,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-002",
+      "category": "substantive_law",
+      "query": "盗窃公私财物数额较大、多次盗窃、入户盗窃、携带凶器盗窃和扒窃如何处罚",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CRIMINAL-LAW-264"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 22.517700000207697,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-003",
+      "category": "judicial_interpretation",
+      "query": "盗窃数额较大、数额巨大和数额特别巨大的金额标准",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CRIMINAL-LAW-264",
+        "LS-THEFT-INTERPRETATION-2013-1"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.5,
+      "reciprocal_rank": 0.5,
+      "latency_ms": 22.282699999777833,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-004",
+      "category": "judicial_interpretation",
+      "query": "各省高级人民法院人民检察院能否确定本地区盗窃数额标准",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-1"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 20.90330000009999,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-005",
+      "category": "valuation_rule",
+      "query": "被盗财物有有效价格证明时怎样认定盗窃数额",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-4-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-4-1"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 21.9771000001856,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-006",
+      "category": "valuation_rule",
+      "query": "没有有效价格证明或者价格证明明显不合理是否应委托估价机构估价",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-4-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-THEFT-INTERPRETATION-2013-4-1"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 23.81950000017241,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-007",
+      "category": "substantive_law",
+      "query": "什么行为是犯罪，情节显著轻微危害不大是否认为是犯罪",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-13"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CRIMINAL-LAW-13"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 21.761299999525363,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-008",
+      "category": "substantive_law",
+      "query": "明知行为会发生危害社会结果并希望或者放任结果发生是否属于故意犯罪",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-14"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CRIMINAL-LAW-14"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 21.09539999946719,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-009",
+      "category": "criminal_capacity",
+      "query": "已满十六周岁的人犯罪是否应当负刑事责任",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CRIMINAL-LAW-17-1"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CRIMINAL-LAW-17-1",
+        "LS-CRIMINAL-LAW-14"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.5,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 20.79920000051061,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-010",
+      "category": "evidence_rule",
+      "query": "刑事案件中物证书证证人证言电子数据是否属于证据",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-50"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-50",
+        "LS-CPL-55"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.5,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 20.256400000107533,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-011",
+      "category": "evidence_rule",
+      "query": "证据是否必须经过查证属实才能作为定案根据",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-50"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-50"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 21.40109999982087,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-012",
+      "category": "burden_of_proof",
+      "query": "公诉案件中被告人有罪的举证责任由谁承担",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-51"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-51"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 64.49489999977231,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-013",
+      "category": "burden_of_proof",
+      "query": "自诉案件中证明被告人有罪的举证责任由谁承担",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-51"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-51"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 19.31109999986802,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-014",
+      "category": "standard_of_proof",
+      "query": "只有被告人供述没有其他证据能否认定有罪和处以刑罚",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-55"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-55"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 18.685699999878125,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-015",
+      "category": "standard_of_proof",
+      "query": "综合全案证据对所认定事实排除合理怀疑的证明标准",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-55"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-55"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 20.131799999944633,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-016",
+      "category": "standard_of_proof",
+      "query": "刑事案件证据确实充分应当符合哪些条件",
+      "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [
+        "LS-CPL-55"
+      ],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [
+        "LS-CPL-55"
+      ],
+      "recall_at_k": 1.0,
+      "precision_at_k": 1.0,
+      "reciprocal_rank": 1.0,
+      "latency_ms": 21.29739999963931,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-017",
+      "category": "refusal",
+      "query": "火星殖民地税务法第九千条规定什么",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [],
+      "recall_at_k": null,
+      "precision_at_k": 0.0,
+      "reciprocal_rank": null,
+      "latency_ms": 18.443899999510904,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-018",
+      "category": "refusal",
+      "query": "远洋船舶共同海损的理算规则是什么",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [],
+      "recall_at_k": null,
+      "precision_at_k": 0.0,
+      "reciprocal_rank": null,
+      "latency_ms": 17.68759999959002,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-019",
+      "category": "refusal",
+      "query": "发明专利的新颖性宽限期如何计算",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [],
+      "recall_at_k": null,
+      "precision_at_k": 0.0,
+      "reciprocal_rank": null,
+      "latency_ms": 19.995700000436045,
+      "failures": [],
+      "passed": true
+    },
+    {
+      "id": "EVAL-RAG-020",
+      "category": "refusal",
+      "query": "劳动合同经济补偿金按几个月工资计算",
+      "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+      "expected_relevant_source_ids": [],
+      "forbidden_source_ids": [
+        "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+      ],
+      "retrieved_source_ids": [],
+      "recall_at_k": null,
+      "precision_at_k": 0.0,
+      "reciprocal_rank": null,
+      "latency_ms": 21.549200000663404,
+      "failures": [],
+      "passed": true
+    }
+  ],
+  "passed": true,
+  "retrieval_mode": "bm25",
+  "embedding_version": null
+}

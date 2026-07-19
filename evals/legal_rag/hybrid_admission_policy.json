@@ -1,0 +1,17 @@
+{
+  "policy_id": "LEGAL-HYBRID-ADMISSION-V1",
+  "version": "1.0.0",
+  "required_baseline_mode": "bm25",
+  "required_candidate_mode": "hybrid_rrf",
+  "minimum_recall_at_k": 0.9,
+  "maximum_recall_regression": 0.0,
+  "minimum_precision_at_k": 0.7,
+  "maximum_precision_regression": 0.1,
+  "minimum_mean_reciprocal_rank": 0.8,
+  "maximum_mrr_regression": 0.05,
+  "minimum_validity_filter_accuracy": 1.0,
+  "minimum_refusal_accuracy": 1.0,
+  "require_same_dataset": true,
+  "require_same_case_set": true,
+  "require_candidate_eval_pass": true
+}

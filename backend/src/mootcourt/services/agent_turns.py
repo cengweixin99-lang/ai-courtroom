@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import UTC, datetime
 from time import perf_counter
 
 from pydantic import TypeAdapter, ValidationError
@@ -31,6 +30,8 @@ from mootcourt.schemas.agents import (
 )
 from mootcourt.schemas.runtime import (
     AgentTurnResponse,
+    ParticipantConsistencyStatus,
+    ParticipantStatementTraceView,
     SessionActionRequest,
     SessionEventPayload,
     SessionEventView,
@@ -79,7 +80,7 @@ async def execute_agent_turn(
     if session.turns_used >= settings.session_max_turns:
         raise AgentTurnServiceError("turn_limit_reached", "session turn limit reached")
     usage = await unit_of_work.agent_traces.usage_for_session(session_id)
-    _validate_budget_before_call(session.created_at, usage, settings)
+    _validate_budget_before_call(usage, settings)
 
     try:
         context = await build_agent_context(
@@ -101,7 +102,7 @@ async def execute_agent_turn(
             unit_of_work, session_id, request, context, provider, invocation
         )
 
-    budget_error = _budget_error_after_call(session.created_at, usage, invocation, settings)
+    budget_error = _budget_error_after_call(usage, invocation, settings)
     if budget_error is not None:
         code, message = budget_error
         failed = _InvocationResult(
@@ -157,9 +158,7 @@ async def execute_agent_turn(
         raise AgentTurnServiceError("turn_limit_reached", "session turn limit reached")
 
     latest_usage = await unit_of_work.agent_traces.usage_for_session(session_id, lock_rows=True)
-    latest_budget_error = _budget_error_after_call(
-        locked.created_at, latest_usage, invocation, settings
-    )
+    latest_budget_error = _budget_error_after_call(latest_usage, invocation, settings)
     if latest_budget_error is not None:
         code, message = latest_budget_error
         failed = _InvocationResult(
@@ -219,6 +218,35 @@ async def execute_agent_turn(
             "agent_output": invocation.output.model_dump(mode="json"),
         },
     )
+    if isinstance(invocation.output, (WitnessOutput, DefendantOutput)):
+        if context.participant is None or request.participant_id is None:
+            raise RuntimeError("validated participant output is missing participant context")
+        statements_by_id = {item.id: item for item in context.participant.statements}
+        related_fact_ids = sorted(
+            {
+                fact_id
+                for statement_id in invocation.output.supported_by_statement_ids
+                for fact_id in statements_by_id[statement_id].related_fact_ids
+            }
+        )
+        # 一致性状态只依据案卷陈述引用和明确拒答分类，不用字符串相似度冒充语义判断。
+        consistency_status = _participant_consistency_status(invocation.output)
+        await unit_of_work.court_sessions.add_participant_statement_trace(
+            session_id=locked.id,
+            participant_id=request.participant_id,
+            actor_role=request.actor_role.value,
+            event_sequence_number=event.sequence_number,
+            answer=invocation.output.answer,
+            supported_statement_ids=invocation.output.supported_by_statement_ids,
+            related_fact_ids=related_fact_ids,
+            consistency_status=consistency_status.value,
+            new_statement=(
+                invocation.output.new_statement
+                if isinstance(invocation.output, DefendantOutput)
+                else False
+            ),
+            refused_reason=invocation.output.refused_reason,
+        )
     await unit_of_work.court_sessions.flush_session(locked)
     session_view = await get_session_view(unit_of_work, locked.id)
     if session_view is None:
@@ -240,6 +268,49 @@ async def list_agent_traces(
     return [
         _trace_view(item) for item in await unit_of_work.agent_traces.list_for_session(session_id)
     ]
+
+
+async def list_participant_statement_traces(
+    unit_of_work: SqlAlchemyUnitOfWork, session_id: str
+) -> list[ParticipantStatementTraceView] | None:
+    if await unit_of_work.court_sessions.get(session_id) is None:
+        return None
+    rows = await unit_of_work.court_sessions.list_participant_statement_traces(session_id)
+    return [
+        ParticipantStatementTraceView.model_validate(
+            {
+                "id": item.id,
+                "session_id": item.session_id,
+                "participant_id": item.participant_id,
+                "actor_role": item.actor_role,
+                "event_sequence_number": item.event_sequence_number,
+                "answer": item.answer,
+                "supported_statement_ids": item.supported_statement_ids,
+                "related_fact_ids": item.related_fact_ids,
+                "consistency_status": item.consistency_status,
+                "new_statement": item.new_statement,
+                "refused_reason": item.refused_reason,
+                "review_status": item.review_status,
+                "review_reason": item.review_reason,
+                "reviewed_at": item.reviewed_at,
+                "review_event_sequence": item.review_event_sequence,
+                "created_at": item.created_at,
+            }
+        )
+        for item in rows
+    ]
+
+
+def _participant_consistency_status(
+    output: WitnessOutput | DefendantOutput,
+) -> ParticipantConsistencyStatus:
+    if isinstance(output, DefendantOutput) and output.new_statement:
+        return ParticipantConsistencyStatus.NEW_STATEMENT_PENDING_REVIEW
+    if output.supported_by_statement_ids:
+        return ParticipantConsistencyStatus.SUPPORTED_BY_PRIOR_STATEMENT
+    if output.refused_reason is not None:
+        return ParticipantConsistencyStatus.EXPLICIT_REFUSAL
+    return ParticipantConsistencyStatus.UNSUPPORTED
 
 
 def _validate_agent_request(
@@ -430,10 +501,12 @@ def _validate_output(context: AgentContext, output: AgentOutput) -> str | None:
         cited_ids = set(output.supported_by_statement_ids)
         if cited_ids - allowed_statement_ids:
             return "participant output cites an unavailable statement"
-        if not cited_ids and output.refused_reason is None:
+        if (
+            not cited_ids
+            and output.refused_reason is None
+            and not (isinstance(output, DefendantOutput) and output.new_statement)
+        ):
             return "participant output must cite a statement or explicitly refuse"
-        if isinstance(output, DefendantOutput) and output.new_statement:
-            return "new defendant statements are disabled until semantic fact validation exists"
     return None
 
 
@@ -527,7 +600,6 @@ def _elapsed_ms(started: float) -> int:
 
 
 def _validate_budget_before_call(
-    created_at: datetime,
     usage: SessionAgentUsage,
     settings: Settings,
 ) -> None:
@@ -539,14 +611,13 @@ def _validate_budget_before_call(
         raise AgentTurnServiceError(
             "session_cost_budget_exceeded", "session cost budget is exhausted", 429
         )
-    if _session_elapsed_seconds(created_at) >= settings.session_max_seconds:
+    if usage.latency_ms >= settings.session_max_seconds * 1_000:
         raise AgentTurnServiceError(
             "session_time_budget_exceeded", "session time budget is exhausted", 429
         )
 
 
 def _budget_error_after_call(
-    created_at: datetime,
     usage: SessionAgentUsage,
     invocation: _InvocationResult,
     settings: Settings,
@@ -560,11 +631,7 @@ def _budget_error_after_call(
     total_cost = usage.estimated_cost_cny + result.estimated_cost_cny
     if total_cost > settings.session_max_cost_cny:
         return "session_cost_budget_exceeded", "model call exceeded the session cost budget"
-    if _session_elapsed_seconds(created_at) > settings.session_max_seconds:
+    # 时间预算统计模型累计调用耗时；页面闲置、电脑休眠和隔日恢复不会消耗该预算。
+    if usage.latency_ms + invocation.latency_ms > settings.session_max_seconds * 1_000:
         return "session_time_budget_exceeded", "model call exceeded the session time budget"
     return None
-
-
-def _session_elapsed_seconds(created_at: datetime) -> float:
-    normalized = created_at if created_at.tzinfo is not None else created_at.replace(tzinfo=UTC)
-    return max(0, (datetime.now(UTC) - normalized).total_seconds())

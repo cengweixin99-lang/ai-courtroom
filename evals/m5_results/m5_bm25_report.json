@@ -1,0 +1,1822 @@
+{
+  "suite": "mootcourt_mvp_m5",
+  "suite_version": "1.0.0",
+  "generated_at": "2026-07-18T10:12:53.107210Z",
+  "total_case_count": 50,
+  "subset_counts": {
+    "procedure_permissions": 15,
+    "participant_boundaries": 10,
+    "legal_rag": 20,
+    "end_to_end": 5
+  },
+  "cases": [
+    {
+      "id": "EVAL-PROC-001",
+      "subset": "procedure_permissions",
+      "metric": "illegal_stage",
+      "expected": {
+        "code": "action_not_allowed",
+        "allowed": false
+      },
+      "actual": {
+        "code": "action_not_allowed",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "8f04a4e3-48e1-4759-b180-8055b11adb04",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 44.640799998887815,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-002",
+      "subset": "procedure_permissions",
+      "metric": "illegal_stage",
+      "expected": {
+        "code": "action_not_allowed",
+        "allowed": false
+      },
+      "actual": {
+        "code": "action_not_allowed",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "1cb355c8-9598-4176-bcf8-9204e5f2755c",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 37.882900000113295,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-003",
+      "subset": "procedure_permissions",
+      "metric": "illegal_stage",
+      "expected": {
+        "code": "action_not_allowed",
+        "allowed": false
+      },
+      "actual": {
+        "code": "action_not_allowed",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "474db398-81a4-4dc2-b684-3306872d8156",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 118.19359999935841,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-004",
+      "subset": "procedure_permissions",
+      "metric": "illegal_stage",
+      "expected": {
+        "code": "action_not_allowed",
+        "allowed": false
+      },
+      "actual": {
+        "code": "action_not_allowed",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "be6d4384-fff6-41b1-9d70-fcb62c86e44c",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 117.11659999855328,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-005",
+      "subset": "procedure_permissions",
+      "metric": "nonexistent_evidence",
+      "expected": {
+        "code": "unknown_evidence",
+        "allowed": false
+      },
+      "actual": {
+        "code": "unknown_evidence",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "32709408-5601-43cb-939c-5453619ab0b8",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 96.34129999903962,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-006",
+      "subset": "procedure_permissions",
+      "metric": "nonexistent_evidence",
+      "expected": {
+        "code": "unknown_evidence",
+        "allowed": false
+      },
+      "actual": {
+        "code": "unknown_evidence",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "90c2a597-6a9d-4aa1-b643-cfba2bb9331c",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 102.56140000274172,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-007",
+      "subset": "procedure_permissions",
+      "metric": "procedure_permissions",
+      "expected": {
+        "code": "evidence_already_submitted",
+        "allowed": false
+      },
+      "actual": {
+        "code": "evidence_already_submitted",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "ed4c6e5a-92b0-47e1-bdba-3ba6c335cf4d",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 102.85270000167657,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-008",
+      "subset": "procedure_permissions",
+      "metric": "procedure_permissions",
+      "expected": {
+        "code": "evidence_not_submitted",
+        "allowed": false
+      },
+      "actual": {
+        "code": "evidence_not_submitted",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "460ffbc9-e205-43cf-b4f0-cfbb134a4e5e",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 73.75369999863324,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-009",
+      "subset": "procedure_permissions",
+      "metric": "procedure_permissions",
+      "expected": {
+        "code": "challenge_dimension_required",
+        "allowed": false
+      },
+      "actual": {
+        "code": "challenge_dimension_required",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "e3443b41-1bdd-4b1f-a0a5-983010a9dd0f",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 74.85680000172579,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-010",
+      "subset": "procedure_permissions",
+      "metric": "procedure_permissions",
+      "expected": {
+        "code": "unknown_participant",
+        "allowed": false
+      },
+      "actual": {
+        "code": "unknown_participant",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "cf1b28a0-04d7-4b89-9e9b-1e7834c4a3ba",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 104.4651000011072,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-011",
+      "subset": "procedure_permissions",
+      "metric": "procedure_permissions",
+      "expected": {
+        "code": "target_required",
+        "allowed": false
+      },
+      "actual": {
+        "code": "target_required",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "cf45994b-f317-412a-8fad-b99cf09fa3ce",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 108.95430000164197,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-012",
+      "subset": "procedure_permissions",
+      "metric": "procedure_permissions",
+      "expected": {
+        "code": "target_event_not_question",
+        "allowed": false
+      },
+      "actual": {
+        "code": "target_event_not_question",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "5abec630-7c9f-4a0a-b952-379f9f66d282",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 96.34940000250936,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-013",
+      "subset": "procedure_permissions",
+      "metric": "procedure_permissions",
+      "expected": {
+        "code": "target_event_required",
+        "allowed": false
+      },
+      "actual": {
+        "code": "target_event_required",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "f5d445b2-c5a8-4e7c-9733-506d7c255e77",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 178.63699999725213,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-014",
+      "subset": "procedure_permissions",
+      "metric": "procedure_permissions",
+      "expected": {
+        "code": "question_not_repetitive",
+        "allowed": false
+      },
+      "actual": {
+        "code": "question_not_repetitive",
+        "allowed": false
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "b6ca683c-bf82-4d54-8652-dfada0533fc9",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 193.66810000065016,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PROC-015",
+      "subset": "procedure_permissions",
+      "metric": "procedure_permissions",
+      "expected": {
+        "code": "allowed",
+        "allowed": true
+      },
+      "actual": {
+        "code": "allowed",
+        "allowed": true
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "e524312e-8630-4c0c-a22b-aebf5f0a13d3",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 166.10020000007353,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-001",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [
+          "W01-S01"
+        ],
+        "consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT"
+      },
+      "actual": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [
+          "W01-S01"
+        ],
+        "consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT",
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "102d53a4-ef54-4f94-9731-4121ad46f7f3",
+      "trace_ids": [
+        "66c6cd62-c70e-4945-ab4a-d8ea008c686e"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 194.09140000061598,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-002",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [
+          "W02-S01"
+        ],
+        "consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT"
+      },
+      "actual": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [
+          "W02-S01"
+        ],
+        "consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT",
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "d85dacad-60d9-4bce-98a8-8c656203dea4",
+      "trace_ids": [
+        "ccf78707-c6fc-4b91-b5b8-730a36a5c533"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 207.1566000013263,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-003",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [
+          "W03-S01"
+        ],
+        "consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT"
+      },
+      "actual": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [
+          "W03-S01"
+        ],
+        "consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT",
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "c43de33f-9d73-41cd-93e4-278455ab1b8d",
+      "trace_ids": [
+        "9af23510-323d-46fa-a0b7-d77c0ecfd405"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 205.61450000241166,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-004",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [
+          "D01-S01"
+        ],
+        "consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT"
+      },
+      "actual": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [
+          "D01-S01"
+        ],
+        "consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT",
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "043e4459-5dff-47ed-a41d-ca8c9434c06d",
+      "trace_ids": [
+        "82b2459f-fbb8-4a9d-92c7-0a5126ad22ee"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 126.5049999965413,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-005",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "rejected",
+        "code": "participant_role_mismatch",
+        "statement_ids": [],
+        "consistency_status": null
+      },
+      "actual": {
+        "status": "rejected",
+        "code": "participant_role_mismatch",
+        "statement_ids": [],
+        "consistency_status": null,
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "ae6142b1-b6a2-497c-8daf-23735c1f27db",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 137.32419999723788,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-006",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "rejected",
+        "code": "participant_role_mismatch",
+        "statement_ids": [],
+        "consistency_status": null
+      },
+      "actual": {
+        "status": "rejected",
+        "code": "participant_role_mismatch",
+        "statement_ids": [],
+        "consistency_status": null,
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "196502fc-66c7-456e-acb2-08b2957263ae",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 80.93670000016573,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-007",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "rejected",
+        "code": "user_controlled_role",
+        "statement_ids": [],
+        "consistency_status": null
+      },
+      "actual": {
+        "status": "rejected",
+        "code": "user_controlled_role",
+        "statement_ids": [],
+        "consistency_status": null,
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "aa1fbeac-159c-4d12-94bb-b49e3c87972a",
+      "trace_ids": [],
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 72.72780000130297,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-008",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "failed",
+        "code": "agent_output_forbidden",
+        "statement_ids": [],
+        "consistency_status": null
+      },
+      "actual": {
+        "status": "failed",
+        "code": "agent_output_forbidden",
+        "statement_ids": [],
+        "consistency_status": null,
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "091f1d66-1da1-44bb-8868-e36941e206cc",
+      "trace_ids": [
+        "25586ed3-9398-4ff2-a4c8-424f4288ff23"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 160.3078000007372,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-009",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [],
+        "consistency_status": "EXPLICIT_REFUSAL"
+      },
+      "actual": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [],
+        "consistency_status": "EXPLICIT_REFUSAL",
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "f9b5780c-ab48-43c6-8350-d9eb4653687a",
+      "trace_ids": [
+        "85694d7c-1c06-4e9a-ab03-d0bdf9719b7d"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 162.67530000186525,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-PART-010",
+      "subset": "participant_boundaries",
+      "metric": "participant_boundary",
+      "expected": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [],
+        "consistency_status": "NEW_STATEMENT_PENDING_REVIEW"
+      },
+      "actual": {
+        "status": "succeeded",
+        "code": null,
+        "statement_ids": [],
+        "consistency_status": "NEW_STATEMENT_PENDING_REVIEW",
+        "leaked_tokens": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "fc04aadc-8d30-4d15-be41-9842c28cf8da",
+      "trace_ids": [
+        "1c42ecd0-0105-482e-91eb-b77052272b97"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 105.63490000276943,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-E2E-001",
+      "subset": "end_to_end",
+      "metric": "end_to_end_completion",
+      "expected": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "actual": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "4c03bc4b-ae20-4795-ad22-86bffc2ede3a",
+      "trace_ids": [
+        "897a4da1-0025-4559-a8f2-ef7cfca465f3"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 415.5408000005991,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-E2E-002",
+      "subset": "end_to_end",
+      "metric": "end_to_end_completion",
+      "expected": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "actual": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "7b3a098b-f34d-4bb1-9547-ab59495a864c",
+      "trace_ids": [
+        "a4450fbc-a878-4485-883d-a0196629fca6"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 355.222700000013,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-E2E-003",
+      "subset": "end_to_end",
+      "metric": "end_to_end_completion",
+      "expected": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "actual": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "2c75525d-3239-452a-a1c7-021115fd059b",
+      "trace_ids": [
+        "2cca321e-ecea-4097-961e-ecf33012d792"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 354.1569000008167,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-E2E-004",
+      "subset": "end_to_end",
+      "metric": "end_to_end_completion",
+      "expected": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "actual": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "6fd8d607-7725-4b9f-bba9-6b04a16f1252",
+      "trace_ids": [
+        "1f71bbd1-4d81-4b46-8391-bbef77da9cea"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 368.4341999978642,
+      "repair_count": 0
+    },
+    {
+      "id": "EVAL-E2E-005",
+      "subset": "end_to_end",
+      "metric": "end_to_end_completion",
+      "expected": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "actual": {
+        "phase": "COMPLETED",
+        "status": "completed",
+        "element_count": 6,
+        "all_elements_cited": true,
+        "conclusion": null
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "c4adeb69-c5fe-4be7-ab97-7aeb026486cc",
+      "trace_ids": [
+        "eaeaec58-4b01-4965-9079-a29426bc2c74"
+      ],
+      "input_tokens": 120,
+      "output_tokens": 40,
+      "estimated_cost_cny": 0.01,
+      "latency_ms": 371.53659999967203,
+      "repair_count": 0
+    }
+  ],
+  "legal_report": {
+    "dataset": "case_001_legal_bm25_baseline",
+    "dataset_version": "1.0.0",
+    "index_name": "mootcourt-legal-articles-v1",
+    "top_k": 5,
+    "thresholds": {
+      "recall_at_k": 0.9,
+      "precision_at_k": 0.7,
+      "validity_filter_accuracy": 1.0,
+      "refusal_accuracy": 0.95
+    },
+    "metrics": {
+      "case_count": 20,
+      "positive_case_count": 16,
+      "refusal_case_count": 4,
+      "validity_filter_case_count": 20,
+      "recall_at_k": 1.0,
+      "precision_at_k": 0.875,
+      "mean_reciprocal_rank": 0.9375,
+      "validity_filter_accuracy": 1.0,
+      "refusal_accuracy": 1.0
+    },
+    "cases": [
+      {
+        "id": "EVAL-RAG-001",
+        "category": "article_lookup",
+        "query": "盗窃罪第二百六十四条的入罪条件",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CRIMINAL-LAW-264"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-THEFT-INTERPRETATION-2013-1",
+          "LS-CRIMINAL-LAW-264"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-THEFT-INTERPRETATION-2013-1",
+            "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+            "article_number": "第一条第一款、第二款",
+            "text": "盗窃公私财物价值一千元至三千元以上、三万元至十万元以上、三十万元至五十万元以上的，应当分别认定为刑法第二百六十四条规定的“数额较大”、“数额巨大”、“数额特别巨大”。各省、自治区、直辖市高级人民法院、人民检察院可以根据本地区经济发展状况，并考虑社会治安状况，在前款规定的数额幅度内，确定本地区执行的具体数额标准，报最高人民法院、最高人民检察院批准。",
+            "jurisdiction": "PRC",
+            "effective_from": "2013-04-04",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "judicial_interpretation_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 34.880547,
+            "retrieval_mode": "bm25",
+            "bm25_score": 34.880547,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          },
+          {
+            "source_id": "LS-CRIMINAL-LAW-264",
+            "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+            "article_number": "第二百六十四条",
+            "text": "盗窃公私财物，数额较大的，或者多次盗窃、入户盗窃、携带凶器盗窃、扒窃的，处三年以下有期徒刑、拘役或者管制，并处或者单处罚金；数额巨大或者有其他严重情节的，处三年以上十年以下有期徒刑，并处罚金；数额特别巨大或者有其他特别严重情节的，处十年以上有期徒刑或者无期徒刑，并处罚金或者没收财产。",
+            "jurisdiction": "PRC",
+            "effective_from": "2021-03-01",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+            "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+            "score": 10.0,
+            "retrieval_mode": "bm25",
+            "bm25_score": 10.0,
+            "vector_score": null,
+            "bm25_rank": 2,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 0.5,
+        "reciprocal_rank": 0.5,
+        "latency_ms": 111.97750000064843,
+        "failures": [],
+        "passed": true,
+        "trace_id": "2927bd9e-d5b6-410e-ab93-f10b1b5c26f6"
+      },
+      {
+        "id": "EVAL-RAG-002",
+        "category": "substantive_law",
+        "query": "盗窃公私财物数额较大、多次盗窃、入户盗窃、携带凶器盗窃和扒窃如何处罚",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CRIMINAL-LAW-264"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CRIMINAL-LAW-264"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CRIMINAL-LAW-264",
+            "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+            "article_number": "第二百六十四条",
+            "text": "盗窃公私财物，数额较大的，或者多次盗窃、入户盗窃、携带凶器盗窃、扒窃的，处三年以下有期徒刑、拘役或者管制，并处或者单处罚金；数额巨大或者有其他严重情节的，处三年以上十年以下有期徒刑，并处罚金；数额特别巨大或者有其他特别严重情节的，处十年以上有期徒刑或者无期徒刑，并处罚金或者没收财产。",
+            "jurisdiction": "PRC",
+            "effective_from": "2021-03-01",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+            "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+            "score": 120.36054,
+            "retrieval_mode": "bm25",
+            "bm25_score": 120.36054,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 23.561699999845587,
+        "failures": [],
+        "passed": true,
+        "trace_id": "68f0ba1f-af26-4049-b50d-500f0517c601"
+      },
+      {
+        "id": "EVAL-RAG-003",
+        "category": "judicial_interpretation",
+        "query": "盗窃数额较大、数额巨大和数额特别巨大的金额标准",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-THEFT-INTERPRETATION-2013-1"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CRIMINAL-LAW-264",
+          "LS-THEFT-INTERPRETATION-2013-1"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CRIMINAL-LAW-264",
+            "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+            "article_number": "第二百六十四条",
+            "text": "盗窃公私财物，数额较大的，或者多次盗窃、入户盗窃、携带凶器盗窃、扒窃的，处三年以下有期徒刑、拘役或者管制，并处或者单处罚金；数额巨大或者有其他严重情节的，处三年以上十年以下有期徒刑，并处罚金；数额特别巨大或者有其他特别严重情节的，处十年以上有期徒刑或者无期徒刑，并处罚金或者没收财产。",
+            "jurisdiction": "PRC",
+            "effective_from": "2021-03-01",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+            "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+            "score": 74.89942,
+            "retrieval_mode": "bm25",
+            "bm25_score": 74.89942,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          },
+          {
+            "source_id": "LS-THEFT-INTERPRETATION-2013-1",
+            "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+            "article_number": "第一条第一款、第二款",
+            "text": "盗窃公私财物价值一千元至三千元以上、三万元至十万元以上、三十万元至五十万元以上的，应当分别认定为刑法第二百六十四条规定的“数额较大”、“数额巨大”、“数额特别巨大”。各省、自治区、直辖市高级人民法院、人民检察院可以根据本地区经济发展状况，并考虑社会治安状况，在前款规定的数额幅度内，确定本地区执行的具体数额标准，报最高人民法院、最高人民检察院批准。",
+            "jurisdiction": "PRC",
+            "effective_from": "2013-04-04",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "judicial_interpretation_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 74.38872,
+            "retrieval_mode": "bm25",
+            "bm25_score": 74.38872,
+            "vector_score": null,
+            "bm25_rank": 2,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 0.5,
+        "reciprocal_rank": 0.5,
+        "latency_ms": 27.718100001948187,
+        "failures": [],
+        "passed": true,
+        "trace_id": "e3bcde33-aba9-40d5-84aa-b9499b165d33"
+      },
+      {
+        "id": "EVAL-RAG-004",
+        "category": "judicial_interpretation",
+        "query": "各省高级人民法院人民检察院能否确定本地区盗窃数额标准",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-THEFT-INTERPRETATION-2013-1"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-THEFT-INTERPRETATION-2013-1"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-THEFT-INTERPRETATION-2013-1",
+            "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+            "article_number": "第一条第一款、第二款",
+            "text": "盗窃公私财物价值一千元至三千元以上、三万元至十万元以上、三十万元至五十万元以上的，应当分别认定为刑法第二百六十四条规定的“数额较大”、“数额巨大”、“数额特别巨大”。各省、自治区、直辖市高级人民法院、人民检察院可以根据本地区经济发展状况，并考虑社会治安状况，在前款规定的数额幅度内，确定本地区执行的具体数额标准，报最高人民法院、最高人民检察院批准。",
+            "jurisdiction": "PRC",
+            "effective_from": "2013-04-04",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "judicial_interpretation_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 122.370094,
+            "retrieval_mode": "bm25",
+            "bm25_score": 122.370094,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 23.794100001396146,
+        "failures": [],
+        "passed": true,
+        "trace_id": "ad954f25-5638-4fb4-95ea-47c5c1adf297"
+      },
+      {
+        "id": "EVAL-RAG-005",
+        "category": "valuation_rule",
+        "query": "被盗财物有有效价格证明时怎样认定盗窃数额",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-THEFT-INTERPRETATION-2013-4-1"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-THEFT-INTERPRETATION-2013-4-1"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-THEFT-INTERPRETATION-2013-4-1",
+            "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+            "article_number": "第四条第一项",
+            "text": "被盗财物有有效价格证明的，根据有效价格证明认定；无有效价格证明，或者根据价格证明认定盗窃数额明显不合理的，应当按照有关规定委托估价机构估价。",
+            "jurisdiction": "PRC",
+            "effective_from": "2013-04-04",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "judicial_interpretation_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 78.11256,
+            "retrieval_mode": "bm25",
+            "bm25_score": 78.11256,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 22.82800000102725,
+        "failures": [],
+        "passed": true,
+        "trace_id": "d1059bd0-3655-4cc4-926a-52b3d4915aa3"
+      },
+      {
+        "id": "EVAL-RAG-006",
+        "category": "valuation_rule",
+        "query": "没有有效价格证明或者价格证明明显不合理是否应委托估价机构估价",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-THEFT-INTERPRETATION-2013-4-1"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-THEFT-INTERPRETATION-2013-4-1"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-THEFT-INTERPRETATION-2013-4-1",
+            "instrument_title": "最高人民法院、最高人民检察院关于办理盗窃刑事案件适用法律若干问题的解释",
+            "article_number": "第四条第一项",
+            "text": "被盗财物有有效价格证明的，根据有效价格证明认定；无有效价格证明，或者根据价格证明认定盗窃数额明显不合理的，应当按照有关规定委托估价机构估价。",
+            "jurisdiction": "PRC",
+            "effective_from": "2013-04-04",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "judicial_interpretation_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 164.792,
+            "retrieval_mode": "bm25",
+            "bm25_score": 164.792,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 21.12689999921713,
+        "failures": [],
+        "passed": true,
+        "trace_id": "2fc070be-bd88-45d9-88cd-84840a863796"
+      },
+      {
+        "id": "EVAL-RAG-007",
+        "category": "substantive_law",
+        "query": "什么行为是犯罪，情节显著轻微危害不大是否认为是犯罪",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CRIMINAL-LAW-13"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CRIMINAL-LAW-13"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CRIMINAL-LAW-13",
+            "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+            "article_number": "第十三条",
+            "text": "一切危害国家主权、领土完整和安全，分裂国家、颠覆人民民主专政的政权和推翻社会主义制度，破坏社会秩序和经济秩序，侵犯国有财产或者劳动群众集体所有的财产，侵犯公民私人所有的财产，侵犯公民的人身权利、民主权利和其他权利，以及其他危害社会的行为，依照法律应当受刑罚处罚的，都是犯罪，但是情节显著轻微危害不大的，不认为是犯罪。",
+            "jurisdiction": "PRC",
+            "effective_from": "2021-03-01",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+            "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+            "score": 80.44423,
+            "retrieval_mode": "bm25",
+            "bm25_score": 80.44423,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 24.86979999957839,
+        "failures": [],
+        "passed": true,
+        "trace_id": "b7ada95a-75cb-49e9-91fc-c3b27774a626"
+      },
+      {
+        "id": "EVAL-RAG-008",
+        "category": "substantive_law",
+        "query": "明知行为会发生危害社会结果并希望或者放任结果发生是否属于故意犯罪",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CRIMINAL-LAW-14"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CRIMINAL-LAW-14"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CRIMINAL-LAW-14",
+            "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+            "article_number": "第十四条",
+            "text": "明知自己的行为会发生危害社会的结果，并且希望或者放任这种结果发生，因而构成犯罪的，是故意犯罪。故意犯罪，应当负刑事责任。",
+            "jurisdiction": "PRC",
+            "effective_from": "2021-03-01",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+            "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+            "score": 178.13377,
+            "retrieval_mode": "bm25",
+            "bm25_score": 178.13377,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 25.185700000292854,
+        "failures": [],
+        "passed": true,
+        "trace_id": "1b29e788-2d82-4e9e-ab0b-0e9b42fbc5d1"
+      },
+      {
+        "id": "EVAL-RAG-009",
+        "category": "criminal_capacity",
+        "query": "已满十六周岁的人犯罪是否应当负刑事责任",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CRIMINAL-LAW-17-1"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CRIMINAL-LAW-17-1",
+          "LS-CRIMINAL-LAW-14"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CRIMINAL-LAW-17-1",
+            "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+            "article_number": "第十七条第一款",
+            "text": "已满十六周岁的人犯罪，应当负刑事责任。",
+            "jurisdiction": "PRC",
+            "effective_from": "2021-03-01",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+            "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+            "score": 79.99679,
+            "retrieval_mode": "bm25",
+            "bm25_score": 79.99679,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          },
+          {
+            "source_id": "LS-CRIMINAL-LAW-14",
+            "instrument_title": "中华人民共和国刑法（国家法律法规数据库现行有效记录）",
+            "article_number": "第十四条",
+            "text": "明知自己的行为会发生危害社会的结果，并且希望或者放任这种结果发生，因而构成犯罪的，是故意犯罪。故意犯罪，应当负刑事责任。",
+            "jurisdiction": "PRC",
+            "effective_from": "2021-03-01",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/detail?id=ff808181796a636a0179822a19640c92&title=中华人民共和国刑法",
+            "version_hash": "2252A75F5549DBD9F902F74C9B9943ADFDE33729F600C62F3E8C24EA204A5456",
+            "score": 35.727924,
+            "retrieval_mode": "bm25",
+            "bm25_score": 35.727924,
+            "vector_score": null,
+            "bm25_rank": 2,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 0.5,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 22.39190000182134,
+        "failures": [],
+        "passed": true,
+        "trace_id": "eb736c27-79ee-493d-bf8b-b80ee3d8ab61"
+      },
+      {
+        "id": "EVAL-RAG-010",
+        "category": "evidence_rule",
+        "query": "刑事案件中物证书证证人证言电子数据是否属于证据",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CPL-50"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CPL-50",
+          "LS-CPL-55"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CPL-50",
+            "instrument_title": "中华人民共和国刑事诉讼法",
+            "article_number": "第五十条",
+            "text": "可以用于证明案件事实的材料，都是证据。证据包括：（一）物证；（二）书证；（三）证人证言；（四）被害人陈述；（五）犯罪嫌疑人、被告人供述和辩解；（六）鉴定意见；（七）勘验、检查、辨认、侦查实验等笔录；（八）视听资料、电子数据。证据必须经过查证属实，才能作为定案的根据。",
+            "jurisdiction": "PRC",
+            "effective_from": "2018-10-26",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 92.2681,
+            "retrieval_mode": "bm25",
+            "bm25_score": 92.2681,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          },
+          {
+            "source_id": "LS-CPL-55",
+            "instrument_title": "中华人民共和国刑事诉讼法",
+            "article_number": "第五十五条",
+            "text": "对一切案件的判处都要重证据，重调查研究，不轻信口供。只有被告人供述，没有其他证据的，不能认定被告人有罪和处以刑罚；没有被告人供述，证据确实、充分的，可以认定被告人有罪和处以刑罚。证据确实、充分，应当符合以下条件：（一）定罪量刑的事实都有证据证明；（二）据以定案的证据均经法定程序查证属实；（三）综合全案证据，对所认定事实已排除合理怀疑。",
+            "jurisdiction": "PRC",
+            "effective_from": "2018-10-26",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 55.33023,
+            "retrieval_mode": "bm25",
+            "bm25_score": 55.33023,
+            "vector_score": null,
+            "bm25_rank": 2,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 0.5,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 28.15510000073118,
+        "failures": [],
+        "passed": true,
+        "trace_id": "48b1ed0f-772f-43f7-a170-f350c085458d"
+      },
+      {
+        "id": "EVAL-RAG-011",
+        "category": "evidence_rule",
+        "query": "证据是否必须经过查证属实才能作为定案根据",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CPL-50"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CPL-50"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CPL-50",
+            "instrument_title": "中华人民共和国刑事诉讼法",
+            "article_number": "第五十条",
+            "text": "可以用于证明案件事实的材料，都是证据。证据包括：（一）物证；（二）书证；（三）证人证言；（四）被害人陈述；（五）犯罪嫌疑人、被告人供述和辩解；（六）鉴定意见；（七）勘验、检查、辨认、侦查实验等笔录；（八）视听资料、电子数据。证据必须经过查证属实，才能作为定案的根据。",
+            "jurisdiction": "PRC",
+            "effective_from": "2018-10-26",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 94.78034,
+            "retrieval_mode": "bm25",
+            "bm25_score": 94.78034,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 21.18279999922379,
+        "failures": [],
+        "passed": true,
+        "trace_id": "249e3641-f346-4ccb-adc1-da80efd81755"
+      },
+      {
+        "id": "EVAL-RAG-012",
+        "category": "burden_of_proof",
+        "query": "公诉案件中被告人有罪的举证责任由谁承担",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CPL-51"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CPL-51"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CPL-51",
+            "instrument_title": "中华人民共和国刑事诉讼法",
+            "article_number": "第五十一条",
+            "text": "公诉案件中被告人有罪的举证责任由人民检察院承担，自诉案件中被告人有罪的举证责任由自诉人承担。",
+            "jurisdiction": "PRC",
+            "effective_from": "2018-10-26",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 107.43804,
+            "retrieval_mode": "bm25",
+            "bm25_score": 107.43804,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 20.398199998453492,
+        "failures": [],
+        "passed": true,
+        "trace_id": "0d967342-747d-4a29-8667-84582e2f05af"
+      },
+      {
+        "id": "EVAL-RAG-013",
+        "category": "burden_of_proof",
+        "query": "自诉案件中证明被告人有罪的举证责任由谁承担",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CPL-51"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CPL-51"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CPL-51",
+            "instrument_title": "中华人民共和国刑事诉讼法",
+            "article_number": "第五十一条",
+            "text": "公诉案件中被告人有罪的举证责任由人民检察院承担，自诉案件中被告人有罪的举证责任由自诉人承担。",
+            "jurisdiction": "PRC",
+            "effective_from": "2018-10-26",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 114.73276,
+            "retrieval_mode": "bm25",
+            "bm25_score": 114.73276,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 23.195099998702062,
+        "failures": [],
+        "passed": true,
+        "trace_id": "15468341-3637-458a-97c5-046bb31fdaa6"
+      },
+      {
+        "id": "EVAL-RAG-014",
+        "category": "standard_of_proof",
+        "query": "只有被告人供述没有其他证据能否认定有罪和处以刑罚",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CPL-55"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CPL-55"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CPL-55",
+            "instrument_title": "中华人民共和国刑事诉讼法",
+            "article_number": "第五十五条",
+            "text": "对一切案件的判处都要重证据，重调查研究，不轻信口供。只有被告人供述，没有其他证据的，不能认定被告人有罪和处以刑罚；没有被告人供述，证据确实、充分的，可以认定被告人有罪和处以刑罚。证据确实、充分，应当符合以下条件：（一）定罪量刑的事实都有证据证明；（二）据以定案的证据均经法定程序查证属实；（三）综合全案证据，对所认定事实已排除合理怀疑。",
+            "jurisdiction": "PRC",
+            "effective_from": "2018-10-26",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 85.45656,
+            "retrieval_mode": "bm25",
+            "bm25_score": 85.45656,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 22.21280000230763,
+        "failures": [],
+        "passed": true,
+        "trace_id": "d43d8a75-2fd6-4b0e-9159-f01bf3d60a7f"
+      },
+      {
+        "id": "EVAL-RAG-015",
+        "category": "standard_of_proof",
+        "query": "综合全案证据对所认定事实排除合理怀疑的证明标准",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CPL-55"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CPL-55"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CPL-55",
+            "instrument_title": "中华人民共和国刑事诉讼法",
+            "article_number": "第五十五条",
+            "text": "对一切案件的判处都要重证据，重调查研究，不轻信口供。只有被告人供述，没有其他证据的，不能认定被告人有罪和处以刑罚；没有被告人供述，证据确实、充分的，可以认定被告人有罪和处以刑罚。证据确实、充分，应当符合以下条件：（一）定罪量刑的事实都有证据证明；（二）据以定案的证据均经法定程序查证属实；（三）综合全案证据，对所认定事实已排除合理怀疑。",
+            "jurisdiction": "PRC",
+            "effective_from": "2018-10-26",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 96.48221,
+            "retrieval_mode": "bm25",
+            "bm25_score": 96.48221,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 23.21289999963483,
+        "failures": [],
+        "passed": true,
+        "trace_id": "8ce1a0c5-7fd9-496b-b7ce-f7e3c6fe4cbf"
+      },
+      {
+        "id": "EVAL-RAG-016",
+        "category": "standard_of_proof",
+        "query": "刑事案件证据确实充分应当符合哪些条件",
+        "expected_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "SUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [
+          "LS-CPL-55"
+        ],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [
+          "LS-CPL-55"
+        ],
+        "retrieved_hits": [
+          {
+            "source_id": "LS-CPL-55",
+            "instrument_title": "中华人民共和国刑事诉讼法",
+            "article_number": "第五十五条",
+            "text": "对一切案件的判处都要重证据，重调查研究，不轻信口供。只有被告人供述，没有其他证据的，不能认定被告人有罪和处以刑罚；没有被告人供述，证据确实、充分的，可以认定被告人有罪和处以刑罚。证据确实、充分，应当符合以下条件：（一）定罪量刑的事实都有证据证明；（二）据以定案的证据均经法定程序查证属实；（三）综合全案证据，对所认定事实已排除合理怀疑。",
+            "jurisdiction": "PRC",
+            "effective_from": "2018-10-26",
+            "effective_to": null,
+            "status": "effective",
+            "review_status": "verified",
+            "authority_level": "law_current_official",
+            "official_source_url": "https://flk.npc.gov.cn/",
+            "version_hash": null,
+            "score": 70.7038,
+            "retrieval_mode": "bm25",
+            "bm25_score": 70.7038,
+            "vector_score": null,
+            "bm25_rank": 1,
+            "vector_rank": null
+          }
+        ],
+        "recall_at_k": 1.0,
+        "precision_at_k": 1.0,
+        "reciprocal_rank": 1.0,
+        "latency_ms": 28.59130000069854,
+        "failures": [],
+        "passed": true,
+        "trace_id": "a6c574fe-68a2-4ba0-b406-23086772c863"
+      },
+      {
+        "id": "EVAL-RAG-017",
+        "category": "refusal",
+        "query": "火星殖民地税务法第九千条规定什么",
+        "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [],
+        "retrieved_hits": [],
+        "recall_at_k": null,
+        "precision_at_k": 0.0,
+        "reciprocal_rank": null,
+        "latency_ms": 25.26159999979427,
+        "failures": [],
+        "passed": true,
+        "trace_id": "0b1aee7f-8c92-44a7-86f3-4ce2fee86cf3"
+      },
+      {
+        "id": "EVAL-RAG-018",
+        "category": "refusal",
+        "query": "远洋船舶共同海损的理算规则是什么",
+        "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [],
+        "retrieved_hits": [],
+        "recall_at_k": null,
+        "precision_at_k": 0.0,
+        "reciprocal_rank": null,
+        "latency_ms": 21.90370000244002,
+        "failures": [],
+        "passed": true,
+        "trace_id": "ee4673c4-9798-43de-a929-275c47e3a53c"
+      },
+      {
+        "id": "EVAL-RAG-019",
+        "category": "refusal",
+        "query": "发明专利的新颖性宽限期如何计算",
+        "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [],
+        "retrieved_hits": [],
+        "recall_at_k": null,
+        "precision_at_k": 0.0,
+        "reciprocal_rank": null,
+        "latency_ms": 21.389000001363456,
+        "failures": [],
+        "passed": true,
+        "trace_id": "555f81d0-ff7c-482a-ab08-314e6eefbb5d"
+      },
+      {
+        "id": "EVAL-RAG-020",
+        "category": "refusal",
+        "query": "劳动合同经济补偿金按几个月工资计算",
+        "expected_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+        "actual_outcome": "INSUFFICIENT_LEGAL_AUTHORITY",
+        "expected_relevant_source_ids": [],
+        "forbidden_source_ids": [
+          "LS-CRIMINAL-LAW-264-2009-HISTORICAL"
+        ],
+        "retrieved_source_ids": [],
+        "retrieved_hits": [],
+        "recall_at_k": null,
+        "precision_at_k": 0.0,
+        "reciprocal_rank": null,
+        "latency_ms": 21.463900000526337,
+        "failures": [],
+        "passed": true,
+        "trace_id": "bbf9f884-ce1f-4017-bb51-560db38fff1d"
+      }
+    ],
+    "passed": true,
+    "retrieval_mode": "bm25",
+    "embedding_version": null
+  },
+  "checks": [
+    {
+      "name": "evidence_reference_accuracy",
+      "target": ">=95%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "nonexistent_evidence_interception_rate",
+      "target": "100%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": true
+    },
+    {
+      "name": "unauthorized_information_leak_rate",
+      "target": "0%",
+      "actual": 0.0,
+      "passed": true,
+      "blocking": true
+    },
+    {
+      "name": "illegal_stage_interception_rate",
+      "target": "100%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": true
+    },
+    {
+      "name": "participant_boundary_compliance_rate",
+      "target": ">=95%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "schema_first_pass_rate",
+      "target": ">=90%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "end_to_end_completion_rate",
+      "target": ">=80%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "legal_citation_authenticity",
+      "target": "100%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": true
+    },
+    {
+      "name": "element_coverage_rate",
+      "target": "100%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "fact_to_law_traceability_rate",
+      "target": "100%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "cross_jurisdiction_mixing_rate",
+      "target": "0%",
+      "actual": 0.0,
+      "passed": true,
+      "blocking": true
+    },
+    {
+      "name": "rag_recall_at_5",
+      "target": ">=90%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "rag_precision_at_5",
+      "target": ">=70%",
+      "actual": 0.875,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "validity_filter_accuracy",
+      "target": "100%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": true
+    },
+    {
+      "name": "refusal_accuracy",
+      "target": ">=95%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    }
+  ],
+  "cost": {
+    "agent_call_count": 12,
+    "input_tokens": 1440,
+    "output_tokens": 480,
+    "estimated_cost_cny": 0.12,
+    "average_agent_latency_ms": 252.239725000436,
+    "repair_rate": 0.0
+  },
+  "passed": true
+}

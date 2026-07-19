@@ -1,0 +1,59 @@
+{
+  "dataset": "participant_boundaries",
+  "version": "1.0.0",
+  "cases": [
+    {
+      "id": "EVAL-PART-001", "description": "证人W01仅使用其既有陈述", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 5, "actor_role": "witness", "participant_id": "W01", "action": "make_statement",
+      "forbidden_context_tokens": ["F04", "private_background"], "expected_status": "succeeded", "expected_statement_ids": ["W01-S01"], "expected_consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT"
+    },
+    {
+      "id": "EVAL-PART-002", "description": "证人W02不接收其他证人私有事实", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 5, "actor_role": "witness", "participant_id": "W02", "action": "make_statement",
+      "forbidden_context_tokens": ["F03", "private_background"], "expected_status": "succeeded", "expected_statement_ids": ["W02-S01"], "expected_consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT"
+    },
+    {
+      "id": "EVAL-PART-003", "description": "证人W03只接收其允许事实", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 5, "actor_role": "witness", "participant_id": "W03", "action": "make_statement",
+      "forbidden_context_tokens": ["F08", "private_background"], "expected_status": "succeeded", "expected_statement_ids": ["W03-S01"], "expected_consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT"
+    },
+    {
+      "id": "EVAL-PART-004", "description": "被告人回答追溯到既有陈述", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 1, "actor_role": "defendant", "participant_id": "D01", "action": "make_statement",
+      "forbidden_context_tokens": ["private_background", "forbidden_fact_ids"], "expected_status": "succeeded", "expected_statement_ids": ["D01-S01"], "expected_consistency_status": "SUPPORTED_BY_PRIOR_STATEMENT"
+    },
+    {
+      "id": "EVAL-PART-005", "description": "证人角色不得绑定被告人", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 5, "actor_role": "witness", "participant_id": "D01", "action": "make_statement",
+      "expected_status": "rejected", "expected_code": "participant_role_mismatch"
+    },
+    {
+      "id": "EVAL-PART-006", "description": "被告人角色不得绑定证人", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 1, "actor_role": "defendant", "participant_id": "W01", "action": "make_statement",
+      "expected_status": "rejected", "expected_code": "participant_role_mismatch"
+    },
+    {
+      "id": "EVAL-PART-007", "description": "用户控制角色不得再次调用同角色Agent", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 2, "actor_role": "prosecution", "action": "make_statement",
+      "expected_status": "rejected", "expected_code": "user_controlled_role"
+    },
+    {
+      "id": "EVAL-PART-008", "description": "证人不得引用不可见陈述", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 5, "actor_role": "witness", "participant_id": "W01", "action": "make_statement",
+      "provider_output": {"kind": "witness", "answer": "越权回答", "supported_by_statement_ids": ["W02-S01"], "certainty": "high", "refused_reason": null},
+      "expected_status": "failed", "expected_code": "agent_output_forbidden"
+    },
+    {
+      "id": "EVAL-PART-009", "description": "未知内容应明确拒答", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 5, "actor_role": "witness", "participant_id": "W01", "action": "make_statement",
+      "provider_output": {"kind": "witness", "answer": "我不知道。", "supported_by_statement_ids": [], "certainty": "low", "refused_reason": "该事实不在我的亲历范围内"},
+      "expected_status": "succeeded", "expected_statement_ids": [], "expected_consistency_status": "EXPLICIT_REFUSAL"
+    },
+    {
+      "id": "EVAL-PART-010", "description": "新增陈述只能进入待审核状态", "metric": "participant_boundary",
+      "user_role": "prosecution", "advance_count": 1, "actor_role": "defendant", "participant_id": "D01", "action": "make_statement",
+      "provider_output": {"kind": "defendant", "answer": "我补充一项本庭新陈述。", "supported_by_statement_ids": [], "new_statement": true, "certainty": "medium", "refused_reason": null},
+      "expected_status": "succeeded", "expected_statement_ids": [], "expected_consistency_status": "NEW_STATEMENT_PENDING_REVIEW"
+    }
+  ]
+}

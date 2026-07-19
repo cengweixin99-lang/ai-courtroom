@@ -51,6 +51,9 @@ class CasePackageModel(Base):
         back_populates="package",
         passive_deletes=True,
     )
+    legal_search_traces: Mapped[list[LegalSearchTraceModel]] = relationship(
+        cascade="all, delete-orphan"
+    )
 
 
 class FactModel(Base):
@@ -139,6 +142,13 @@ class CourtSessionModel(Base):
         cascade="all, delete-orphan"
     )
     agent_traces: Mapped[list[AgentTraceModel]] = relationship(cascade="all, delete-orphan")
+    procedural_requests: Mapped[list[ProceduralRequestModel]] = relationship(
+        cascade="all, delete-orphan"
+    )
+    participant_statement_traces: Mapped[list[ParticipantStatementTraceModel]] = relationship(
+        cascade="all, delete-orphan"
+    )
+    court_reviews: Mapped[list[CourtReviewModel]] = relationship(cascade="all, delete-orphan")
 
 
 class SessionEventModel(Base):
@@ -196,6 +206,95 @@ class AgentTraceModel(Base):
     estimated_cost_cny: Mapped[float] = mapped_column(Float, default=0)
     error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class LegalSearchTraceModel(Base):
+    __tablename__ = "legal_search_traces"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    package_id: Mapped[int] = mapped_column(
+        ForeignKey("case_packages.id", ondelete="CASCADE"), index=True
+    )
+    legal_profile_id: Mapped[str] = mapped_column(String(128))
+    query: Mapped[str] = mapped_column(String(500))
+    retrieval_mode: Mapped[str] = mapped_column(String(32))
+    embedding_version: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    outcome: Mapped[str] = mapped_column(String(64), index=True)
+    filters: Mapped[dict[str, Any]] = mapped_column(JSON)
+    hits: Mapped[list[dict[str, Any]]] = mapped_column(JSON)
+    latency_ms: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ProceduralRequestModel(Base):
+    __tablename__ = "procedural_requests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("court_sessions.id", ondelete="CASCADE"), index=True
+    )
+    request_type: Mapped[str] = mapped_column(String(48))
+    raised_by: Mapped[str] = mapped_column(String(32))
+    event_sequence_number: Mapped[int] = mapped_column(Integer)
+    target_event_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    evidence_ids: Mapped[list[str]] = mapped_column(JSON)
+    challenge_dimensions: Mapped[list[str]] = mapped_column(JSON)
+    content: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(48), index=True)
+    resolution: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    resolution_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution_event_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class ParticipantStatementTraceModel(Base):
+    __tablename__ = "participant_statement_traces"
+    __table_args__ = (UniqueConstraint("session_id", "event_sequence_number"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("court_sessions.id", ondelete="CASCADE"), index=True
+    )
+    participant_id: Mapped[str] = mapped_column(String(64))
+    actor_role: Mapped[str] = mapped_column(String(32))
+    event_sequence_number: Mapped[int] = mapped_column(Integer)
+    answer: Mapped[str] = mapped_column(Text)
+    supported_statement_ids: Mapped[list[str]] = mapped_column(JSON)
+    related_fact_ids: Mapped[list[str]] = mapped_column(JSON)
+    consistency_status: Mapped[str] = mapped_column(String(48))
+    new_statement: Mapped[bool] = mapped_column(default=False)
+    refused_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    review_status: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    review_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    review_event_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CourtReviewModel(Base):
+    __tablename__ = "court_reviews"
+    __table_args__ = (
+        UniqueConstraint("session_id"),
+        UniqueConstraint("session_id", "event_sequence_number"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("court_sessions.id", ondelete="CASCADE"), index=True
+    )
+    event_sequence_number: Mapped[int] = mapped_column(Integer)
+    legal_search_trace_ids: Mapped[list[str]] = mapped_column(JSON)
+    report: Mapped[dict[str, Any]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

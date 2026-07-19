@@ -13,9 +13,15 @@
 | `POST` | `/sessions` | 创建并锁定案件版本和用户角色的庭审会话 |
 | `GET` | `/sessions/{session_id}` | 恢复会话当前状态 |
 | `GET` | `/sessions/{session_id}/events` | 获取按序号排列的不可变事件日志 |
+| `GET` | `/sessions/{session_id}/evidence-statuses` | 获取证据提交状态台账 |
+| `GET` | `/sessions/{session_id}/evidence-fact-summary` | 获取证据使用与事实支持关系汇总 |
+| `GET` | `/sessions/{session_id}/procedural-requests` | 获取程序请求及处理状态 |
+| `POST` | `/sessions/{session_id}/procedural-requests/{request_id}/resolution` | 由教学控制者处理程序请求 |
 | `POST` | `/sessions/{session_id}/actions` | 校验并持久化一次庭审动作 |
 | `POST` | `/sessions/{session_id}/agent-turns` | 执行一次受状态机约束的角色 Agent 回合 |
 | `GET` | `/sessions/{session_id}/traces` | 获取 Agent 调用诊断元数据 |
+| `GET` | `/sessions/{session_id}/participant-statement-traces` | 获取参与人回答一致性留痕 |
+| `POST` | `/legal/search` | 按案件 LegalProfile 检索候选法律依据 |
 
 ## 角色隔离
 
@@ -137,3 +143,152 @@ LLM_OUTPUT_COST_PER_MILLION_CNY=0
 常见状态码：`403` 表示角色不可见，`404` 表示资源不存在，`409` 表示与当前会话
 状态冲突，`422` 表示请求结构或动作参数不合法，`429` 表示会话预算耗尽，`502` 表示
 模型调用或输出校验失败且失败 Trace 已保存，`503` 表示真实 Provider 未正确配置。
+
+## 法律检索
+
+首次检索前执行幂等索引命令：
+
+```powershell
+cd backend
+..\.venv\Scripts\mootcourt-index-legal.exe ..\knowledge\legal\source_manifest.json
+```
+
+索引器只接受 `source_manifest.json` 中显式批准且审核状态允许的条款。客户端不能指定
+法域、生效日期或来源范围；这些过滤条件来自案件锁定的 `LegalProfile`。
+
+```http
+POST /api/v1/legal/search
+Content-Type: application/json
+
+{
+  "case_id": "CASE-001",
+  "query": "盗窃罪第二百六十四条的入罪条件",
+  "top_k": 5
+}
+```
+
+接口返回条款原文、条款号、效力日期、审核状态、官方来源、版本哈希和检索分数。
+默认 `retrieval_mode=bm25`；显式配置法律 embedding 后返回 `hybrid_rrf`，并同时保留
+BM25、向量原始分及各自排名。RRF 分数仅用于候选排序，不能解释为法律结论置信度。
+索引正常但没有可靠召回时返回 `INSUFFICIENT_LEGAL_AUTHORITY`；索引不存在或
+Elasticsearch 不可用时返回 `503 legal_search_unavailable`，系统不得改用模型记忆补写。
+本接口只提供候选依据，不生成构成要件判断或法律结论。
+
+成功响应包含 `trace_id`。可用该标识读取固定过滤条件、候选快照、BM25/向量/RRF 分数、
+embedding 版本和耗时：
+
+```http
+GET /api/v1/legal/search-traces/{trace_id}
+```
+
+模型或后续业务模块引用法条前，必须提交引用校验：
+
+```http
+POST /api/v1/legal/citations/validate
+Content-Type: application/json
+
+{
+  "trace_id": "检索响应中的 trace_id",
+  "citations": [
+    {
+      "source_id": "LS-CPL-51",
+      "article_number": "第五十一条",
+      "text": "必须与 Trace 中完整原文逐字一致",
+      "official_source_url": "https://flk.npc.gov.cn/",
+      "version_hash": null
+    }
+  ]
+}
+```
+
+校验只认可该 Trace 实际召回的候选，并严格比较条款号、完整原文、官方来源 URL 和版本
+哈希。伪造 source ID、历史版本替换或任何字段篡改都会返回 `valid=false` 及具体失败类型。
+
+## M4 证据状态和程序请求
+
+`GET /api/v1/sessions/{session_id}/evidence-statuses` 返回当前角色的证据可用性、
+`not_submitted` / `submitted` 状态、提交角色和时间，不暴露无权访问的证据正文。
+
+证据质证必须选择 `AUTHENTICITY`、`LEGALITY`、`RELEVANCE` 或 `PROBATIVE_VALUE`
+中的至少一项。问题制止请求使用 `IRRELEVANT_QUESTION`、`REPETITIVE_QUESTION` 或
+`IMPROPER_QUESTION`，并通过 `target_event_sequence` 指向已发生的发问事件。
+
+```json
+{
+  "action": "challenge_evidence",
+  "evidence_ids": ["E03"],
+  "challenge_dimensions": ["AUTHENTICITY", "PROBATIVE_VALUE"],
+  "content": "门禁卡被使用不能单独证明登记人本人进入。"
+}
+```
+
+```json
+{
+  "action": "raise_procedural_request",
+  "procedural_request_type": "REPETITIVE_QUESTION",
+  "target_event_sequence": 12,
+  "content": "该问题此前已经提出，请求制止。"
+}
+```
+
+`GET /api/v1/sessions/{session_id}/procedural-requests` 返回结构化质证与问题制止记录。
+重复问题只做空白和末尾标点归一化后的确定性比较；无关或不当问题不由模型自动裁定，
+状态为 `pending_controller_review`。证据质证状态为 `recorded_for_evaluation`。
+
+问题制止请求由教学流程控制者通过以下接口处理，结果使用中国刑事教学语境下的
+`APPROVED`（准许）、`REJECTED`（驳回）；证据质证只能使用 `RECORDED`（记入评议）。
+处理结果与公开庭审事件在同一事务写入，已经处理的请求不能重复处理。当前版本尚未接入
+真实身份认证，因此该接口只能部署在受信任的教学控制端之后。
+
+```http
+POST /api/v1/sessions/SESSION_ID/procedural-requests/REQUEST_ID/resolution
+Content-Type: application/json
+
+{
+  "resolution": "APPROVED",
+  "reason": "问题含有预设事实，应当调整问法。"
+}
+```
+
+证人或被告人的成功 Agent 回合会同步写入 `participant-statement-traces`。记录包含回答、
+引用的案卷陈述、由陈述关联得到的事实和确定性一致性分类；系统不会以字符串相似度推断
+语义矛盾。`evidence-fact-summary` 汇总每项事实的关联证据、已提交证据和庭审中已出现的
+陈述。其 `support_status` 仅表示材料使用进度，不表示法院已经认定该事实成立。
+
+被告人输出 `new_statement=true` 时允许写入公开庭审记录，但一致性状态固定为
+`NEW_STATEMENT_PENDING_REVIEW`。教学控制者必须通过以下接口决定是否纳入本庭陈述记录：
+
+```http
+POST /api/v1/sessions/SESSION_ID/participant-statement-traces/TRACE_ID/resolution
+Content-Type: application/json
+
+{
+  "resolution": "INCLUDED_IN_RECORD",
+  "reason": "作为本庭新增陈述保留，但不自动认定相关事实。"
+}
+```
+
+可选值为 `INCLUDED_IN_RECORD` 和 `EXCLUDED_FROM_RECORD`。无论选择哪一项，系统都不会
+为新增陈述自动补写事实 ID，也不会将其直接视为已证实事实。
+
+## M5.0 结构化教学复盘
+
+进入 `LEGAL_ANALYSIS` 后，客户端提交覆盖全部冻结构成要件法源的本案检索 Trace：
+
+```http
+POST /api/v1/sessions/SESSION_ID/review
+Content-Type: application/json
+
+{
+  "legal_search_trace_ids": ["TRACE_ID_1", "TRACE_ID_2"]
+}
+```
+
+生成前必须处理全部程序请求和本庭新增陈述。Service 会确认每个 Trace 属于当前案件版本，
+并逐字段核对条款号、完整原文、官方来源和版本哈希。任一构成要件缺少所需法源时返回
+`insufficient_legal_authority`，不会由模型记忆补写。
+
+报告按 `SUPPORTED`、`DISPUTED`、`INSUFFICIENT` 形成逐项教学模拟事实判断，再聚合为
+六个冻结构成要件的状态并附引用。CASE-001 未获现实法律结论准入，因此
+`deterministic_conclusion_allowed=false` 且 `conclusion=null`。已生成报告可通过
+`GET /api/v1/sessions/{session_id}/review` 读取持久化快照。

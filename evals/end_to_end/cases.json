@@ -1,0 +1,11 @@
+{
+  "dataset": "end_to_end",
+  "version": "1.0.0",
+  "cases": [
+    {"id": "EVAL-E2E-001", "description": "公诉方使用门禁记录完成全流程", "user_role": "prosecution", "evidence_ids": ["E03"]},
+    {"id": "EVAL-E2E-002", "description": "公诉方使用资产和门磁记录完成全流程", "user_role": "prosecution", "evidence_ids": ["E01", "E02"]},
+    {"id": "EVAL-E2E-003", "description": "公诉方使用估价和身份材料完成全流程", "user_role": "prosecution", "evidence_ids": ["E09", "E11"]},
+    {"id": "EVAL-E2E-004", "description": "辩方使用历史借用记录完成全流程", "user_role": "defense", "evidence_ids": ["E10"]},
+    {"id": "EVAL-E2E-005", "description": "辩方使用监控和平台记录完成全流程", "user_role": "defense", "evidence_ids": ["E05", "E06"]}
+  ]
+}

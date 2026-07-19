@@ -10,6 +10,7 @@ from mootcourt.api.router import api_router
 from mootcourt.core.config import get_settings
 from mootcourt.core.logging import configure_logging
 from mootcourt.db.session import dispose_engine
+from mootcourt.search.client import dispose_elasticsearch_client
 
 
 @asynccontextmanager
@@ -18,6 +19,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     try:
         yield
     finally:
+        await dispose_elasticsearch_client()
         await dispose_engine()
 
 
@@ -35,6 +37,10 @@ openapi_tags = [
     {
         "name": "agents",
         "description": "执行受状态机约束的角色 Agent 回合并读取调用 Trace。",
+    },
+    {
+        "name": "legal-search",
+        "description": "按案件 LegalProfile 检索经审核、版本有效的候选法律依据。",
     },
 ]
 app = FastAPI(
