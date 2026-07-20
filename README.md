@@ -30,6 +30,7 @@ docker compose up --build api
 ```
 
 API 文档位于 `http://localhost:8000/docs`，健康检查为 `http://localhost:8000/api/v1/health`。
+Docker 前端通过同源 `/api/v1` 代理访问 API，浏览器无需直接跨域请求 `8000` 端口。
 
 基础设施默认端口为 MySQL `3307`、Elasticsearch `9200`、Kibana `5601`。MySQL 使用
 `3307` 是为了避免与宿主机常见的本地 MySQL `3306` 冲突；容器内连接仍使用 `3306`。
@@ -91,7 +92,8 @@ cd backend
 
 当前 E2.2 已提供受控 Agent 单回合和真实 OpenAI-compatible Provider：角色上下文按
 白名单构造，案卷及用户输入作为不可信数据封装，输出经过严格 Schema、证据权限和陈述
-可追溯性校验。未配置 `LLM_MODEL` 时仍使用本地 Fake Provider，不会向外部发送案卷内容。
+可追溯性校验。运行环境未配置模型或密钥时返回 `503`，不会静默使用 Fake Provider；
+Fake 只允许通过 `LLM_PROVIDER=fake` 在测试环境中显式启用。
 详细契约见 `backend/API.md`。
 
 M3.1 已提供 Elasticsearch 条款级 BM25：法源清单校验、幂等索引、案件来源白名单、

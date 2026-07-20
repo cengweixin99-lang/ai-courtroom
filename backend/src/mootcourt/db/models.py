@@ -6,6 +6,7 @@ from uuid import uuid4
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Date,
     DateTime,
     Float,
@@ -129,6 +130,11 @@ class CourtSessionModel(Base):
     phase: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(32), default="active")
     turns_used: Mapped[int] = mapped_column(Integer, default=0)
+    active_agent_invocation_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    active_agent_lease_token: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    active_agent_lease_expires_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -142,6 +148,9 @@ class CourtSessionModel(Base):
         cascade="all, delete-orphan"
     )
     agent_traces: Mapped[list[AgentTraceModel]] = relationship(cascade="all, delete-orphan")
+    agent_invocations: Mapped[list[AgentInvocationModel]] = relationship(
+        cascade="all, delete-orphan"
+    )
     procedural_requests: Mapped[list[ProceduralRequestModel]] = relationship(
         cascade="all, delete-orphan"
     )
@@ -198,6 +207,7 @@ class AgentTraceModel(Base):
     model: Mapped[str] = mapped_column(String(128))
     status: Mapped[str] = mapped_column(String(32), index=True)
     repair_count: Mapped[int] = mapped_column(Integer, default=0)
+    output_normalized: Mapped[bool] = mapped_column(Boolean, default=False)
     request_payload: Mapped[dict[str, Any]] = mapped_column(JSON)
     response_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     input_tokens: Mapped[int] = mapped_column(Integer, default=0)
@@ -208,6 +218,30 @@ class AgentTraceModel(Base):
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class AgentInvocationModel(Base):
+    __tablename__ = "agent_invocations"
+    __table_args__ = (UniqueConstraint("session_id", "idempotency_key"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("court_sessions.id", ondelete="CASCADE"), index=True
+    )
+    operation: Mapped[str] = mapped_column(String(32))
+    idempotency_key: Mapped[str] = mapped_column(String(128))
+    request_fingerprint: Mapped[str] = mapped_column(String(64))
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    lease_token: Mapped[str] = mapped_column(String(36))
+    lease_expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    response_payload: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
 

@@ -79,9 +79,6 @@ async def get_session_view(
     role = Role(model.user_role)
     legal_actions = list(allowed_actions(phase, role))
 
-    if phase is not CourtPhase.COMPLETED:
-        legal_actions.append(CourtAction.ADVANCE_PHASE)
-
     return SessionView(
         session_id=model.id,
         case_id=package.case_id,
@@ -302,7 +299,7 @@ async def apply_session_action(
         model.phase = next_phase(phase).value
         if CourtPhase(model.phase) is CourtPhase.COMPLETED:
             model.status = "completed"
-    else:
+    elif request.action is not CourtAction.COMPLETE_PHASE:
         model.turns_used += 1
 
     if request.action is CourtAction.SUBMIT_EVIDENCE:

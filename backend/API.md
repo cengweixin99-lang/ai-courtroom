@@ -19,6 +19,7 @@
 | `POST` | `/sessions/{session_id}/procedural-requests/{request_id}/resolution` | 由教学控制者处理程序请求 |
 | `POST` | `/sessions/{session_id}/actions` | 校验并持久化一次庭审动作 |
 | `POST` | `/sessions/{session_id}/agent-turns` | 执行一次受状态机约束的角色 Agent 回合 |
+| `POST` | `/sessions/{session_id}/auto-step/stream` | 以 SSE 流式执行一个自动庭审步骤 |
 | `GET` | `/sessions/{session_id}/traces` | 获取 Agent 调用诊断元数据 |
 | `GET` | `/sessions/{session_id}/participant-statement-traces` | 获取参与人回答一致性留痕 |
 | `POST` | `/legal/search` | 按案件 LegalProfile 检索候选法律依据 |
@@ -91,6 +92,7 @@ Content-Type: application/json
 ```http
 POST /api/v1/sessions/SESSION_ID/agent-turns
 Content-Type: application/json
+Idempotency-Key: 由客户端为本次逻辑请求生成的唯一键
 
 {
   "actor_role": "witness",
@@ -100,31 +102,63 @@ Content-Type: application/json
 }
 ```
 
-Agent 输出必须通过严格 Schema，并接受证据或既有陈述的可追溯性校验。首次格式错误
+Agent 输出必须通过严格 Schema，并接受证据或既有陈述的可追溯性校验。律师的每项事实主张
+必须提供 `fact_ids` 和 `evidence_id + quote`。事实与证据必须属于本轮批准范围，`quote` 必须能
+在证据正文或可靠性说明中逐字找到，而且每个事实必须在案卷关系图中连接到所引证据；
+`supported_fact` 只接受支持证据，争议事实、推断和意见可使用支持或反驳证据。证人和被告
+引用既有陈述时同样必须提供 `statement_id + quote`，且原文
+片段必须直接出现在回答中。首次格式错误
 时最多修复一次。成功调用会把庭审事件和 Trace 放在同一事务中提交；模型异常、修复
 失败或输出越权时返回 `502`，只保存失败 Trace，不写入庭审事件。
 
 Trace 查询接口只返回调用状态、Provider、模型、Token、延迟、成本和错误元数据，
-不会通过 API 暴露完整上下文快照。未配置 `LLM_MODEL` 或设置
-`LLM_PROVIDER=fake` 时使用确定性的 Fake Provider，不发起任何外部模型请求。
+不会通过 API 暴露完整上下文快照。未配置 `LLM_MODEL` 或 `LLM_API_KEY` 时返回 `503`；
+只有显式设置 `LLM_PROVIDER=fake` 才使用确定性的 Fake Provider。
+
+前端自动流程使用 `/auto-step/stream`，按顺序接收 `step.started`、`turn.started`、
+`turn.delta`、`turn.validating` 和 `step.completed`。`turn.delta` 是尚未校验的完整文本快照，
+仅用于临时展示；只有 `step.completed` 返回的事件才是已通过 Schema、权限校验并提交的
+正式庭审记录。连接断开时客户端可以重试当前步骤，不会重复提交已经成功的事件。
+`agent-turns`、`auto-step` 和 `auto-step/stream` 均接受 `Idempotency-Key` 请求头。客户端在
+断线重连时复用原键，开始下一个逻辑步骤时必须更换键。已完成请求返回原结果并设置
+`Idempotency-Replayed: true`；同一键绑定不同请求返回 `409 idempotency_key_reused`，同一
+会话已有其他调用则返回 `409 agent_invocation_in_progress`。租约只在短数据库事务中争抢，
+模型生成期间不会持有会话行锁。
 
 配置真实 OpenAI-compatible Provider：
 
 ```env
-LLM_PROVIDER=openai
-LLM_MODEL=部署实际使用的模型 ID
+LLM_PROVIDER=openai-compatible
+LLM_MODEL=qwen-plus
 LLM_API_KEY=仅保存在本地环境变量或密钥服务中
-LLM_BASE_URL=https://api.openai.com/v1
-LLM_TIMEOUT_SECONDS=30
-LLM_MAX_OUTPUT_TOKENS=2000
+LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
+LLM_TIMEOUT_SECONDS=60
+LLM_MAX_OUTPUT_TOKENS=3000
+LLM_MAX_RETRIES=2
+LLM_MAX_INCOMPLETE_RETRIES=1
+LLM_RETRY_BASE_DELAY_SECONDS=0.5
+LLM_RESPONSE_FORMAT=json_object
+LLM_MAX_TOKENS_FIELD=max_tokens
+LLM_ENABLE_THINKING=false
+LLM_TEMPERATURE=0
 LLM_INPUT_COST_PER_MILLION_CNY=0
 LLM_OUTPUT_COST_PER_MILLION_CNY=0
+AGENT_INVOCATION_LEASE_SECONDS=900
 ```
 
-`LLM_BASE_URL` 可替换为支持 Chat Completions 严格 `json_schema` 的兼容服务地址。
+其他兼容服务可使用 `LLM_RESPONSE_FORMAT=json_schema` 和
+`LLM_MAX_TOKENS_FIELD=max_completion_tokens`。使用百炼新加坡地域时，将 Base URL 替换为
+`https://dashscope-intl.aliyuncs.com/compatible-mode/v1`。
 系统不会猜测模型价格；两个成本参数必须按实际部署价格填写，为 `0` 时仍记录 Token，
 但成本估算为 `0`。每次调用前后都会检查会话 Token、成本和时间预算，超限返回 `429`
 并只保存失败 Trace。Provider 未配置返回 `503`，上游超时、拒绝或无效响应返回 `502`。
+模型已经返回 usage 但内容无效或被截断时，该消耗仍写入失败 Trace 并计入后续会话预算；
+格式修复调用失败时会合并首次调用和修复调用的 usage。
+连接中断、超时、`408`、`429` 和 `5xx` 默认最多重试两次并采用指数退避；鉴权和参数
+错误不重试。重试期间不会重复写入庭审事件。
+Qwen3/3.7 的结构化庭审任务默认关闭隐藏 thinking，并使用 temperature 0；这两个值会随
+真实 Agent Eval 报告冻结。首次 Schema 或确定性业务落地校验失败时只允许一次修复，修复
+调用的 Token、成本和延迟会合并进入同一 Trace。
 
 ## 错误格式
 

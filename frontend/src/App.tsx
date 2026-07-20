@@ -18,6 +18,7 @@ export default function App() {
   const [caseView, setCaseView] = useState<CaseView | null>(null)
   const [session, setSession] = useState<SessionView | null>(null)
   const [review, setReview] = useState<CourtReview | null>(null)
+  const [autoStartCourtroom, setAutoStartCourtroom] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -64,6 +65,7 @@ export default function App() {
         api.createSession(selectedCase.case_id, role, selectedCase.package_version),
       ])
       sessionStorage.setItem(SESSION_STORAGE_KEY, nextSession.session_id)
+      setAutoStartCourtroom(true)
       setCaseView(nextCase)
       setSession(nextSession)
     } catch (caught) {
@@ -76,14 +78,27 @@ export default function App() {
   const exitSession = () => {
     sessionStorage.removeItem(SESSION_STORAGE_KEY)
     setReview(null)
+    setAutoStartCourtroom(true)
     setSession(null)
     setCaseView(null)
     setError(null)
   }
 
-  if (review) return <ReviewPage review={review} onBack={() => setReview(null)} />
+  if (review) {
+    return <ReviewPage review={review} onBack={() => {
+      // 用户明确返回庭审时禁止重新执行自动编排，否则 REVIEW 状态会立即再次打开复盘。
+      setAutoStartCourtroom(false)
+      setReview(null)
+    }} />
+  }
   if (session && caseView) {
-    return <CourtroomPage initialCase={caseView} initialSession={session} onExit={exitSession} onReview={setReview} />
+    return <CourtroomPage
+      initialCase={caseView}
+      initialSession={session}
+      autoStart={autoStartCourtroom}
+      onExit={exitSession}
+      onReview={setReview}
+    />
   }
   return <CaseLobby cases={cases} loading={loading} error={error} onStart={startSession} />
 }

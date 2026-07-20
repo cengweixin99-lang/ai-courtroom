@@ -14,6 +14,7 @@ from mootcourt.schemas.agents import (
     AgentParticipantContext,
     AgentRole,
     AgentRoleMaterialContext,
+    AgentTaskContext,
     AgentTurnRequest,
 )
 from mootcourt.schemas.case_package import (
@@ -83,6 +84,11 @@ async def build_agent_context(
         actor_role=request.actor_role,
         phase=phase,
         action=request.action,
+        task=AgentTaskContext(
+            target_id=request.target_id,
+            evidence_ids=list(request.evidence_ids),
+            challenge_dimensions=list(request.challenge_dimensions),
+        ),
         facts=facts,
         evidence=evidence,
         role_materials=role_materials,
@@ -131,7 +137,13 @@ def _visible_facts(
         }
 
     return [
-        AgentFactContext(id=fact.id, description=fact.description, status=fact.status)
+        AgentFactContext(
+            id=fact.id,
+            description=fact.description,
+            status=fact.status,
+            supporting_evidence_ids=fact.supporting_evidence_ids,
+            contradicting_evidence_ids=fact.contradicting_evidence_ids,
+        )
         for row in package.facts
         for fact in [FactRecord.model_validate(row.payload)]
         if fact.id in visible_ids
@@ -149,6 +161,7 @@ def _visible_evidence(
             title=evidence.title,
             content=evidence.content,
             reliability_notes=evidence.reliability_notes,
+            related_fact_ids=evidence.related_fact_ids,
         )
         for row in package.evidence
         for evidence in [EvidenceRecord.model_validate(row.payload)]

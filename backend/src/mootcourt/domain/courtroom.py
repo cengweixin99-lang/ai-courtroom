@@ -62,6 +62,7 @@ class CourtAction(StrEnum):
     CHALLENGE_EVIDENCE = "challenge_evidence"
     GENERATE_LEGAL_ANALYSIS = "generate_legal_analysis"
     VIEW_REVIEW = "view_review"
+    COMPLETE_PHASE = "complete_phase"
 
 
 class ActionRequest(BaseModel):
@@ -87,46 +88,62 @@ _LEGAL_ACTIONS: dict[CourtPhase, dict[Role, frozenset[CourtAction]]] = {
         Role.CONTROLLER: frozenset({CourtAction.ADVANCE_PHASE}),
     },
     CourtPhase.INDICTMENT_AND_DEFENDANT_STATEMENT: {
-        Role.PROSECUTION: frozenset({CourtAction.MAKE_STATEMENT}),
+        Role.PROSECUTION: frozenset({CourtAction.MAKE_STATEMENT, CourtAction.COMPLETE_PHASE}),
         Role.DEFENDANT: frozenset({CourtAction.MAKE_STATEMENT}),
         Role.CONTROLLER: frozenset({CourtAction.ADVANCE_PHASE}),
     },
     CourtPhase.COURT_INVESTIGATION: {
-        Role.PROSECUTION: frozenset({CourtAction.MAKE_STATEMENT}),
-        Role.DEFENSE: frozenset({CourtAction.MAKE_STATEMENT}),
+        Role.PROSECUTION: frozenset({CourtAction.MAKE_STATEMENT, CourtAction.COMPLETE_PHASE}),
+        Role.DEFENSE: frozenset({CourtAction.MAKE_STATEMENT, CourtAction.COMPLETE_PHASE}),
         Role.DEFENDANT: frozenset({CourtAction.MAKE_STATEMENT}),
         Role.CONTROLLER: frozenset({CourtAction.ADVANCE_PHASE}),
     },
     CourtPhase.PROSECUTION_EVIDENCE_AND_EXAMINATION: {
-        Role.PROSECUTION: frozenset({CourtAction.SUBMIT_EVIDENCE}),
+        Role.PROSECUTION: frozenset({CourtAction.SUBMIT_EVIDENCE, CourtAction.COMPLETE_PHASE}),
         Role.DEFENSE: frozenset(
-            {CourtAction.CHALLENGE_EVIDENCE, CourtAction.RAISE_PROCEDURAL_REQUEST}
+            {
+                CourtAction.CHALLENGE_EVIDENCE,
+                CourtAction.RAISE_PROCEDURAL_REQUEST,
+                CourtAction.COMPLETE_PHASE,
+            }
         ),
         Role.CONTROLLER: frozenset({CourtAction.ADVANCE_PHASE}),
     },
     CourtPhase.DEFENSE_EVIDENCE_AND_EXAMINATION: {
-        Role.DEFENSE: frozenset({CourtAction.SUBMIT_EVIDENCE}),
+        Role.DEFENSE: frozenset({CourtAction.SUBMIT_EVIDENCE, CourtAction.COMPLETE_PHASE}),
         Role.PROSECUTION: frozenset(
-            {CourtAction.CHALLENGE_EVIDENCE, CourtAction.RAISE_PROCEDURAL_REQUEST}
+            {
+                CourtAction.CHALLENGE_EVIDENCE,
+                CourtAction.RAISE_PROCEDURAL_REQUEST,
+                CourtAction.COMPLETE_PHASE,
+            }
         ),
         Role.CONTROLLER: frozenset({CourtAction.ADVANCE_PHASE}),
     },
     CourtPhase.WITNESS_QUESTIONING: {
         Role.PROSECUTION: frozenset(
-            {CourtAction.QUESTION_PARTICIPANT, CourtAction.RAISE_PROCEDURAL_REQUEST}
+            {
+                CourtAction.QUESTION_PARTICIPANT,
+                CourtAction.RAISE_PROCEDURAL_REQUEST,
+                CourtAction.COMPLETE_PHASE,
+            }
         ),
         Role.DEFENSE: frozenset(
-            {CourtAction.QUESTION_PARTICIPANT, CourtAction.RAISE_PROCEDURAL_REQUEST}
+            {
+                CourtAction.QUESTION_PARTICIPANT,
+                CourtAction.RAISE_PROCEDURAL_REQUEST,
+                CourtAction.COMPLETE_PHASE,
+            }
         ),
         Role.WITNESS: frozenset({CourtAction.MAKE_STATEMENT}),
         Role.CONTROLLER: frozenset({CourtAction.ADVANCE_PHASE}),
     },
     CourtPhase.COURT_DEBATE_PROSECUTION: {
-        Role.PROSECUTION: frozenset({CourtAction.MAKE_STATEMENT}),
+        Role.PROSECUTION: frozenset({CourtAction.MAKE_STATEMENT, CourtAction.COMPLETE_PHASE}),
         Role.CONTROLLER: frozenset({CourtAction.ADVANCE_PHASE}),
     },
     CourtPhase.COURT_DEBATE_DEFENSE: {
-        Role.DEFENSE: frozenset({CourtAction.MAKE_STATEMENT}),
+        Role.DEFENSE: frozenset({CourtAction.MAKE_STATEMENT, CourtAction.COMPLETE_PHASE}),
         Role.CONTROLLER: frozenset({CourtAction.ADVANCE_PHASE}),
     },
     CourtPhase.DEFENDANT_FINAL_STATEMENT: {
@@ -139,6 +156,8 @@ _LEGAL_ACTIONS: dict[CourtPhase, dict[Role, frozenset[CourtAction]]] = {
         ),
     },
     CourtPhase.REVIEW: {
+        Role.PROSECUTION: frozenset({CourtAction.COMPLETE_PHASE}),
+        Role.DEFENSE: frozenset({CourtAction.COMPLETE_PHASE}),
         Role.CONTROLLER: frozenset({CourtAction.VIEW_REVIEW, CourtAction.ADVANCE_PHASE}),
     },
     CourtPhase.COMPLETED: {

@@ -32,6 +32,7 @@ export const actionLabels: Record<CourtAction, string> = {
   challenge_evidence: '发表质证意见',
   generate_legal_analysis: '生成法律分析',
   view_review: '查看复盘',
+  complete_phase: '本阶段发言完毕',
 }
 
 export const legalQueries = [
@@ -60,4 +61,10 @@ export const businessErrorLabels: Record<string, string> = {
   session_token_budget_exceeded: '本庭模型 Token 预算已达到上限，请退出并新建一场庭审。',
   session_cost_budget_exceeded: '本庭模型费用预算已达到上限，请退出并新建一场庭审。',
   turn_limit_reached: '本庭回合数已达到上限，请退出并新建一场庭审。',
+  llm_not_configured: '真实 LLM 尚未配置，自动庭审无法继续。',
+  agent_provider_timeout: '其他角色生成发言超时，请稍后重试。',
+  agent_provider_unavailable: '真实 LLM 服务在自动重试后仍不可用，请稍后重试本阶段。',
+  agent_provider_incomplete: '模型输出在自动精简重生成后仍被截断，请重试本次 Agent。',
+  agent_invocation_in_progress: '本庭已有 Agent 请求正在生成，请稍后重试以读取同一结果。',
+  idempotency_key_reused: '请求标识已用于其他操作，请刷新庭审状态后重试。',
 }

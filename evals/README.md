@@ -38,3 +38,23 @@ Runner 使用真实 MySQL、Elasticsearch 和完整 Service 编排。法律子�
 
 报告保存每条样例的预期、实际、失败类型、会话 ID 或法律 Trace ID，以及 Agent Token、
 估算成本、延迟和修复次数。任一 PRD 门槛失败时命令返回非零退出码。
+
+## 真实 Qwen Agent Eval
+
+`qwen_agent/cases.json` 是独立于确定性 M5 夹具的真实模型质量集，覆盖律师陈述、举证、
+质证、证人询问、参与人既有陈述、未知问题拒答和提示注入。运行：
+
+```powershell
+cd backend
+..\.venv\Scripts\python.exe -m mootcourt.cli.eval_qwen_agent `
+  ..\evals\qwen_agent\cases.json `
+  --output ..\evals\qwen_agent\results\qwen3.7-plus_admission_report.json
+```
+
+命令拒绝 Fake Provider，只读取本地环境中的 OpenAI-compatible 配置，且报告不保存 API Key。
+单条调试可重复使用 `--case-id QWEN-ADV-003`。报告冻结模型名、提示协议版本、thinking、
+temperature、响应格式、输出上限与重试配置，并记录逐案正式庭审 Trace。
+
+当前 `qwen3.7-plus` 最终冻结报告中 15 条业务结果全部成功，证据引用、拒答和注入防护硬
+门禁均为 100%，但首次校验通过率为 73.33%，低于 90% 准入线，因此报告结论为未准入。
+不得通过重复抽样挑选偶然通过的报告替换该结论。

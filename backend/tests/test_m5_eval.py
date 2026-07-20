@@ -153,5 +153,8 @@ async def test_m5_runner_executes_all_fifty_cases(
     assert all(item.passed for item in report.cases)
     assert all(item.passed for item in report.checks)
     assert report.cost.agent_call_count == 12
-    assert report.cost.input_tokens == 1_440
-    assert report.cost.output_tokens == 480
+    # 一条故意伪造的参与人输出会触发一次受控业务修复，因此 12 个逻辑样例产生 13 次调用。
+    assert report.cost.input_tokens == 1_560
+    assert report.cost.output_tokens == 520
+    assert report.cost.estimated_cost_cny == pytest.approx(0.13)
+    assert report.cost.repair_rate == pytest.approx(1 / 12)

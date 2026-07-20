@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from time import perf_counter
 
@@ -10,6 +12,7 @@ from mootcourt.agents.providers import (
     AgentProvider,
     AgentProviderRequest,
     AgentProviderResult,
+    TextUpdateCallback,
 )
 from mootcourt.core.config import Settings
 from mootcourt.domain.courtroom import ActionRequest, CourtAction, CourtPhase, Role, validate_action
@@ -25,13 +28,17 @@ from mootcourt.schemas.agents import (
     AgentTraceView,
     AgentTurnError,
     AgentTurnRequest,
+    ClaimType,
     DefendantOutput,
     WitnessOutput,
 )
 from mootcourt.schemas.runtime import (
     AgentTurnResponse,
+    EvidenceChallengeDimension,
     ParticipantConsistencyStatus,
     ParticipantStatementTraceView,
+    ProceduralRequestStatus,
+    ProceduralRequestType,
     SessionActionRequest,
     SessionEventPayload,
     SessionEventView,
@@ -44,6 +51,7 @@ from mootcourt.services.court_sessions import (
 )
 
 _OUTPUT_ADAPTER: TypeAdapter[AgentOutput] = TypeAdapter(AgentOutput)
+AgentStreamCallback = Callable[[str, dict[str, object]], Awaitable[None]]
 
 
 class AgentTurnServiceError(Exception):
@@ -61,6 +69,7 @@ class _InvocationResult:
     raw_output: dict[str, object] | None
     repair_count: int
     latency_ms: int
+    output_normalized: bool = False
     error_code: str | None = None
     error_message: str | None = None
 
@@ -71,6 +80,7 @@ async def execute_agent_turn(
     request: AgentTurnRequest,
     provider: AgentProvider,
     settings: Settings,
+    stream_callback: AgentStreamCallback | None = None,
 ) -> AgentTurnResponse:
     session = await unit_of_work.court_sessions.get(session_id)
     if session is None:
@@ -96,7 +106,27 @@ async def execute_agent_turn(
 
     # 在产生模型成本前完成所有可确定的证据、参与人和重复提交校验。
     await _validate_payload(unit_of_work, session.package_id, session.id, request, "待生成内容")
-    invocation = await _invoke_provider(provider, context, request.instruction)
+    if stream_callback is not None:
+        await stream_callback(
+            "turn.started",
+            {
+                "actor_role": request.actor_role.value,
+                "participant_id": request.participant_id,
+            },
+        )
+
+    async def on_text_update(text: str) -> None:
+        if stream_callback is not None:
+            await stream_callback("turn.delta", {"text": text})
+
+    invocation = await _invoke_provider(
+        provider,
+        context,
+        request.instruction,
+        on_text_update=on_text_update if stream_callback is not None else None,
+    )
+    if stream_callback is not None and invocation.provider_result is not None:
+        await stream_callback("turn.validating", {})
     if invocation.output is None:
         return await _record_failed_turn(
             unit_of_work, session_id, request, context, provider, invocation
@@ -189,6 +219,7 @@ async def execute_agent_turn(
         model=provider_result.model,
         status=AgentTraceStatus.SUCCEEDED.value,
         repair_count=invocation.repair_count,
+        output_normalized=invocation.output_normalized,
         request_payload=_trace_request(context, request.instruction),
         response_payload=invocation.raw_output,
         input_tokens=provider_result.input_tokens,
@@ -201,9 +232,23 @@ async def execute_agent_turn(
             locked.id, request.evidence_ids, request.actor_role.value
         )
     locked.turns_used += 1
+    sequence_number = await unit_of_work.court_sessions.next_event_sequence(locked.id)
+    procedural_request = None
+    if request.action is CourtAction.CHALLENGE_EVIDENCE:
+        procedural_request = await unit_of_work.court_sessions.add_procedural_request(
+            session_id=locked.id,
+            request_type=ProceduralRequestType.EVIDENCE_CHALLENGE.value,
+            raised_by=request.actor_role.value,
+            event_sequence_number=sequence_number,
+            target_event_sequence=None,
+            evidence_ids=request.evidence_ids,
+            challenge_dimensions=request.challenge_dimensions,
+            content=content,
+            status=ProceduralRequestStatus.RECORDED_FOR_EVALUATION.value,
+        )
     event = await unit_of_work.court_sessions.add_event(
         session_id=locked.id,
-        sequence_number=await unit_of_work.court_sessions.next_event_sequence(locked.id),
+        sequence_number=sequence_number,
         phase=locked.phase,
         actor_role=request.actor_role.value,
         action=request.action.value,
@@ -216,6 +261,16 @@ async def execute_agent_turn(
             "participant_id": request.participant_id,
             "trace_id": trace.id,
             "agent_output": invocation.output.model_dump(mode="json"),
+            "procedural_request_id": (
+                procedural_request.id if procedural_request is not None else None
+            ),
+            "procedural_request_type": (
+                procedural_request.request_type if procedural_request is not None else None
+            ),
+            "procedural_request_status": (
+                procedural_request.status if procedural_request is not None else None
+            ),
+            "challenge_dimensions": request.challenge_dimensions,
         },
     )
     if isinstance(invocation.output, (WitnessOutput, DefendantOutput)):
@@ -383,6 +438,9 @@ async def _validate_payload(
                 target_id=request.target_id,
                 evidence_ids=request.evidence_ids,
                 content=content,
+                challenge_dimensions=[
+                    EvidenceChallengeDimension(item) for item in request.challenge_dimensions
+                ],
             ),
         )
     except SessionServiceError as exc:
@@ -393,54 +451,99 @@ async def _invoke_provider(
     provider: AgentProvider,
     context: AgentContext,
     instruction: str | None,
+    on_text_update: TextUpdateCallback | None = None,
 ) -> _InvocationResult:
     started = perf_counter()
     first_result: AgentProviderResult | None = None
     try:
         first_result = await provider.generate(
-            AgentProviderRequest(context=context, instruction=instruction)
+            AgentProviderRequest(
+                context=context,
+                instruction=instruction,
+                on_text_update=on_text_update,
+            )
         )
+        first_payload, payload_normalized = _normalize_explicit_refusal_payload(first_result.output)
         try:
-            output = _OUTPUT_ADAPTER.validate_python(first_result.output)
-            return _InvocationResult(
-                output=output,
-                provider_result=first_result,
-                raw_output=first_result.output,
-                repair_count=0,
-                latency_ms=_elapsed_ms(started),
-            )
+            output = _OUTPUT_ADAPTER.validate_python(first_payload)
         except ValidationError as exc:
-            # 只允许一次格式修复，防止无上限重试吞噬会话预算。
-            repaired = await provider.generate(
-                AgentProviderRequest(
-                    context=context,
-                    instruction=instruction,
-                    repair_instruction=f"请严格按输出 Schema 修复以下错误：{exc}",
-                )
-            )
-            try:
-                output = _OUTPUT_ADAPTER.validate_python(repaired.output)
-            except ValidationError as repaired_exc:
+            repair_instruction = _repair_instruction(context, exc)
+        else:
+            output, output_normalized = _normalize_participant_output(output)
+            output_normalized = payload_normalized or output_normalized
+            output_error = _validate_output(context, output)
+            if output_error is None:
                 return _InvocationResult(
-                    output=None,
-                    provider_result=_merge_usage(first_result, repaired),
-                    raw_output=repaired.output,
-                    repair_count=1,
+                    output=output,
+                    provider_result=first_result,
+                    raw_output=first_result.output,
+                    repair_count=0,
                     latency_ms=_elapsed_ms(started),
-                    error_code="agent_output_invalid",
-                    error_message=str(repaired_exc),
+                    output_normalized=output_normalized,
                 )
+            repair_instruction = _business_repair_instruction(context, output_error)
+
+        # Schema 或确定性业务校验失败时只允许一次修复，防止无上限重试吞噬会话预算。
+        if on_text_update is not None:
+            await on_text_update("")
+        repaired = await provider.generate(
+            AgentProviderRequest(
+                context=context,
+                instruction=instruction,
+                repair_instruction=repair_instruction,
+                on_text_update=on_text_update,
+            )
+        )
+        repaired_payload, payload_normalized = _normalize_explicit_refusal_payload(repaired.output)
+        try:
+            output = _OUTPUT_ADAPTER.validate_python(repaired_payload)
+        except ValidationError as repaired_exc:
             return _InvocationResult(
-                output=output,
+                output=None,
                 provider_result=_merge_usage(first_result, repaired),
                 raw_output=repaired.output,
                 repair_count=1,
                 latency_ms=_elapsed_ms(started),
+                error_code="agent_output_invalid",
+                error_message=str(repaired_exc),
             )
+        output, output_normalized = _normalize_participant_output(output)
+        output_normalized = payload_normalized or output_normalized
+        repaired_output_error = _validate_output(context, output)
+        if repaired_output_error is not None:
+            return _InvocationResult(
+                output=None,
+                provider_result=_merge_usage(first_result, repaired),
+                raw_output=repaired.output,
+                repair_count=1,
+                latency_ms=_elapsed_ms(started),
+                error_code="agent_output_forbidden",
+                error_message=repaired_output_error,
+            )
+        return _InvocationResult(
+            output=output,
+            provider_result=_merge_usage(first_result, repaired),
+            raw_output=repaired.output,
+            repair_count=1,
+            latency_ms=_elapsed_ms(started),
+            output_normalized=output_normalized,
+        )
     except AgentProviderError as exc:
+        failed_result = AgentProviderResult(
+            output={},
+            provider=provider.provider_name,
+            model=provider.model_name,
+            input_tokens=exc.input_tokens,
+            output_tokens=exc.output_tokens,
+            estimated_cost_cny=exc.estimated_cost_cny,
+        )
         return _InvocationResult(
             output=None,
-            provider_result=first_result,
+            provider_result=(
+                _merge_usage(first_result, failed_result)
+                if first_result is not None
+                else failed_result
+            ),
             raw_output=first_result.output if first_result else None,
             repair_count=1 if first_result else 0,
             latency_ms=_elapsed_ms(started),
@@ -457,6 +560,34 @@ async def _invoke_provider(
             error_code="agent_provider_failed",
             error_message=str(exc),
         )
+
+
+def _repair_instruction(context: AgentContext, error: ValidationError) -> str:
+    """把校验错误转换为值约束，避免模型把 Pydantic 类名误当作 kind。"""
+    if context.actor_role in {AgentRole.PROSECUTION, AgentRole.DEFENSE}:
+        required_values = (
+            f'kind 必须严格为 "advocate"，speaker_role 必须严格为 '
+            f'"{context.actor_role.value}"，requested_action 必须严格为 '
+            f'"{context.action.value}"。'
+        )
+    elif context.actor_role is AgentRole.WITNESS:
+        required_values = 'kind 必须严格为 "witness"。'
+    else:
+        required_values = 'kind 必须严格为 "defendant"，new_statement 必须严格为 false。'
+    compact_errors = json.dumps(error.errors(include_url=False), ensure_ascii=False)
+    return f"{required_values} 不得使用 Python 类名作为字段值。仅修复以下结构错误：{compact_errors}"
+
+
+def _business_repair_instruction(context: AgentContext, error: str) -> str:
+    """业务修复只能重排已有输出，不得借机引入新事实、证据或动作。"""
+    if context.actor_role in {AgentRole.PROSECUTION, AgentRole.DEFENSE}:
+        extra = (
+            "先生成 claims，再把每个 claim.text 不作任何改写地逐字复制进 speech；"
+            "fact_ids、citations、动作和目标仍只能使用原任务允许值。"
+        )
+    else:
+        extra = "引用锚点必须来自既有陈述并逐字出现在 answer；禁止补充新的案卷事实。"
+    return f"上次输出未通过确定性业务校验：{error}。{extra}"
 
 
 def _merge_usage(first: AgentProviderResult, second: AgentProviderResult) -> AgentProviderResult:
@@ -488,10 +619,64 @@ def _validate_output(context: AgentContext, output: AgentOutput) -> str | None:
         expected_target = context.participant.id if context.participant is not None else None
         if output.target_id != expected_target:
             return "agent output target_id does not match the approved target"
-        visible_evidence_ids = {item.id for item in context.evidence}
-        cited_ids = {item for claim in output.claims for item in claim.evidence_ids}
-        if cited_ids - visible_evidence_ids:
-            return "agent output cites evidence outside the role-visible context"
+        if context.action is CourtAction.QUESTION_PARTICIPANT and output.claims:
+            return "participant question output must not contain factual claims"
+        evidence_by_id = {item.id: item for item in context.evidence}
+        facts_by_id = {item.id: item for item in context.facts}
+        visible_evidence_ids = set(evidence_by_id)
+        task_evidence_ids = set(context.task.evidence_ids)
+        allowed_evidence_ids = task_evidence_ids or visible_evidence_ids
+        allowed_fact_ids = set(facts_by_id)
+        if task_evidence_ids:
+            allowed_fact_ids &= {
+                fact_id
+                for evidence in context.evidence
+                if evidence.id in task_evidence_ids
+                for fact_id in evidence.related_fact_ids
+            }
+        cited_ids = {
+            evidence_citation.evidence_id
+            for claim in output.claims
+            for evidence_citation in claim.citations
+        }
+        if context.action is not CourtAction.QUESTION_PARTICIPANT and not output.claims:
+            return "substantive advocate output must include structured claims"
+        if cited_ids - allowed_evidence_ids:
+            return "agent output cites evidence outside the current task scope"
+        if (
+            context.action in {CourtAction.SUBMIT_EVIDENCE, CourtAction.CHALLENGE_EVIDENCE}
+            and task_evidence_ids - cited_ids
+        ):
+            return "agent output does not address every evidence item approved for this turn"
+        normalized_speech = _normalize_grounding_text(output.speech)
+        for claim in output.claims:
+            if _normalize_grounding_text(claim.text) not in normalized_speech:
+                return "structured claim text must appear in the rendered speech"
+            if set(claim.fact_ids) - allowed_fact_ids:
+                return "agent output binds a claim to a fact outside the current task scope"
+            if not claim.citations:
+                return "every advocate claim must include an evidence citation"
+            claim_evidence_ids = {item.evidence_id for item in claim.citations}
+            for evidence_citation in claim.citations:
+                evidence = evidence_by_id.get(evidence_citation.evidence_id)
+                if evidence is None:
+                    return "agent output cites evidence outside the role-visible context"
+                sources = [evidence.content, *evidence.reliability_notes]
+                if not _quote_is_grounded(evidence_citation.quote, sources):
+                    return "evidence citation quote is not present in the cited evidence"
+            # 事实关系由案卷显式图谱决定，不能把“引用了真实原文”等同于“原文支持该事实”。
+            for fact_id in claim.fact_ids:
+                fact = facts_by_id[fact_id]
+                related_evidence_ids = {
+                    evidence_id
+                    for evidence_id in claim_evidence_ids
+                    if fact_id in evidence_by_id[evidence_id].related_fact_ids
+                }
+                allowed_relation_ids = set(fact.supporting_evidence_ids)
+                if claim.claim_type is not ClaimType.SUPPORTED_FACT:
+                    allowed_relation_ids.update(fact.contradicting_evidence_ids)
+                if not related_evidence_ids.intersection(allowed_relation_ids):
+                    return "claim fact is not connected to a cited evidence item"
         return None
 
     if isinstance(output, (WitnessOutput, DefendantOutput)):
@@ -501,6 +686,20 @@ def _validate_output(context: AgentContext, output: AgentOutput) -> str | None:
         cited_ids = set(output.supported_by_statement_ids)
         if cited_ids - allowed_statement_ids:
             return "participant output cites an unavailable statement"
+        citation_ids = [item.statement_id for item in output.citations]
+        if len(citation_ids) != len(set(citation_ids)):
+            return "participant output contains duplicate statement citations"
+        if set(citation_ids) != cited_ids:
+            return "participant citation anchors must match supported statement IDs"
+        statements_by_id = {item.id: item for item in context.participant.statements}
+        for statement_citation in output.citations:
+            statement = statements_by_id.get(statement_citation.statement_id)
+            if statement is None:
+                return "participant output cites an unavailable statement"
+            if not _quote_is_grounded(statement_citation.quote, [statement.text]):
+                return "participant citation quote is not present in the prior statement"
+            if not _quote_is_grounded(statement_citation.quote, [output.answer]):
+                return "participant citation quote must appear in the answer"
         if (
             not cited_ids
             and output.refused_reason is None
@@ -508,6 +707,55 @@ def _validate_output(context: AgentContext, output: AgentOutput) -> str | None:
         ):
             return "participant output must cite a statement or explicitly refuse"
     return None
+
+
+def _normalize_participant_output(output: AgentOutput) -> tuple[AgentOutput, bool]:
+    if not isinstance(output, (WitnessOutput, DefendantOutput)):
+        return output, False
+    quotes = list(
+        dict.fromkeys(item.quote.strip() for item in output.citations if item.quote.strip())
+    )
+    if not quotes:
+        return output, False
+    if all(_quote_is_grounded(quote, [output.answer]) for quote in quotes):
+        return output, False
+
+    # 模型只负责选择可追溯陈述；Service 用已选原文渲染可见回答，避免为同义改写再次付费。
+    rendered_answer = " ".join(quotes)
+    if output.refused_reason is not None:
+        rendered_answer += " 对超出既有陈述范围的问题，我无法回答。"
+    return output.model_copy(update={"answer": rendered_answer}), True
+
+
+def _normalize_explicit_refusal_payload(
+    payload: dict[str, object],
+) -> tuple[dict[str, object], bool]:
+    if payload.get("kind") not in {"witness", "defendant"}:
+        return payload, False
+    answer = payload.get("answer")
+    refused_reason = payload.get("refused_reason")
+    if not isinstance(answer, str) or answer.strip():
+        return payload, False
+    if not isinstance(refused_reason, str) or not refused_reason.strip():
+        return payload, False
+    if payload.get("supported_by_statement_ids") != [] or payload.get("citations") != []:
+        return payload, False
+
+    # 非空 refused_reason 已是模型显式结构化拒答；用它渲染空回答，不从自然语言关键词推断语义。
+    normalized = dict(payload)
+    normalized["answer"] = refused_reason.strip()
+    return normalized, True
+
+
+def _normalize_grounding_text(value: str) -> str:
+    return " ".join(value.split())
+
+
+def _quote_is_grounded(quote: str, sources: list[str]) -> bool:
+    normalized_quote = _normalize_grounding_text(quote)
+    return bool(normalized_quote) and any(
+        normalized_quote in _normalize_grounding_text(source) for source in sources
+    )
 
 
 async def _record_failed_turn(
@@ -527,6 +775,7 @@ async def _record_failed_turn(
         model=result.model if result else provider.model_name,
         status=AgentTraceStatus.FAILED.value,
         repair_count=invocation.repair_count,
+        output_normalized=invocation.output_normalized,
         request_payload=_trace_request(context, request.instruction),
         response_payload=invocation.raw_output,
         input_tokens=result.input_tokens if result else 0,
@@ -573,6 +822,7 @@ def _trace_view(trace: AgentTraceRecord) -> AgentTraceView:
         model=trace.model,
         status=AgentTraceStatus(trace.status),
         repair_count=trace.repair_count,
+        output_normalized=trace.output_normalized,
         input_tokens=trace.input_tokens,
         output_tokens=trace.output_tokens,
         latency_ms=trace.latency_ms,

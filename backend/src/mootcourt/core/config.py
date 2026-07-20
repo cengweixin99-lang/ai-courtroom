@@ -1,4 +1,5 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -42,8 +43,16 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_timeout_seconds: float = Field(default=30, gt=0, le=300)
     llm_max_output_tokens: int = Field(default=2_000, ge=1, le=100_000)
+    llm_max_retries: int = Field(default=2, ge=0, le=5)
+    llm_max_incomplete_retries: int = Field(default=1, ge=0, le=3)
+    llm_retry_base_delay_seconds: float = Field(default=0.5, ge=0, le=10)
+    llm_response_format: Literal["json_schema", "json_object", "plain_json"] = "json_schema"
+    llm_max_tokens_field: Literal["max_completion_tokens", "max_tokens"] = "max_completion_tokens"
+    llm_enable_thinking: bool | None = None
+    llm_temperature: float = Field(default=0, ge=0, le=2)
     llm_input_cost_per_million_cny: float = Field(default=0, ge=0)
     llm_output_cost_per_million_cny: float = Field(default=0, ge=0)
+    agent_invocation_lease_seconds: int = Field(default=900, ge=30, le=3_600)
 
     session_max_turns: int = Field(default=40, ge=1)
     session_max_tokens: int = Field(default=80_000, ge=1)

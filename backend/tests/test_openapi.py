@@ -27,6 +27,8 @@ EXPECTED_OPERATIONS = {
     ): "get_session_evidence_fact_summary",
     ("/api/v1/sessions/{session_id}/actions", "post"): "apply_court_session_action",
     ("/api/v1/sessions/{session_id}/agent-turns", "post"): "execute_agent_turn",
+    ("/api/v1/sessions/{session_id}/auto-step", "post"): "run_automatic_court_step",
+    ("/api/v1/sessions/{session_id}/auto-step/stream", "post"): "stream_automatic_court_step",
     ("/api/v1/sessions/{session_id}/traces", "get"): "list_agent_traces",
     (
         "/api/v1/sessions/{session_id}/participant-statement-traces",
@@ -76,6 +78,11 @@ def test_agent_endpoint_documents_failure_trace_response() -> None:
     operation = app.openapi()["paths"]["/api/v1/sessions/{session_id}/agent-turns"]["post"]
 
     assert {"403", "404", "409", "422", "429", "502", "503"}.issubset(operation["responses"])
+    idempotency = next(
+        item for item in operation["parameters"] if item["name"] == "Idempotency-Key"
+    )
+    assert idempotency["in"] == "header"
+    assert idempotency["required"] is False
 
 
 def test_action_request_fields_have_descriptions() -> None:

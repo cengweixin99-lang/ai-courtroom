@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from mootcourt.repositories.agent_invocations import SqlAlchemyAgentInvocationRepository
 from mootcourt.repositories.agent_traces import SqlAlchemyAgentTraceRepository
 from mootcourt.repositories.case_packages import SqlAlchemyCasePackageRepository
 from mootcourt.repositories.court_sessions import SqlAlchemyCourtSessionRepository
@@ -12,6 +13,7 @@ from mootcourt.repositories.legal_search_traces import SqlAlchemyLegalSearchTrac
 class SqlAlchemyUnitOfWork:
     def __init__(self, session: AsyncSession) -> None:
         self.agent_traces = SqlAlchemyAgentTraceRepository(session)
+        self.agent_invocations = SqlAlchemyAgentInvocationRepository(session)
         self.case_packages = SqlAlchemyCasePackageRepository(session)
         self.court_sessions = SqlAlchemyCourtSessionRepository(session)
         self.legal_search_traces = SqlAlchemyLegalSearchTraceRepository(session)

@@ -24,6 +24,7 @@ export type CourtAction =
   | 'challenge_evidence'
   | 'generate_legal_analysis'
   | 'view_review'
+  | 'complete_phase'
 
 export interface CaseSummary {
   case_id: string
@@ -231,5 +232,13 @@ export interface AgentTurnResponse {
   status: 'succeeded' | 'failed'
   session: SessionView
   event: SessionEvent | null
+  error: { code: string; message: string } | null
+}
+
+export interface AutoStepResponse {
+  status: 'progressed' | 'waiting_for_user' | 'waiting_for_review' | 'completed' | 'failed'
+  session: SessionView
+  event: SessionEvent | null
+  message: string
   error: { code: string; message: string } | null
 }

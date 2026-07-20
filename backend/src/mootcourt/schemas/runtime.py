@@ -297,6 +297,22 @@ class AgentTurnResponse(BaseModel):
     error: AgentTurnError | None = None
 
 
+class AutoStepStatus(StrEnum):
+    PROGRESSED = "progressed"
+    WAITING_FOR_USER = "waiting_for_user"
+    WAITING_FOR_REVIEW = "waiting_for_review"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
+class AutoStepResponse(BaseModel):
+    status: AutoStepStatus
+    session: SessionView
+    event: SessionEventView | None = None
+    message: str
+    error: AgentTurnError | None = None
+
+
 class ImportResult(BaseModel):
     case_id: str
     package_version: str

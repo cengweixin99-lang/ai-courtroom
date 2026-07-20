@@ -59,12 +59,20 @@ replaceable Agent Provider protocol; persistent call traces; and these endpoints
 
 ```text
 POST /api/v1/sessions/{session_id}/agent-turns
+POST /api/v1/sessions/{session_id}/auto-step/stream
 GET  /api/v1/sessions/{session_id}/traces
 ```
 
-When `LLM_MODEL` is empty, the API uses the deterministic Fake Provider and never sends case data
-to an external model. Successful Agent events and traces commit atomically. Provider errors,
+When `LLM_MODEL` or `LLM_API_KEY` is empty, runtime Agent requests return `503`. The deterministic
+Fake Provider is enabled only by explicitly setting `LLM_PROVIDER=fake` in tests. Successful Agent
+events and traces commit atomically. Provider errors,
 invalid structured output, and forbidden citations persist only a failed trace.
+Each advocate claim carries fact IDs plus an evidence ID and a verbatim source quote. The service
+verifies that the facts and evidence belong to the approved turn scope, the quote exists in the
+evidence content or reliability notes, and the imported fact-evidence graph connects every claimed
+fact to a cited item. A `supported_fact` requires a supporting edge; disputed facts, inferences, and
+opinions may use supporting or contradicting edges. Participant citations use the same verbatim
+rule for prior statements and must appear in the rendered answer.
 
 ## E2.2 real model provider
 
@@ -73,10 +81,49 @@ Set `LLM_MODEL` and `LLM_API_KEY` to enable the OpenAI-compatible Chat Completio
 supports strict `json_schema` response formats. Case context and user instructions are serialized
 as explicitly untrusted data; they cannot replace system rules.
 
+For Alibaba Cloud Model Studio Qwen, use `LLM_RESPONSE_FORMAT=json_object` and
+`LLM_MAX_TOKENS_FIELD=max_tokens`. The generated JSON still passes local Pydantic schema,
+evidence visibility, role, action, and traceability validation before it becomes a court event.
+Transient connection failures, timeouts, `408`, `429`, and `5xx` responses are retried according
+to `LLM_MAX_RETRIES` and `LLM_RETRY_BASE_DELAY_SECONDS`; authentication and request errors are not.
+Responses ending with `finish_reason=length` are never accepted as business output. The provider
+regenerates one compact, complete JSON object according to `LLM_MAX_INCOMPLETE_RETRIES`, resets any
+partial streaming preview, and includes every regeneration attempt in token and cost accounting.
+The SSE auto-step endpoint streams only the visible `speech` or `answer` field and never forwards
+provider reasoning content. Streamed text remains provisional until final validation and commit.
+For Qwen models the provider disables hidden thinking by default and uses `LLM_TEMPERATURE=0` for
+stable structured courtroom output. Non-Qwen compatible endpoints do not receive the Qwen-specific
+`enable_thinking` field unless `LLM_ENABLE_THINKING` is explicitly configured.
+
 The adapter records prompt/completion tokens, latency, repair count, and configured cost estimates.
+Usage returned by an invalid or truncated model response is retained on the failed trace; if the
+single schema-repair call also fails, both calls are combined.
 Session token, cost, and elapsed-time budgets are checked before the request and again under the
 session row lock before persistence. CI and local tests continue to use Fake or Mock providers and
 never require a real API key.
+
+Run the separate real-model Agent admission suite with:
+
+```powershell
+..\.venv\Scripts\python.exe -m mootcourt.cli.eval_qwen_agent `
+  ..\evals\qwen_agent\cases.json `
+  --output ..\evals\qwen_agent\results\qwen3.7-plus_admission_report.json
+```
+
+The command rejects Fake Provider configuration and records model output, grounding anchors,
+session/trace IDs, token usage, latency, repairs, prompt protocol, and non-secret runtime settings.
+The checked-in `qwen3.7-plus` admission report currently fails only the 90% first-pass validation
+gate (73.33%); all 15 final outputs and all blocking grounding/refusal/injection checks pass.
+
+## E2.3 invocation leases and idempotency
+
+`agent-turns`, `auto-step`, and `auto-step/stream` accept an optional `Idempotency-Key` header.
+The API persists one logical invocation per session and key, replays a completed response without
+calling the model, rejects reuse with a different request fingerprint, and permits only one active
+Agent invocation per session. Lease acquisition commits before the provider call, so no database
+row lock is held while Qwen is generating. `AGENT_INVOCATION_LEASE_SECONDS` defaults to 900;
+expired leases may be replaced after a crashed worker. The browser stores an unfinished auto-step
+key in session storage and clears it only after receiving `step.completed`.
 
 ## M3.1 legal source indexing and BM25
 

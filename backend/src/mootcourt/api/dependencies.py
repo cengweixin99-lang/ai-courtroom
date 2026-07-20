@@ -3,8 +3,8 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 
-from mootcourt.agents.openai_compatible import OpenAICompatibleProvider
-from mootcourt.agents.providers import AgentProvider, FakeAgentProvider
+from mootcourt.agents.factory import AgentProviderConfigurationError, build_agent_provider
+from mootcourt.agents.providers import AgentProvider
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.db.session import get_session_factory
 from mootcourt.repositories.legal_search import (
@@ -38,33 +38,25 @@ RuntimeUnitOfWork = Annotated[
     Depends(get_unit_of_work, scope="function"),
 ]
 
+# 流式响应生成期间必须保持数据库会话有效，结束后再由依赖生命周期统一收尾。
+StreamingUnitOfWork = Annotated[
+    SqlAlchemyUnitOfWork,
+    Depends(get_unit_of_work, scope="request"),
+]
+
 
 def get_agent_provider(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> AgentProvider:
-    # 未配置模型时保持确定性 Fake 路径，确保本地开发和 CI 不依赖外部网络。
-    if not settings.llm_model or settings.llm_provider == "fake":
-        return FakeAgentProvider()
-    if settings.llm_provider not in {"openai", "openai-compatible"}:
+    # Fake 只能被测试或显式开发配置启用；运行环境不得因漏配模型而静默返回模板话术。
+    try:
+        return build_agent_provider(settings, allow_fake=True)
+    except AgentProviderConfigurationError as exc:
+        code = "llm_provider_unsupported" if "unsupported" in str(exc) else "llm_not_configured"
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "llm_provider_unsupported", "message": settings.llm_provider},
-        )
-    api_key = settings.llm_api_key.get_secret_value()
-    if not api_key:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail={"code": "llm_not_configured", "message": "LLM_API_KEY is required"},
-        )
-    return OpenAICompatibleProvider(
-        api_key=api_key,
-        model=settings.llm_model,
-        base_url=settings.llm_base_url or "https://api.openai.com/v1",
-        timeout_seconds=settings.llm_timeout_seconds,
-        max_output_tokens=settings.llm_max_output_tokens,
-        input_cost_per_million_cny=settings.llm_input_cost_per_million_cny,
-        output_cost_per_million_cny=settings.llm_output_cost_per_million_cny,
-    )
+            detail={"code": code, "message": str(exc)},
+        ) from exc
 
 
 RuntimeAgentProvider = Annotated[AgentProvider, Depends(get_agent_provider)]

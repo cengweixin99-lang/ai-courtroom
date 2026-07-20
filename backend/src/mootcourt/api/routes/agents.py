@@ -1,20 +1,228 @@
+import asyncio
+import json
+from collections.abc import AsyncIterator
+from contextlib import suppress
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, Response, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Path, Response, status
+from sse_starlette.sse import EventSourceResponse
+from starlette.datastructures import MutableHeaders
 
-from mootcourt.api.dependencies import RuntimeAgentProvider, RuntimeUnitOfWork
+from mootcourt.api.dependencies import (
+    RuntimeAgentProvider,
+    RuntimeUnitOfWork,
+    StreamingUnitOfWork,
+)
 from mootcourt.core.config import Settings, get_settings
+from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.schemas.agents import AgentTraceStatus, AgentTraceView, AgentTurnRequest
-from mootcourt.schemas.runtime import AgentTurnResponse, ParticipantStatementTraceView
+from mootcourt.schemas.runtime import (
+    AgentTurnResponse,
+    AutoStepResponse,
+    ParticipantStatementTraceView,
+)
+from mootcourt.services.agent_invocations import (
+    AgentInvocationError,
+    AgentInvocationLease,
+    abandon_agent_invocation,
+    acquire_agent_invocation,
+    complete_agent_invocation,
+)
 from mootcourt.services.agent_turns import (
     AgentTurnServiceError,
     execute_agent_turn,
     list_agent_traces,
     list_participant_statement_traces,
 )
+from mootcourt.services.court_orchestrator import CourtOrchestratorError, run_automatic_step
 
 router = APIRouter(prefix="/sessions", tags=["agents"])
 AppSettings = Annotated[Settings, Depends(get_settings)]
+IdempotencyKey = Annotated[
+    str | None,
+    Header(
+        alias="Idempotency-Key",
+        description="客户端生成的逻辑请求唯一键；重连时复用，执行下一步时更换",
+    ),
+]
+
+
+@router.post(
+    "/{session_id}/auto-step",
+    response_model=AutoStepResponse,
+    operation_id="run_automatic_court_step",
+    summary="自动执行下一庭审步骤",
+    response_description="执行一个非用户角色回合、推进一个阶段，或返回用户暂停点",
+    responses={
+        404: {"description": "庭审会话不存在"},
+        409: {"description": "庭审状态不允许继续自动执行"},
+        429: {"description": "会话资源预算耗尽"},
+        503: {"description": "真实模型 Provider 未配置"},
+    },
+)
+async def run_auto_step(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: RuntimeUnitOfWork,
+    provider: RuntimeAgentProvider,
+    settings: AppSettings,
+    response: Response,
+    idempotency_key: IdempotencyKey = None,
+) -> AutoStepResponse:
+    """控制器单步执行自动流程；每次最多产生一个事件，便于提交、重试和审计。"""
+    lease = await _begin_invocation(
+        unit_of_work,
+        session_id,
+        "auto_step",
+        idempotency_key,
+        {},
+        settings,
+    )
+    _set_idempotency_headers(response.headers, lease)
+    if lease.replayed_payload is not None:
+        return AutoStepResponse.model_validate(lease.replayed_payload)
+    try:
+        result = await run_automatic_step(unit_of_work, session_id, provider, settings)
+        await complete_agent_invocation(
+            unit_of_work,
+            session_id,
+            lease,
+            result.model_dump(mode="json"),
+        )
+        return result
+    except CourtOrchestratorError as exc:
+        await _abandon_and_commit(unit_of_work, session_id, lease, exc.code)
+        raise HTTPException(
+            status_code=exc.status_code,
+            detail={"code": exc.code, "message": exc.message},
+        ) from exc
+    except AgentInvocationError as exc:
+        await _abandon_and_commit(unit_of_work, session_id, lease, exc.code)
+        raise _invocation_http_error(exc) from exc
+    except Exception:
+        await _abandon_and_commit(
+            unit_of_work, session_id, lease, "automatic_step_unhandled_error"
+        )
+        raise
+
+
+@router.post(
+    "/{session_id}/auto-step/stream",
+    operation_id="stream_automatic_court_step",
+    summary="流式执行下一庭审步骤",
+    response_class=EventSourceResponse,
+    responses={
+        404: {"description": "庭审会话不存在"},
+        409: {"description": "庭审状态不允许继续自动执行"},
+        429: {"description": "会话资源预算耗尽"},
+        503: {"description": "真实模型 Provider 未配置"},
+    },
+)
+async def stream_auto_step(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: StreamingUnitOfWork,
+    provider: RuntimeAgentProvider,
+    settings: AppSettings,
+    idempotency_key: IdempotencyKey = None,
+) -> EventSourceResponse:
+    """以 SSE 推送临时发言快照；正式事件仍在严格校验并提交后才发送完成通知。"""
+    lease = await _begin_invocation(
+        unit_of_work,
+        session_id,
+        "auto_step",
+        idempotency_key,
+        {},
+        settings,
+    )
+    response_headers = {
+        "Cache-Control": "no-cache",
+        "X-Accel-Buffering": "no",
+        "Idempotency-Key": lease.idempotency_key,
+        "Idempotency-Replayed": "true" if lease.replayed else "false",
+    }
+
+    replayed_payload = lease.replayed_payload
+    if replayed_payload is not None:
+
+        async def replay_events() -> AsyncIterator[dict[str, str]]:
+            yield _sse_event("step.started", {"session_id": session_id})
+            yield _sse_event("step.completed", replayed_payload)
+
+        return EventSourceResponse(replay_events(), ping=15, headers=response_headers)
+
+    async def events() -> AsyncIterator[dict[str, str]]:
+        queue: asyncio.Queue[tuple[str, dict[str, object]] | None] = asyncio.Queue()
+
+        async def emit(event: str, payload: dict[str, object]) -> None:
+            await queue.put((event, payload))
+
+        async def worker() -> None:
+            try:
+                result = await run_automatic_step(
+                    unit_of_work,
+                    session_id,
+                    provider,
+                    settings,
+                    stream_callback=emit,
+                )
+                await complete_agent_invocation(
+                    unit_of_work,
+                    session_id,
+                    lease,
+                    result.model_dump(mode="json"),
+                )
+                # 浏览器收到完成事件后会立即刷新，必须确保此时事务已经可见。
+                await unit_of_work.commit()
+                await emit("step.completed", result.model_dump(mode="json"))
+            except CourtOrchestratorError as exc:
+                await _abandon_and_commit(unit_of_work, session_id, lease, exc.code)
+                await emit(
+                    "step.failed",
+                    {"code": exc.code, "message": exc.message, "status": exc.status_code},
+                )
+            except AgentInvocationError as exc:
+                await _abandon_and_commit(unit_of_work, session_id, lease, exc.code)
+                await emit(
+                    "step.failed",
+                    {"code": exc.code, "message": exc.message, "status": exc.status_code},
+                )
+            except Exception:
+                await _abandon_and_commit(
+                    unit_of_work, session_id, lease, "stream_step_failed"
+                )
+                await emit(
+                    "step.failed",
+                    {"code": "stream_step_failed", "message": "automatic court step failed"},
+                )
+            finally:
+                await queue.put(None)
+
+        task = asyncio.create_task(worker())
+        try:
+            yield _sse_event("step.started", {"session_id": session_id})
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                event, payload = item
+                yield _sse_event(event, payload)
+        finally:
+            if not task.done():
+                # 客户端断开不取消已计费调用；等待 worker 提交后，同一幂等键即可回放结果。
+                with suppress(asyncio.CancelledError):
+                    await task
+
+    return EventSourceResponse(
+        events(),
+        ping=15,
+        headers=response_headers,
+    )
+
+
+def _sse_event(event: str, payload: dict[str, object]) -> dict[str, str]:
+    return {
+        "event": event,
+        "data": json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+    }
 
 
 @router.post(
@@ -40,19 +248,47 @@ async def run_agent_turn(
     unit_of_work: RuntimeUnitOfWork,
     provider: RuntimeAgentProvider,
     settings: AppSettings,
+    idempotency_key: IdempotencyKey = None,
 ) -> AgentTurnResponse:
     """执行由状态机约束的单次 Agent 调用。
 
     客户端可以指定希望调用的系统角色和动作，但 Service 会根据会话用户角色、当前阶段、
     参与人类型和证据权限重新验证。失败调用保存 Trace，但不会写入庭审事件。
     """
-    try:
-        result = await execute_agent_turn(unit_of_work, session_id, request, provider, settings)
-    except AgentTurnServiceError as exc:
-        raise HTTPException(
-            status_code=exc.status_code,
-            detail={"code": exc.code, "message": exc.message},
-        ) from exc
+    lease = await _begin_invocation(
+        unit_of_work,
+        session_id,
+        "agent_turn",
+        idempotency_key,
+        request.model_dump(mode="json"),
+        settings,
+    )
+    _set_idempotency_headers(response.headers, lease)
+    if lease.replayed_payload is not None:
+        result = AgentTurnResponse.model_validate(lease.replayed_payload)
+    else:
+        try:
+            result = await execute_agent_turn(
+                unit_of_work, session_id, request, provider, settings
+            )
+            await complete_agent_invocation(
+                unit_of_work,
+                session_id,
+                lease,
+                result.model_dump(mode="json"),
+            )
+        except AgentTurnServiceError as exc:
+            await _abandon_and_commit(unit_of_work, session_id, lease, exc.code)
+            raise HTTPException(
+                status_code=exc.status_code,
+                detail={"code": exc.code, "message": exc.message},
+            ) from exc
+        except AgentInvocationError as exc:
+            await _abandon_and_commit(unit_of_work, session_id, lease, exc.code)
+            raise _invocation_http_error(exc) from exc
+        except Exception:
+            await _abandon_and_commit(unit_of_work, session_id, lease, "agent_turn_unhandled_error")
+            raise
     if result.status is AgentTraceStatus.FAILED:
         # 不抛异常，使依赖层可以提交失败 Trace；预算失败使用 429，其余上游失败使用 502。
         error_code = result.error.code if result.error is not None else ""
@@ -62,6 +298,53 @@ async def run_agent_turn(
             else status.HTTP_502_BAD_GATEWAY
         )
     return result
+
+
+async def _begin_invocation(
+    unit_of_work: SqlAlchemyUnitOfWork,
+    session_id: str,
+    operation: str,
+    idempotency_key: str | None,
+    request_payload: dict[str, object],
+    settings: Settings,
+) -> AgentInvocationLease:
+    try:
+        lease = await acquire_agent_invocation(
+            unit_of_work,
+            session_id,
+            operation,
+            idempotency_key,
+            request_payload,
+            settings.agent_invocation_lease_seconds,
+        )
+        await unit_of_work.commit()
+        return lease
+    except AgentInvocationError as exc:
+        await unit_of_work.rollback()
+        raise _invocation_http_error(exc) from exc
+
+
+async def _abandon_and_commit(
+    unit_of_work: SqlAlchemyUnitOfWork,
+    session_id: str,
+    lease: AgentInvocationLease,
+    error_code: str,
+) -> None:
+    await unit_of_work.rollback()
+    await abandon_agent_invocation(unit_of_work, session_id, lease, error_code)
+    await unit_of_work.commit()
+
+
+def _invocation_http_error(exc: AgentInvocationError) -> HTTPException:
+    return HTTPException(
+        status_code=exc.status_code,
+        detail={"code": exc.code, "message": exc.message},
+    )
+
+
+def _set_idempotency_headers(headers: MutableHeaders, lease: AgentInvocationLease) -> None:
+    headers["Idempotency-Key"] = lease.idempotency_key
+    headers["Idempotency-Replayed"] = "true" if lease.replayed else "false"
 
 
 @router.get(

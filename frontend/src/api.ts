@@ -1,6 +1,7 @@
 import type {
   AgentTurnPayload,
   AgentTurnResponse,
+  AutoStepResponse,
   CaseSummary,
   CaseView,
   CourtReview,
@@ -41,6 +42,85 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   return response.json() as Promise<T>
 }
 
+export interface AutoStepStreamHandlers {
+  onTurnStarted?: (payload: { actor_role: string; participant_id: string | null }) => void
+  onTurnDelta?: (payload: { text: string }) => void
+  onTurnValidating?: () => void
+}
+
+async function streamAutoStep(
+  sessionId: string,
+  handlers: AutoStepStreamHandlers,
+  signal?: AbortSignal,
+  idempotencyKey?: string,
+): Promise<AutoStepResponse> {
+  const response = await fetch(`${API_BASE}/sessions/${sessionId}/auto-step/stream`, {
+    method: 'POST',
+    headers: {
+      Accept: 'text/event-stream',
+      ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
+    },
+    signal,
+  })
+  if (!response.ok) {
+    const body = (await response.json().catch(() => null)) as
+      | { detail?: { code?: string; message?: string } }
+      | null
+    throw new ApiError(
+      body?.detail?.code ?? `http_${response.status}`,
+      body?.detail?.message ?? '流式庭审请求失败',
+      response.status,
+    )
+  }
+  if (!response.body) throw new ApiError('stream_unavailable', '浏览器未提供流式响应体', 502)
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  let completed: AutoStepResponse | null = null
+
+  const dispatch = (frame: string) => {
+    let event = 'message'
+    const dataLines: string[] = []
+    for (const line of frame.split(/\r?\n/)) {
+      if (line.startsWith('event:')) event = line.slice(6).trim()
+      if (line.startsWith('data:')) dataLines.push(line.slice(5).trimStart())
+    }
+    if (dataLines.length === 0) return
+    const payload = JSON.parse(dataLines.join('\n')) as Record<string, unknown>
+    if (event === 'turn.started') {
+      handlers.onTurnStarted?.(payload as { actor_role: string; participant_id: string | null })
+    } else if (event === 'turn.delta') {
+      handlers.onTurnDelta?.(payload as { text: string })
+    } else if (event === 'turn.validating') {
+      handlers.onTurnValidating?.()
+    } else if (event === 'step.completed') {
+      completed = payload as unknown as AutoStepResponse
+    } else if (event === 'step.failed') {
+      throw new ApiError(
+        typeof payload.code === 'string' ? payload.code : 'stream_step_failed',
+        typeof payload.message === 'string' ? payload.message : '自动庭审步骤失败',
+        typeof payload.status === 'number' ? payload.status : 502,
+      )
+    }
+  }
+
+  while (true) {
+    const { done, value } = await reader.read()
+    buffer += decoder.decode(value, { stream: !done })
+    let boundary = buffer.match(/\r?\n\r?\n/)
+    while (boundary?.index !== undefined) {
+      dispatch(buffer.slice(0, boundary.index))
+      buffer = buffer.slice(boundary.index + boundary[0].length)
+      boundary = buffer.match(/\r?\n\r?\n/)
+    }
+    if (done) break
+  }
+  if (buffer.trim()) dispatch(buffer)
+  if (!completed) throw new ApiError('stream_incomplete', '流式庭审响应未正常结束', 502)
+  return completed
+}
+
 export const api = {
   listCases: () => request<CaseSummary[]>('/cases'),
   getCase: (caseId: string, role: UserRole, version?: string) =>
@@ -60,9 +140,10 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(payload),
     }),
-  runAgent: (sessionId: string, payload: AgentTurnPayload) =>
+  runAgent: (sessionId: string, payload: AgentTurnPayload, idempotencyKey?: string) =>
     request<AgentTurnResponse>(`/sessions/${sessionId}/agent-turns`, {
       method: 'POST',
+      headers: idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
       body: JSON.stringify(payload),
     }),
   resolveRequest: (sessionId: string, requestId: string, resolution: string, reason: string) =>
@@ -82,4 +163,7 @@ export const api = {
       method: 'POST', body: JSON.stringify({ legal_search_trace_ids: traceIds }),
     }),
   getReview: (sessionId: string) => request<CourtReview>(`/sessions/${sessionId}/review`),
+  autoStep: (sessionId: string) =>
+    request<AutoStepResponse>(`/sessions/${sessionId}/auto-step`, { method: 'POST' }),
+  streamAutoStep,
 }

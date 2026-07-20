@@ -42,12 +42,25 @@ class ClaimType(StrEnum):
     OPINION = "opinion"
 
 
+class AgentEvidenceCitation(StrictAgentModel):
+    evidence_id: str = Field(description="证据标识")
+    quote: str = Field(
+        min_length=6,
+        max_length=500,
+        description="可在证据正文或可靠性说明中逐字核验的连续片段",
+    )
+
+
 class AgentClaim(StrictAgentModel):
     text: str = Field(min_length=1, max_length=2_000, description="单项事实主张或推论")
     claim_type: ClaimType = Field(description="主张性质")
-    evidence_ids: list[str] = Field(
+    fact_ids: list[str] = Field(
+        min_length=1,
+        description="该主张直接讨论、且能由所引证据关联到的案卷事实标识",
+    )
+    citations: list[AgentEvidenceCitation] = Field(
         default_factory=list,
-        description="支持该主张且当前角色有权访问的证据标识",
+        description="支持该主张且属于本轮任务范围的证据原文锚点",
     )
 
 
@@ -55,15 +68,29 @@ class AdvocateOutput(StrictAgentModel):
     kind: Literal[AgentOutputKind.ADVOCATE] = AgentOutputKind.ADVOCATE
     speaker_role: Literal[AgentRole.PROSECUTION, AgentRole.DEFENSE]
     speech: str = Field(min_length=1, max_length=10_000)
-    claims: list[AgentClaim] = Field(default_factory=list)
+    claims: list[AgentClaim] = Field(
+        default_factory=list,
+        max_length=6,
+        description="本回合最关键的结构化主张，最多六项",
+    )
     requested_action: CourtAction | None = None
     target_id: str | None = None
+
+
+class AgentStatementCitation(StrictAgentModel):
+    statement_id: str = Field(description="既有陈述标识")
+    quote: str = Field(
+        min_length=6,
+        max_length=500,
+        description="可在该既有陈述中逐字核验、并直接出现在回答中的连续片段",
+    )
 
 
 class WitnessOutput(StrictAgentModel):
     kind: Literal[AgentOutputKind.WITNESS] = AgentOutputKind.WITNESS
     answer: str = Field(min_length=1, max_length=10_000)
     supported_by_statement_ids: list[str] = Field(default_factory=list)
+    citations: list[AgentStatementCitation] = Field(default_factory=list)
     certainty: Certainty
     refused_reason: str | None = Field(default=None, max_length=2_000)
 
@@ -72,6 +99,7 @@ class DefendantOutput(StrictAgentModel):
     kind: Literal[AgentOutputKind.DEFENDANT] = AgentOutputKind.DEFENDANT
     answer: str = Field(min_length=1, max_length=10_000)
     supported_by_statement_ids: list[str] = Field(default_factory=list)
+    citations: list[AgentStatementCitation] = Field(default_factory=list)
     new_statement: bool = False
     certainty: Certainty
     refused_reason: str | None = Field(default=None, max_length=2_000)
@@ -95,6 +123,11 @@ class AgentTurnRequest(StrictAgentModel):
         default_factory=list,
         description="本次举证或质证动作引用的证据标识",
     )
+    challenge_dimensions: list[str] = Field(
+        default_factory=list,
+        description="质证维度；Agent 发表证据质证意见时由控制器指定",
+    )
+    target_event_sequence: int | None = Field(default=None, ge=1)
     instruction: str | None = Field(
         default=None,
         max_length=4_000,
@@ -114,6 +147,8 @@ class AgentFactContext(StrictAgentModel):
     id: str
     description: str
     status: str
+    supporting_evidence_ids: list[str]
+    contradicting_evidence_ids: list[str]
 
 
 class AgentEvidenceContext(StrictAgentModel):
@@ -121,6 +156,7 @@ class AgentEvidenceContext(StrictAgentModel):
     title: str
     content: str
     reliability_notes: list[str]
+    related_fact_ids: list[str]
 
 
 class AgentRoleMaterialContext(StrictAgentModel):
@@ -149,11 +185,18 @@ class AgentHistoryEvent(StrictAgentModel):
     content: str | None = None
 
 
+class AgentTaskContext(StrictAgentModel):
+    target_id: str | None
+    evidence_ids: list[str]
+    challenge_dimensions: list[str]
+
+
 class AgentContext(StrictAgentModel):
     case: AgentCaseContext
     actor_role: AgentRole
     phase: CourtPhase
     action: CourtAction
+    task: AgentTaskContext
     facts: list[AgentFactContext]
     evidence: list[AgentEvidenceContext]
     role_materials: list[AgentRoleMaterialContext]
@@ -175,6 +218,7 @@ class AgentTraceView(StrictAgentModel):
     model: str
     status: AgentTraceStatus
     repair_count: int
+    output_normalized: bool
     input_tokens: int
     output_tokens: int
     latency_ms: int
