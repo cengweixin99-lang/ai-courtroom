@@ -58,3 +58,25 @@ temperature、响应格式、输出上限与重试配置，并记录逐案正式
 当前 `qwen3.7-plus` 最终冻结报告中 15 条业务结果全部成功，证据引用、拒答和注入防护硬
 门禁均为 100%，但首次校验通过率为 73.33%，低于 90% 准入线，因此报告结论为未准入。
 不得通过重复抽样挑选偶然通过的报告替换该结论。
+# Qwen 逐发言质量 Eval
+
+`qwen_turn_quality/cases.json` 是带人工期望区间的真实模型评分集，覆盖完整证据论证、空泛
+陈述、具体质证、低质量重复发言和提示注入。运行：
+
+```powershell
+cd backend
+..\.venv\Scripts\python.exe -m mootcourt.cli.eval_qwen_turn `
+  ..\evals\qwen_turn_quality\cases.json `
+  --output ..\evals\qwen_turn_quality\results\qwen_turn_quality_v1.1.0.json
+```
+
+门槛为样例通过率不低于 80%，且结构化证据/事实锚点不得越界。改写示例中的人工禁止内容
+单独判定，用于发现无案卷锚点时的模型幻觉。
+运行时若缺少证据或事实任一锚点，会将 `rewritten_example` 强制归一化为 `null`。
+
+## M6 Docker 交付验收
+
+`scripts/accept_delivery.cmd` 默认运行不调用 LLM 的 smoke 检查，覆盖 API、Web、
+Elasticsearch、数据库迁移、案卷、角色隔离、法律索引和会话审计起点。传入 `--full` 后，
+通过 SSE 和公开 API 执行真实 Qwen 完整庭审，并验证相同幂等键的回放不会重复写入事件。
+详细范围和报告说明见 `delivery/README.md`。

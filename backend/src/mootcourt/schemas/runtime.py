@@ -83,6 +83,13 @@ class EvidenceSubmissionStatus(StrEnum):
     SUBMITTED = "submitted"
 
 
+class EvidenceAgendaStatus(StrEnum):
+    PENDING = "pending"
+    CHALLENGED = "challenged"
+    NO_OBJECTION = "no_objection"
+    DEFERRED = "deferred"
+
+
 class CaseSummary(BaseModel):
     case_id: str
     package_version: str
@@ -202,6 +209,22 @@ class EvidenceStatusView(BaseModel):
     status: EvidenceSubmissionStatus
     submitted_by: UserRole | None = None
     submitted_at: datetime | None = None
+
+
+class EvidenceAgendaView(BaseModel):
+    id: int
+    session_id: str
+    phase: CourtPhase
+    evidence_id: str
+    submitted_by: UserRole
+    responding_role: UserRole
+    status: EvidenceAgendaStatus
+    submission_event_sequence: int | None
+    response_event_sequence: int | None
+    response_action: CourtAction | None
+    challenge_dimensions: list[EvidenceChallengeDimension]
+    created_at: datetime
+    updated_at: datetime
 
 
 class ProceduralRequestView(BaseModel):

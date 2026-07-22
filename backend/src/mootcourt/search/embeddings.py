@@ -183,9 +183,10 @@ def _safe_error_message(response: httpx.Response) -> str:
         return "non-JSON error response"
     if isinstance(body, dict):
         error = body.get("error")
-        if isinstance(error, dict) and isinstance(error.get("message"), str):
+        message = error.get("message") if isinstance(error, dict) else None
+        if isinstance(message, str):
             # 仅保留上游短错误，不记录请求内容、密钥或完整响应。
-            return error["message"][:500]
+            return message[:500]
     return "unspecified provider error"
 
 

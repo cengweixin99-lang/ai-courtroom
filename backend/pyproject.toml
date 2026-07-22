@@ -43,6 +43,8 @@ mootcourt-import-case = "mootcourt.cli.import_case:main"
 mootcourt-index-legal = "mootcourt.cli.index_legal:main"
 mootcourt-eval-m5 = "mootcourt.cli.eval_m5:main"
 mootcourt-eval-qwen-agent = "mootcourt.cli.eval_qwen_agent:main"
+mootcourt-eval-qwen-turn = "mootcourt.cli.eval_qwen_turn:main"
+mootcourt-accept-delivery = "mootcourt.cli.accept_delivery:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/mootcourt"]

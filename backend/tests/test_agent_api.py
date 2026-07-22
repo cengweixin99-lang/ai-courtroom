@@ -20,7 +20,7 @@ from mootcourt.core.config import Settings, get_settings
 from mootcourt.main import app
 from mootcourt.repositories.agent_traces import SessionAgentUsage
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
-from mootcourt.schemas.agents import WitnessOutput
+from mootcourt.schemas.agents import AgentStatementCitation, Certainty, WitnessOutput
 from mootcourt.services.agent_invocations import acquire_agent_invocation
 from mootcourt.services.agent_turns import (
     AgentTurnServiceError,
@@ -36,14 +36,19 @@ def test_participant_normalization_keeps_auditable_partial_refusal() -> None:
     output = WitnessOutput(
         answer="我只能回答其中一部分。",
         supported_by_statement_ids=["W01-S01"],
-        citations=[{"statement_id": "W01-S01", "quote": "我看见被告人离开现场"}],
-        certainty="medium",
+        citations=[
+            AgentStatementCitation(
+                statement_id="W01-S01", quote="我看见被告人离开现场"
+            )
+        ],
+        certainty=Certainty.MEDIUM,
         refused_reason="其余问题超出既有陈述范围",
     )
 
     normalized, changed = _normalize_participant_output(output)
 
     assert changed is True
+    assert isinstance(normalized, WitnessOutput)
     assert normalized.answer == ("我看见被告人离开现场 对超出既有陈述范围的问题，我无法回答。")
 
 
@@ -146,6 +151,39 @@ class WrongTaskEvidenceProvider:
                         "text": claim_text,
                         "claim_type": "supported_fact",
                         "fact_ids": ["F02"],
+                        "citations": [{"evidence_id": evidence.id, "quote": evidence.content[:20]}],
+                    }
+                ],
+                "requested_action": request.context.action.value,
+                "target_id": None,
+            },
+            provider=self.provider_name,
+            model=self.model_name,
+        )
+
+
+class SubsetEvidenceProvider:
+    @property
+    def provider_name(self) -> str:
+        return "subset-evidence-test"
+
+    @property
+    def model_name(self) -> str:
+        return "subset-evidence"
+
+    async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        evidence = next(item for item in request.context.evidence if item.id == "E01")
+        claim_text = "本方仅针对证据 E01 发表意见。"
+        return AgentProviderResult(
+            output={
+                "kind": "advocate",
+                "speaker_role": request.context.actor_role.value,
+                "speech": claim_text,
+                "claims": [
+                    {
+                        "text": claim_text,
+                        "claim_type": "disputed_fact",
+                        "fact_ids": ["F01"],
                         "citations": [{"evidence_id": evidence.id, "quote": evidence.content[:20]}],
                     }
                 ],
@@ -421,7 +459,9 @@ async def _create_session(client: AsyncClient, user_role: str = "prosecution") -
         json={"case_id": "CASE-001", "user_role": user_role},
     )
     assert response.status_code == 201
-    return response.json()["session_id"]
+    session_id = response.json()["session_id"]
+    assert isinstance(session_id, str)
+    return session_id
 
 
 async def _advance(client: AsyncClient, session_id: str, count: int) -> None:
@@ -828,6 +868,127 @@ async def test_agent_output_cannot_cite_evidence_outside_current_task(
 
     assert response.status_code == 502
     assert response.json()["error"]["code"] == "agent_output_forbidden"
+
+
+async def test_agent_evidence_submission_still_requires_every_selected_item(
+    agent_api_client: AsyncClient,
+) -> None:
+    _use_provider(SubsetEvidenceProvider())
+    session_id = await _create_session(agent_api_client, user_role="defense")
+    await _advance(agent_api_client, session_id, 3)
+
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "prosecution",
+            "action": "submit_evidence",
+            "evidence_ids": ["E01", "E02"],
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["message"] == (
+        "agent output does not address every evidence item approved for this turn"
+    )
+
+
+async def test_agent_challenge_may_select_subset_and_records_only_addressed_evidence(
+    agent_api_client: AsyncClient,
+) -> None:
+    _use_provider(SubsetEvidenceProvider())
+    session_id = await _create_session(agent_api_client, user_role="prosecution")
+    await _advance(agent_api_client, session_id, 3)
+    submitted = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/actions",
+        json={"action": "submit_evidence", "evidence_ids": ["E01", "E02"]},
+    )
+    assert submitted.status_code == 200
+
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "defense",
+            "action": "challenge_evidence",
+            "evidence_ids": ["E01", "E02"],
+            "challenge_dimensions": ["RELEVANCE", "PROBATIVE_VALUE"],
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["trace"]["repair_count"] == 0
+    assert payload["event"]["payload"]["evidence_ids"] == ["E01"]
+    requests = await agent_api_client.get(f"/api/v1/sessions/{session_id}/procedural-requests")
+    assert requests.status_code == 200
+    assert requests.json()[0]["evidence_ids"] == ["E01"]
+
+
+async def test_user_can_state_no_objection_and_complete_remaining_evidence_agenda(
+    agent_api_client: AsyncClient,
+) -> None:
+    _use_provider(FakeAgentProvider())
+    session_id = await _create_session(agent_api_client, user_role="defense")
+    await _advance(agent_api_client, session_id, 3)
+
+    submitted = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "prosecution",
+            "action": "submit_evidence",
+            "evidence_ids": ["E01", "E02"],
+        },
+    )
+    assert submitted.status_code == 200
+    assert "state_no_objection" in submitted.json()["session"]["allowed_actions"]
+
+    no_objection = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/actions",
+        json={"action": "state_no_objection", "evidence_ids": ["E02"]},
+    )
+    assert no_objection.status_code == 200
+    agenda = await agent_api_client.get(f"/api/v1/sessions/{session_id}/evidence-agenda")
+    by_id = {item["evidence_id"]: item for item in agenda.json()}
+    assert by_id["E01"]["status"] == "pending"
+    assert by_id["E02"]["status"] == "no_objection"
+
+    completed = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/actions", json={"action": "complete_phase"}
+    )
+    assert completed.status_code == 200
+    agenda = await agent_api_client.get(f"/api/v1/sessions/{session_id}/evidence-agenda")
+    by_id = {item["evidence_id"]: item for item in agenda.json()}
+    assert by_id["E01"]["status"] == "deferred"
+
+
+async def test_auto_evidence_challenge_runs_in_pending_batches(
+    agent_api_client: AsyncClient,
+) -> None:
+    _use_provider(FakeAgentProvider())
+    session_id = await _create_session(agent_api_client, user_role="prosecution")
+    await _advance(agent_api_client, session_id, 3)
+    submitted = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/actions",
+        json={"action": "submit_evidence", "evidence_ids": ["E01", "E02", "E03", "E04"]},
+    )
+    assert submitted.status_code == 200
+    completed = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/actions", json={"action": "complete_phase"}
+    )
+    assert completed.status_code == 200
+
+    first = await agent_api_client.post(f"/api/v1/sessions/{session_id}/auto-step")
+    assert first.status_code == 200
+    assert first.json()["event"]["action"] == "challenge_evidence"
+    assert first.json()["event"]["payload"]["evidence_ids"] == ["E01", "E02", "E03"]
+
+    resolved = await agent_api_client.post(f"/api/v1/sessions/{session_id}/auto-step")
+    assert resolved.json()["event"]["action"] == "procedural_request_resolved"
+    second = await agent_api_client.post(f"/api/v1/sessions/{session_id}/auto-step")
+    assert second.json()["event"]["action"] == "challenge_evidence"
+    assert second.json()["event"]["payload"]["evidence_ids"] == ["E04"]
+
+    agenda = await agent_api_client.get(f"/api/v1/sessions/{session_id}/evidence-agenda")
+    assert {item["status"] for item in agenda.json()} == {"challenged"}
 
 
 async def test_agent_output_cannot_invent_evidence_quote(

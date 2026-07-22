@@ -24,6 +24,16 @@ class AgentProviderRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class StructuredProviderRequest:
+    """供教学评审等非庭审角色任务使用的受限 JSON 请求。"""
+
+    messages: tuple[dict[str, str], ...]
+    schema_name: str
+    response_schema: dict[str, Any]
+    fallback_output: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
 class AgentProviderResult:
     output: dict[str, Any]
     provider: str
@@ -41,6 +51,13 @@ class AgentProvider(Protocol):
     def model_name(self) -> str: ...
 
     async def generate(self, request: AgentProviderRequest) -> AgentProviderResult: ...
+
+
+
+class StructuredAgentProvider(AgentProvider, Protocol):
+    async def generate_structured(
+        self, request: StructuredProviderRequest
+    ) -> AgentProviderResult: ...
 
 
 class FakeAgentProvider:
@@ -68,6 +85,15 @@ class FakeAgentProvider:
                 await request.on_text_update(visible_text)
         return AgentProviderResult(
             output=output,
+            provider=self.provider_name,
+            model=self.model_name,
+        )
+
+    async def generate_structured(self, request: StructuredProviderRequest) -> AgentProviderResult:
+        """测试环境使用调用方提供的确定性样例，避免伪造模型评审能力。"""
+
+        return AgentProviderResult(
+            output=request.fallback_output,
             provider=self.provider_name,
             model=self.model_name,
         )

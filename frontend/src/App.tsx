@@ -18,9 +18,11 @@ export default function App() {
   const [caseView, setCaseView] = useState<CaseView | null>(null)
   const [session, setSession] = useState<SessionView | null>(null)
   const [review, setReview] = useState<CourtReview | null>(null)
+  const [focusedEventSequence, setFocusedEventSequence] = useState<number | null>(null)
   const [autoStartCourtroom, setAutoStartCourtroom] = useState(true)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [bootstrapAttempt, setBootstrapAttempt] = useState(0)
 
   useEffect(() => {
     let active = true
@@ -54,7 +56,7 @@ export default function App() {
 
     void bootstrap()
     return () => { active = false }
-  }, [])
+  }, [bootstrapAttempt])
 
   const startSession = async (selectedCase: CaseSummary, role: UserRole) => {
     setLoading(true)
@@ -66,6 +68,7 @@ export default function App() {
       ])
       sessionStorage.setItem(SESSION_STORAGE_KEY, nextSession.session_id)
       setAutoStartCourtroom(true)
+      setFocusedEventSequence(null)
       setCaseView(nextCase)
       setSession(nextSession)
     } catch (caught) {
@@ -78,6 +81,7 @@ export default function App() {
   const exitSession = () => {
     sessionStorage.removeItem(SESSION_STORAGE_KEY)
     setReview(null)
+    setFocusedEventSequence(null)
     setAutoStartCourtroom(true)
     setSession(null)
     setCaseView(null)
@@ -85,9 +89,10 @@ export default function App() {
   }
 
   if (review) {
-    return <ReviewPage review={review} onBack={() => {
+    return <ReviewPage review={review} onBack={(eventSequence) => {
       // 用户明确返回庭审时禁止重新执行自动编排，否则 REVIEW 状态会立即再次打开复盘。
       setAutoStartCourtroom(false)
+      setFocusedEventSequence(eventSequence ?? null)
       setReview(null)
     }} />
   }
@@ -96,9 +101,20 @@ export default function App() {
       initialCase={caseView}
       initialSession={session}
       autoStart={autoStartCourtroom}
+      focusedEventSequence={focusedEventSequence}
       onExit={exitSession}
       onReview={setReview}
     />
   }
-  return <CaseLobby cases={cases} loading={loading} error={error} onStart={startSession} />
+  return <CaseLobby
+    cases={cases}
+    loading={loading}
+    error={error}
+    onRetry={() => {
+      setLoading(true)
+      setError(null)
+      setBootstrapAttempt((attempt) => attempt + 1)
+    }}
+    onStart={startSession}
+  />
 }

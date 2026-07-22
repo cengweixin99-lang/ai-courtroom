@@ -11,6 +11,7 @@ from mootcourt.agents.prompt_builder import build_agent_prompt
 from mootcourt.agents.providers import (
     AgentProviderRequest,
     AgentProviderResult,
+    StructuredProviderRequest,
     TextUpdateCallback,
 )
 
@@ -87,9 +88,42 @@ class OpenAICompatibleProvider:
             request.instruction,
             request.repair_instruction,
         )
+        visible_field: Literal["speech", "answer"] = (
+            "speech" if request.context.actor_role.value in {"prosecution", "defense"} else "answer"
+        )
+        return await self._generate_payload(
+            messages=[
+                {"role": item["role"], "content": item["content"]} for item in prompt.messages
+            ],
+            schema_name=prompt.schema_name,
+            response_schema=prompt.response_schema,
+            on_text_update=request.on_text_update,
+            visible_field=visible_field,
+        )
+
+    async def generate_structured(self, request: StructuredProviderRequest) -> AgentProviderResult:
+        """执行不属于庭审角色的严格 JSON 任务，例如教学质量评审。"""
+
+        return await self._generate_payload(
+            messages=list(request.messages),
+            schema_name=request.schema_name,
+            response_schema=request.response_schema,
+            on_text_update=None,
+            visible_field=None,
+        )
+
+    async def _generate_payload(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        schema_name: str,
+        response_schema: dict[str, Any],
+        on_text_update: TextUpdateCallback | None,
+        visible_field: Literal["speech", "answer"] | None,
+    ) -> AgentProviderResult:
         payload: dict[str, Any] = {
             "model": self._model,
-            "messages": list(prompt.messages),
+            "messages": messages,
             self._max_tokens_field: self._max_output_tokens,
             "temperature": self._temperature,
         }
@@ -100,9 +134,9 @@ class OpenAICompatibleProvider:
             payload["response_format"] = {
                 "type": "json_schema",
                 "json_schema": {
-                    "name": prompt.schema_name,
+                    "name": schema_name,
                     "strict": True,
-                    "schema": prompt.response_schema,
+                    "schema": response_schema,
                 },
             }
         elif self._response_format == "json_object":
@@ -122,7 +156,8 @@ class OpenAICompatibleProvider:
                 client,
                 headers,
                 payload,
-                request,
+                on_text_update=on_text_update,
+                visible_field=visible_field,
             )
         usage = body.get("usage")
         usage_object = usage if isinstance(usage, dict) else {}
@@ -157,30 +192,27 @@ class OpenAICompatibleProvider:
         client: httpx.AsyncClient,
         headers: dict[str, str],
         payload: dict[str, Any],
-        request: AgentProviderRequest,
+        *,
+        on_text_update: TextUpdateCallback | None,
+        visible_field: Literal["speech", "answer"] | None,
     ) -> dict[str, Any]:
         """长度截断时重新生成完整对象，并累计所有实际模型调用的用量。"""
         total_input_tokens = 0
         total_output_tokens = 0
-        visible_field: Literal["speech", "answer"] = (
-            "speech"
-            if request.context.actor_role.value in {"prosecution", "defense"}
-            else "answer"
-        )
         body: dict[str, Any] = {}
         for incomplete_attempt in range(self._max_incomplete_retries + 1):
             attempt_payload = (
-                payload
-                if incomplete_attempt == 0
-                else _with_incomplete_retry_instruction(payload)
+                payload if incomplete_attempt == 0 else _with_incomplete_retry_instruction(payload)
             )
-            if request.on_text_update is not None:
+            if on_text_update is not None:
+                if visible_field is None:
+                    raise RuntimeError("streamed structured request is missing a visible field")
                 body = await self._stream_with_retry(
                     client,
                     headers,
                     attempt_payload,
                     visible_field,
-                    request.on_text_update,
+                    on_text_update,
                 )
             else:
                 body = await self._request_non_stream_body(client, headers, attempt_payload)
@@ -193,8 +225,8 @@ class OpenAICompatibleProvider:
                 break
             if incomplete_attempt < self._max_incomplete_retries:
                 # 半截 JSON 不能继续落库；清空预览后从头生成更精简的完整对象。
-                if request.on_text_update is not None:
-                    await request.on_text_update("")
+                if on_text_update is not None:
+                    await on_text_update("")
                 continue
 
         body["usage"] = {

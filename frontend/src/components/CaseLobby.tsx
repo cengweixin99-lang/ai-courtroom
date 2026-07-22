@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowRight, Clock3, FileText, Gavel, Scale, ShieldCheck, Users } from 'lucide-react'
+import { ArrowRight, Clock3, FileText, Gavel, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react'
 
 import { roleLabels } from '../config'
 import type { CaseSummary, UserRole } from '../types'
@@ -8,10 +8,11 @@ interface Props {
   cases: CaseSummary[]
   loading: boolean
   error: string | null
+  onRetry: () => void
   onStart: (item: CaseSummary, role: UserRole) => Promise<void>
 }
 
-export function CaseLobby({ cases, loading, error, onStart }: Props) {
+export function CaseLobby({ cases, loading, error, onRetry, onStart }: Props) {
   const [role, setRole] = useState<UserRole>('prosecution')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = cases.find((item) => item.case_id === selectedId) ?? cases[0]
@@ -75,7 +76,7 @@ export function CaseLobby({ cases, loading, error, onStart }: Props) {
         </div>
       </section>
 
-      {error && <div className="page-error" role="alert">{error}</div>}
+      {error && <div className="page-error" role="alert"><span>{error}</span><button className="retry-action" disabled={loading} onClick={onRetry}><RotateCcw size={15} />重试加载</button></div>}
       <aside className="disclaimer">
         <ShieldCheck size={19} aria-hidden="true" />
         <p><strong>教学用途声明</strong> 本系统仅处理虚构案卷，用于庭审训练，不构成现实裁判或法律意见。</p>

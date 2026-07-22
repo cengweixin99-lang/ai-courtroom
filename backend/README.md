@@ -234,6 +234,12 @@ Evidence status and procedural request audit views are available under each sess
 control remains pending controller review, while evidence challenges are recorded for later
 evaluation. Neither path invokes an LLM to simulate a procedural ruling.
 
+M4.1 adds a per-evidence response agenda at `GET /sessions/{session_id}/evidence-agenda`.
+Every submission creates a `pending` item for the opposing role. A response changes only the
+addressed items to `challenged` or `no_objection`; completing the phase records untouched items as
+`deferred`. Automatic opposing agents process at most three pending items per turn and continue
+until the agenda is exhausted.
+
 M4 controller resolution uses `APPROVED` or `REJECTED` for question-control requests and
 `RECORDED` for evidence challenges. Resolution and its public courtroom event are persisted in one
 transaction and cannot be repeated. This is currently a trusted teaching-controller endpoint; real
@@ -255,6 +261,11 @@ submitted evidence, resolved procedural requests, frozen legal elements, and sea
 to the locked case version. Every required citation must exactly match the imported article text and
 version metadata. Missing authority stops report generation. CASE-001 remains a development teaching
 simulation, so the report exposes fact and element statuses but never emits a real legal conclusion.
+
+M4.2 adds a deterministic learning score to the persisted review snapshot. It weights priority
+evidence submission and opponent-evidence response at 30% each, and verified legal-authority
+coverage and issue closure at 20% each. Recommendations reference existing evidence, fact, and
+element IDs; no free-form model call is used to grade a participant.
 
 ## M5 unified Eval
 

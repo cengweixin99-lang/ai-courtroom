@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mootcourt.db.models import (
+    CourtReviewEvaluationModel,
     CourtReviewModel,
     CourtSessionModel,
+    EvidenceAgendaModel,
     EvidenceModel,
     EvidenceSubmissionModel,
     FactModel,
@@ -23,6 +25,8 @@ SessionEventRecord = SessionEventModel
 ProceduralRequestRecord = ProceduralRequestModel
 ParticipantStatementTraceRecord = ParticipantStatementTraceModel
 CourtReviewRecord = CourtReviewModel
+CourtReviewEvaluationRecord = CourtReviewEvaluationModel
+EvidenceAgendaRecord = EvidenceAgendaModel
 
 
 class SqlAlchemyCourtSessionRepository:
@@ -61,15 +65,20 @@ class SqlAlchemyCourtSessionRepository:
 
     # 获取会话
     async def get(self, session_id: str) -> CourtSessionModel | None:
-        return await self._session.get(CourtSessionModel, session_id)
+        return cast(
+            CourtSessionModel | None, await self._session.get(CourtSessionModel, session_id)
+        )
 
     # 获取会话（加锁，用于更新）
     async def get_for_update(self, session_id: str) -> CourtSessionModel | None:
-        return await self._session.scalar(
-            select(CourtSessionModel)
-            .where(CourtSessionModel.id == session_id)
-            .with_for_update()
-            .execution_options(populate_existing=True)
+        return cast(
+            CourtSessionModel | None,
+            await self._session.scalar(
+                select(CourtSessionModel)
+                .where(CourtSessionModel.id == session_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            ),
         )
 
     # 获取已提交证据 id 列表
@@ -135,11 +144,14 @@ class SqlAlchemyCourtSessionRepository:
     async def get_event_by_sequence(
         self, session_id: str, sequence_number: int
     ) -> SessionEventModel | None:
-        return await self._session.scalar(
-            select(SessionEventModel).where(
-                SessionEventModel.session_id == session_id,
-                SessionEventModel.sequence_number == sequence_number,
-            )
+        return cast(
+            SessionEventModel | None,
+            await self._session.scalar(
+                select(SessionEventModel).where(
+                    SessionEventModel.session_id == session_id,
+                    SessionEventModel.sequence_number == sequence_number,
+                )
+            ),
         )
 
     async def earlier_question_events(
@@ -205,6 +217,102 @@ class SqlAlchemyCourtSessionRepository:
             ]
         )
 
+    def add_evidence_agenda_items(
+        self,
+        *,
+        session_id: str,
+        phase: str,
+        evidence_ids: list[str],
+        submitted_by: str,
+        responding_role: str,
+        submission_event_sequence: int | None,
+    ) -> None:
+        self._session.add_all(
+            [
+                EvidenceAgendaModel(
+                    session_id=session_id,
+                    phase=phase,
+                    evidence_id=evidence_id,
+                    submitted_by=submitted_by,
+                    responding_role=responding_role,
+                    status="pending",
+                    submission_event_sequence=submission_event_sequence,
+                    challenge_dimensions=[],
+                )
+                for evidence_id in evidence_ids
+            ]
+        )
+
+    async def list_evidence_agenda(
+        self,
+        session_id: str,
+        *,
+        phase: str | None = None,
+        responding_role: str | None = None,
+        status: str | None = None,
+    ) -> list[EvidenceAgendaModel]:
+        query = select(EvidenceAgendaModel).where(EvidenceAgendaModel.session_id == session_id)
+        if phase is not None:
+            query = query.where(EvidenceAgendaModel.phase == phase)
+        if responding_role is not None:
+            query = query.where(EvidenceAgendaModel.responding_role == responding_role)
+        if status is not None:
+            query = query.where(EvidenceAgendaModel.status == status)
+        return list(await self._session.scalars(query.order_by(EvidenceAgendaModel.id)))
+
+    async def evidence_agenda_for_update(
+        self, session_id: str, evidence_ids: list[str]
+    ) -> list[EvidenceAgendaModel]:
+        return list(
+            await self._session.scalars(
+                select(EvidenceAgendaModel)
+                .where(
+                    EvidenceAgendaModel.session_id == session_id,
+                    EvidenceAgendaModel.evidence_id.in_(evidence_ids),
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        )
+
+    async def record_evidence_agenda_response(
+        self,
+        rows: list[EvidenceAgendaModel],
+        *,
+        status: str,
+        response_action: str,
+        response_event_sequence: int,
+        challenge_dimensions: list[str],
+    ) -> None:
+        for row in rows:
+            row.status = status
+            row.response_action = response_action
+            row.response_event_sequence = response_event_sequence
+            row.challenge_dimensions = challenge_dimensions
+        await self._session.flush()
+
+    async def defer_pending_evidence_agenda(
+        self,
+        *,
+        session_id: str,
+        phase: str,
+        responding_role: str,
+        response_event_sequence: int,
+    ) -> None:
+        rows = await self.list_evidence_agenda(
+            session_id,
+            phase=phase,
+            responding_role=responding_role,
+            status="pending",
+        )
+        await self.record_evidence_agenda_response(
+            rows,
+            status="deferred",
+            response_action="complete_phase",
+            response_event_sequence=response_event_sequence,
+            challenge_dimensions=[],
+        )
+
     async def add_procedural_request(
         self,
         *,
@@ -246,14 +354,17 @@ class SqlAlchemyCourtSessionRepository:
     async def get_procedural_request_for_update(
         self, session_id: str, request_id: str
     ) -> ProceduralRequestModel | None:
-        return await self._session.scalar(
-            select(ProceduralRequestModel)
-            .where(
-                ProceduralRequestModel.id == request_id,
-                ProceduralRequestModel.session_id == session_id,
-            )
-            .with_for_update()
-            .execution_options(populate_existing=True)
+        return cast(
+            ProceduralRequestModel | None,
+            await self._session.scalar(
+                select(ProceduralRequestModel)
+                .where(
+                    ProceduralRequestModel.id == request_id,
+                    ProceduralRequestModel.session_id == session_id,
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            ),
         )
 
     async def resolve_procedural_request(
@@ -317,14 +428,17 @@ class SqlAlchemyCourtSessionRepository:
     async def get_participant_statement_trace_for_update(
         self, session_id: str, trace_id: str
     ) -> ParticipantStatementTraceModel | None:
-        return await self._session.scalar(
-            select(ParticipantStatementTraceModel)
-            .where(
-                ParticipantStatementTraceModel.id == trace_id,
-                ParticipantStatementTraceModel.session_id == session_id,
-            )
-            .with_for_update()
-            .execution_options(populate_existing=True)
+        return cast(
+            ParticipantStatementTraceModel | None,
+            await self._session.scalar(
+                select(ParticipantStatementTraceModel)
+                .where(
+                    ParticipantStatementTraceModel.id == trace_id,
+                    ParticipantStatementTraceModel.session_id == session_id,
+                )
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            ),
         )
 
     async def resolve_participant_statement_trace(
@@ -366,8 +480,56 @@ class SqlAlchemyCourtSessionRepository:
         return model
 
     async def get_court_review(self, session_id: str) -> CourtReviewModel | None:
-        return await self._session.scalar(
-            select(CourtReviewModel).where(CourtReviewModel.session_id == session_id)
+        return cast(
+            CourtReviewModel | None,
+            await self._session.scalar(
+                select(CourtReviewModel).where(CourtReviewModel.session_id == session_id)
+            ),
+        )
+
+    async def add_court_review_evaluation(
+        self,
+        *,
+        evaluation_id: str,
+        review_id: str,
+        session_id: str,
+        provider: str,
+        model: str,
+        report: dict[str, Any],
+        input_tokens: int,
+        output_tokens: int,
+        estimated_cost_cny: float,
+        repair_count: int,
+        created_at: datetime,
+    ) -> CourtReviewEvaluationModel:
+        evaluation = CourtReviewEvaluationModel(
+            id=evaluation_id,
+            review_id=review_id,
+            session_id=session_id,
+            provider=provider,
+            model=model,
+            report=report,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            estimated_cost_cny=estimated_cost_cny,
+            repair_count=repair_count,
+            created_at=created_at,
+        )
+        self._session.add(evaluation)
+        await self._session.flush()
+        await self._session.refresh(evaluation)
+        return evaluation
+
+    async def get_court_review_evaluation(
+        self, review_id: str
+    ) -> CourtReviewEvaluationModel | None:
+        return cast(
+            CourtReviewEvaluationModel | None,
+            await self._session.scalar(
+                select(CourtReviewEvaluationModel).where(
+                    CourtReviewEvaluationModel.review_id == review_id
+                )
+            ),
         )
 
     async def next_event_sequence(self, session_id: str) -> int:

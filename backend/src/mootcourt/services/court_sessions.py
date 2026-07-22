@@ -13,9 +13,15 @@ from mootcourt.domain.courtroom import (
     next_phase,
     validate_action,
 )
-from mootcourt.repositories.court_sessions import ProceduralRequestRecord, SessionEventRecord
+from mootcourt.repositories.court_sessions import (
+    EvidenceAgendaRecord,
+    ProceduralRequestRecord,
+    SessionEventRecord,
+)
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.schemas.runtime import (
+    EvidenceAgendaStatus,
+    EvidenceAgendaView,
     EvidenceFactSummaryView,
     EvidenceFactSupportStatus,
     EvidenceStatusView,
@@ -137,6 +143,15 @@ async def list_evidence_statuses(
         )
         for item in evidence
     ]
+
+
+async def list_evidence_agenda(
+    unit_of_work: SqlAlchemyUnitOfWork, session_id: str
+) -> list[EvidenceAgendaView] | None:
+    if await unit_of_work.court_sessions.get(session_id) is None:
+        return None
+    rows = await unit_of_work.court_sessions.list_evidence_agenda(session_id)
+    return [_evidence_agenda_view(item) for item in rows]
 
 
 async def list_procedural_requests(
@@ -302,12 +317,20 @@ async def apply_session_action(
     elif request.action is not CourtAction.COMPLETE_PHASE:
         model.turns_used += 1
 
+    event_sequence_number = await unit_of_work.court_sessions.next_event_sequence(model.id)
     if request.action is CourtAction.SUBMIT_EVIDENCE:
         unit_of_work.court_sessions.add_evidence_submissions(
             model.id, request.evidence_ids, actor_role.value
         )
+        unit_of_work.court_sessions.add_evidence_agenda_items(
+            session_id=model.id,
+            phase=event_phase.value,
+            evidence_ids=request.evidence_ids,
+            submitted_by=actor_role.value,
+            responding_role=_opposing_role(actor_role).value,
+            submission_event_sequence=event_sequence_number,
+        )
 
-    event_sequence_number = await unit_of_work.court_sessions.next_event_sequence(model.id)
     procedural_request = None
     if request.action in {
         CourtAction.RAISE_PROCEDURAL_REQUEST,
@@ -330,6 +353,14 @@ async def apply_session_action(
             challenge_dimensions=[item.value for item in request.challenge_dimensions],
             content=request.content or "",
             status=procedural_status.value,
+        )
+
+    if request.action is CourtAction.COMPLETE_PHASE:
+        await unit_of_work.court_sessions.defer_pending_evidence_agenda(
+            session_id=model.id,
+            phase=event_phase.value,
+            responding_role=actor_role.value,
+            response_event_sequence=event_sequence_number,
         )
 
     event = await unit_of_work.court_sessions.add_event(
@@ -356,6 +387,19 @@ async def apply_session_action(
             "challenge_dimensions": [item.value for item in request.challenge_dimensions],
         },
     )
+    if request.action in {CourtAction.CHALLENGE_EVIDENCE, CourtAction.STATE_NO_OBJECTION}:
+        agenda_rows = await unit_of_work.court_sessions.evidence_agenda_for_update(
+            model.id, request.evidence_ids
+        )
+        await unit_of_work.court_sessions.record_evidence_agenda_response(
+            agenda_rows,
+            status=(
+                "challenged" if request.action is CourtAction.CHALLENGE_EVIDENCE else "no_objection"
+            ),
+            response_action=request.action.value,
+            response_event_sequence=event_sequence_number,
+            challenge_dimensions=[item.value for item in request.challenge_dimensions],
+        )
     await unit_of_work.court_sessions.flush_session(model)
     view = await get_session_view(unit_of_work, model.id)
     if view is None:
@@ -388,11 +432,21 @@ async def validate_action_payload(
         raise SessionServiceError("content_required", "content is required for this action", 422)
 
     if (
-        request.action in {CourtAction.SUBMIT_EVIDENCE, CourtAction.CHALLENGE_EVIDENCE}
+        request.action
+        in {
+            CourtAction.SUBMIT_EVIDENCE,
+            CourtAction.CHALLENGE_EVIDENCE,
+            CourtAction.STATE_NO_OBJECTION,
+        }
         and not request.evidence_ids
     ):
         raise SessionServiceError("evidence_required", "at least one evidence ID is required", 422)
-    if request.action in {CourtAction.SUBMIT_EVIDENCE, CourtAction.CHALLENGE_EVIDENCE}:
+    if request.action in {
+        CourtAction.SUBMIT_EVIDENCE,
+        CourtAction.CHALLENGE_EVIDENCE,
+        CourtAction.STATE_NO_OBJECTION,
+    } or (request.action is CourtAction.MAKE_STATEMENT and request.evidence_ids):
+        # 陈述中的证据锚点必须走与举证相同的存在性和席位可见性校验。
         rows = await unit_of_work.court_sessions.evidence_by_ids(package_id, request.evidence_ids)
         by_id = {item.evidence_id: item for item in rows}
         missing = set(request.evidence_ids) - set(by_id)
@@ -421,7 +475,19 @@ async def validate_action_payload(
                 "evidence_already_submitted", f"evidence already submitted: {sorted(existing)}"
             )
 
-    if request.action is CourtAction.CHALLENGE_EVIDENCE:
+    if request.action is CourtAction.MAKE_STATEMENT and request.evidence_ids:
+        submitted = await unit_of_work.court_sessions.submitted_ids_from(
+            session_id, request.evidence_ids
+        )
+        missing_submissions = set(request.evidence_ids) - submitted
+        if missing_submissions:
+            raise SessionServiceError(
+                "statement_evidence_not_submitted",
+                f"statement evidence has not been submitted: {sorted(missing_submissions)}",
+                409,
+            )
+
+    if request.action in {CourtAction.CHALLENGE_EVIDENCE, CourtAction.STATE_NO_OBJECTION}:
         submitted = await unit_of_work.court_sessions.submitted_ids_from(
             session_id, request.evidence_ids
         )
@@ -431,7 +497,30 @@ async def validate_action_payload(
                 "evidence_not_submitted",
                 f"evidence has not been submitted: {sorted(missing_submissions)}",
             )
-        if not request.challenge_dimensions:
+        agenda_rows = await unit_of_work.court_sessions.evidence_agenda_for_update(
+            session_id, request.evidence_ids
+        )
+        agenda_by_id = {item.evidence_id: item for item in agenda_rows}
+        missing_agenda = set(request.evidence_ids) - set(agenda_by_id)
+        if missing_agenda:
+            raise SessionServiceError(
+                "evidence_agenda_missing",
+                f"evidence agenda is missing: {sorted(missing_agenda)}",
+                409,
+            )
+        not_pending = {
+            evidence_id
+            for evidence_id, item in agenda_by_id.items()
+            if item.status != EvidenceAgendaStatus.PENDING.value
+            or item.responding_role != actor_role.value
+        }
+        if not_pending:
+            raise SessionServiceError(
+                "evidence_already_addressed",
+                f"evidence has already been addressed: {sorted(not_pending)}",
+                409,
+            )
+        if request.action is CourtAction.CHALLENGE_EVIDENCE and not request.challenge_dimensions:
             raise SessionServiceError(
                 "challenge_dimension_required",
                 "at least one evidence challenge dimension is required",
@@ -441,6 +530,14 @@ async def validate_action_payload(
             raise SessionServiceError(
                 "duplicate_challenge_dimension",
                 "evidence challenge dimensions must be unique",
+                422,
+            )
+        if request.action is CourtAction.STATE_NO_OBJECTION and (
+            request.challenge_dimensions or request.procedural_request_type is not None
+        ):
+            raise SessionServiceError(
+                "no_objection_payload_mismatch",
+                "state_no_objection cannot include challenge fields",
                 422,
             )
         if request.procedural_request_type not in {None, ProceduralRequestType.EVIDENCE_CHALLENGE}:
@@ -512,6 +609,34 @@ def _normalize_question(content: str) -> str:
     return "".join(content.split()).rstrip("？?!！。.")
 
 
+def _opposing_role(role: Role) -> Role:
+    if role is Role.PROSECUTION:
+        return Role.DEFENSE
+    if role is Role.DEFENSE:
+        return Role.PROSECUTION
+    raise ValueError(f"role {role.value} cannot submit evidence")
+
+
+def _evidence_agenda_view(item: EvidenceAgendaRecord) -> EvidenceAgendaView:
+    return EvidenceAgendaView.model_validate(
+        {
+            "id": item.id,
+            "session_id": item.session_id,
+            "phase": item.phase,
+            "evidence_id": item.evidence_id,
+            "submitted_by": item.submitted_by,
+            "responding_role": item.responding_role,
+            "status": item.status,
+            "submission_event_sequence": item.submission_event_sequence,
+            "response_event_sequence": item.response_event_sequence,
+            "response_action": item.response_action,
+            "challenge_dimensions": item.challenge_dimensions,
+            "created_at": item.created_at,
+            "updated_at": item.updated_at,
+        }
+    )
+
+
 def _procedural_request_view(item: ProceduralRequestRecord) -> ProceduralRequestView:
     return ProceduralRequestView.model_validate(
         {
@@ -571,4 +696,6 @@ def _fixed_response(action: CourtAction, phase: CourtPhase) -> str:
         return "证据已完成权限校验并写入庭审记录。"
     if action is CourtAction.CHALLENGE_EVIDENCE:
         return "质证意见已写入庭审记录。"
+    if action is CourtAction.STATE_NO_OBJECTION:
+        return "无异议意见已写入逐证据议程。"
     return "操作已通过阶段和权限校验，并写入庭审记录。"

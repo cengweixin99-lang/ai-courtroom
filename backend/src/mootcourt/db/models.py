@@ -194,6 +194,33 @@ class EvidenceSubmissionModel(Base):
     )
 
 
+class EvidenceAgendaModel(Base):
+    """记录每项已提交证据在对方席位的逐证据回应状态。"""
+
+    __tablename__ = "evidence_agenda_items"
+    __table_args__ = (UniqueConstraint("session_id", "evidence_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("court_sessions.id", ondelete="CASCADE"), index=True
+    )
+    phase: Mapped[str] = mapped_column(String(64))
+    evidence_id: Mapped[str] = mapped_column(String(64))
+    submitted_by: Mapped[str] = mapped_column(String(32))
+    responding_role: Mapped[str] = mapped_column(String(32))
+    status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
+    submission_event_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_event_sequence: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    response_action: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    challenge_dimensions: Mapped[list[str]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+
 class AgentTraceModel(Base):
     __tablename__ = "agent_traces"
 
@@ -329,6 +356,31 @@ class CourtReviewModel(Base):
     event_sequence_number: Mapped[int] = mapped_column(Integer)
     legal_search_trace_ids: Mapped[list[str]] = mapped_column(JSON)
     report: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CourtReviewEvaluationModel(Base):
+    """保存独立模型教学点评，避免改写已冻结的确定性复盘快照。"""
+
+    __tablename__ = "court_review_evaluations"
+    __table_args__ = (UniqueConstraint("review_id"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    review_id: Mapped[str] = mapped_column(
+        ForeignKey("court_reviews.id", ondelete="CASCADE"), index=True
+    )
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("court_sessions.id", ondelete="CASCADE"), index=True
+    )
+    provider: Mapped[str] = mapped_column(String(64))
+    model: Mapped[str] = mapped_column(String(128))
+    report: Mapped[dict[str, Any]] = mapped_column(JSON)
+    input_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    output_tokens: Mapped[int] = mapped_column(Integer, default=0)
+    estimated_cost_cny: Mapped[float] = mapped_column(default=0)
+    repair_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

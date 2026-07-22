@@ -22,6 +22,7 @@ import type {
   CourtAction,
   CourtReview,
   EvidenceStatus,
+  EvidenceAgendaItem,
   ProceduralRequest,
   SessionActionPayload,
   SessionEvent,
@@ -42,6 +43,7 @@ interface Props {
   initialCase: CaseView
   initialSession: SessionView
   autoStart?: boolean
+  focusedEventSequence?: number | null
   onExit: () => void
   onReview: (review: CourtReview) => void
 }
@@ -56,13 +58,14 @@ function defaultAction(session: SessionView): CourtAction {
 }
 
 async function fetchSessionData(active: SessionView) {
-  const [events, evidenceStatuses, requests, statementTraces] = await Promise.all([
+  const [events, evidenceStatuses, evidenceAgenda, requests, statementTraces] = await Promise.all([
     api.getEvents(active.session_id),
     api.getEvidenceStatuses(active.session_id),
+    api.getEvidenceAgenda(active.session_id),
     api.getProceduralRequests(active.session_id),
     api.getStatementTraces(active.session_id),
   ])
-  return { events, evidenceStatuses, requests, statementTraces }
+  return { events, evidenceStatuses, evidenceAgenda, requests, statementTraces }
 }
 
 function eventContent(event: SessionEvent): string {
@@ -72,6 +75,7 @@ function eventContent(event: SessionEvent): string {
   if (event.action === 'session_created') return '庭审会话已创建，案件版本和用户席位已锁定。'
   if (event.action === 'advance_phase') return `庭审已推进至 ${phaseLabels[event.payload.resulting_phase ?? event.phase]}。`
   if (event.action === 'submit_evidence') return `已提交证据 ${event.payload.evidence_ids?.join('、') ?? ''}。`
+  if (event.action === 'state_no_objection') return `对证据 ${event.payload.evidence_ids?.join('、') ?? ''} 无异议。`
   if (event.action === 'procedural_request_resolved') return `程序请求处理结果：${event.payload.resolution ?? ''}`
   if (event.action === 'court_review_generated') return '结构化教学复盘已生成。'
   return actionLabels[event.action as CourtAction] ?? event.action
@@ -91,14 +95,19 @@ interface TranscriptEntryProps {
   content: string
   meta: string
   evidenceIds?: string[]
+  eventSequence?: number
+  highlighted?: boolean
   streaming?: boolean
 }
 
 // 流式发言和已落库事件共用同一结构，避免完成瞬间因节点样式切换产生跳变。
-function TranscriptEntry({ actorRole, content, meta, evidenceIds = [], streaming = false }: TranscriptEntryProps) {
+function TranscriptEntry({ actorRole, content, meta, evidenceIds = [], eventSequence, highlighted = false, streaming = false }: TranscriptEntryProps) {
   return (
     <article
-      className={`record-entry role-${actorRole}`}
+      id={eventSequence ? `court-event-${eventSequence}` : undefined}
+      data-event-sequence={eventSequence}
+      tabIndex={eventSequence ? -1 : undefined}
+      className={`record-entry role-${actorRole}${highlighted ? ' review-highlight' : ''}`}
       aria-live={streaming ? 'polite' : undefined}
       aria-busy={streaming || undefined}
     >
@@ -114,10 +123,11 @@ function TranscriptEntry({ actorRole, content, meta, evidenceIds = [], streaming
   )
 }
 
-export function CourtroomPage({ initialCase, initialSession, autoStart = true, onExit, onReview }: Props) {
+export function CourtroomPage({ initialCase, initialSession, autoStart = true, focusedEventSequence = null, onExit, onReview }: Props) {
   const [session, setSession] = useState(initialSession)
   const [events, setEvents] = useState<SessionEvent[]>([])
   const [evidenceStatuses, setEvidenceStatuses] = useState<EvidenceStatus[]>([])
+  const [evidenceAgenda, setEvidenceAgenda] = useState<EvidenceAgendaItem[]>([])
   const [requests, setRequests] = useState<ProceduralRequest[]>([])
   const [statementTraces, setStatementTraces] = useState<StatementTrace[]>([])
   const [caseTab, setCaseTab] = useState<CaseTab>('summary')
@@ -147,6 +157,7 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, o
     setSession(active)
     setEvents(data.events)
     setEvidenceStatuses(data.evidenceStatuses)
+    setEvidenceAgenda(data.evidenceAgenda)
     setRequests(data.requests)
     setStatementTraces(data.statementTraces)
     setAction(defaultAction(active))
@@ -229,11 +240,13 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, o
     } catch (caught) {
       if (caught instanceof DOMException && caught.name === 'AbortError') return
       setStreamingTurn(null)
-      if (caught instanceof ApiError && [
+      // fetch 在网络断开时只抛 TypeError，也必须保留幂等键并允许用户恢复同一逻辑请求。
+      const retryable = caught instanceof TypeError || (caught instanceof ApiError && [
         'agent_provider_unavailable', 'agent_provider_timeout', 'agent_provider_http_error',
         'agent_provider_incomplete', 'stream_incomplete', 'stream_step_failed',
         'agent_invocation_in_progress',
-      ].includes(caught.code)) setRetryAvailable(true)
+      ].includes(caught.code))
+      if (retryable) setRetryAvailable(true)
       handleError(caught)
     } finally {
       if (streamController.current === controller) streamController.current = null
@@ -270,6 +283,15 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, o
       marker.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
     }
   }, [events.length])
+  useEffect(() => {
+    if (!focusedEventSequence || events.length === 0) return
+    const entry = document.getElementById(`court-event-${focusedEventSequence}`)
+    if (!entry) return
+    if (typeof entry.scrollIntoView === 'function') {
+      entry.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    }
+    entry.focus({ preventScroll: true })
+  }, [events.length, focusedEventSequence])
 
   // 法律检索和复盘读取由专用流程编排，避免用户误触同名的底层状态机动作。
   const legalActions = useMemo(
@@ -279,6 +301,13 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, o
   const questionEvents = events.filter((item) => item.action === 'question_participant')
   const pendingRequests = requests.filter((item) => !item.resolution)
   const pendingStatements = statementTraces.filter((item) => item.new_statement && !item.review_status)
+  const pendingAgendaForUser = evidenceAgenda.filter((item) => (
+    item.phase === session.phase && item.responding_role === session.user_role && item.status === 'pending'
+  ))
+  const pendingEvidenceIds = new Set(pendingAgendaForUser.map((item) => item.evidence_id))
+  const actionEvidenceStatuses = ['challenge_evidence', 'state_no_objection'].includes(action)
+    ? evidenceStatuses.filter((item) => pendingEvidenceIds.has(item.evidence_id))
+    : evidenceStatuses
   const remainingTurns = Math.max(0, 40 - session.turns_used)
 
   const submitAction = async () => {
@@ -287,7 +316,7 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, o
       const payload: SessionActionPayload = { action }
       if (['make_statement', 'question_participant', 'challenge_evidence', 'raise_procedural_request'].includes(action)) payload.content = content.trim()
       if (action === 'question_participant') payload.target_id = targetId
-      if (action === 'submit_evidence' || action === 'challenge_evidence') payload.evidence_ids = selectedEvidence
+      if (['submit_evidence', 'challenge_evidence', 'state_no_objection', 'make_statement'].includes(action)) payload.evidence_ids = selectedEvidence
       if (action === 'challenge_evidence') payload.challenge_dimensions = challengeDimensions
       if (action === 'raise_procedural_request') {
         payload.procedural_request_type = requestType; if (targetSequence) payload.target_event_sequence = targetSequence
@@ -349,6 +378,8 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, o
                 actorRole={event.actor_role}
                 content={eventContent(event)}
                 evidenceIds={event.payload.evidence_ids}
+                eventSequence={event.sequence_number}
+                highlighted={event.sequence_number === focusedEventSequence}
                 key={event.sequence_number}
                 meta={`#${event.sequence_number} · ${phaseLabels[event.phase]}`}
               />
@@ -367,11 +398,11 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, o
 
         <aside className="workspace-panel status-panel">
           <div className="panel-tabs" role="tablist">
-            <button className={statusTab === 'evidence' ? 'active' : ''} onClick={() => setStatusTab('evidence')}>证据</button>
+            <button className={statusTab === 'evidence' ? 'active' : ''} onClick={() => setStatusTab('evidence')}>证据 {pendingAgendaForUser.length || ''}</button>
             <button className={statusTab === 'requests' ? 'active' : ''} onClick={() => setStatusTab('requests')}>请求 {pendingRequests.length || ''}</button>
             <button className={statusTab === 'statements' ? 'active' : ''} onClick={() => setStatusTab('statements')}>陈述 {pendingStatements.length || ''}</button>
           </div>
-          <StatusPanel active={statusTab} statuses={evidenceStatuses} requests={requests} traces={statementTraces} />
+          <StatusPanel active={statusTab} statuses={evidenceStatuses} agenda={evidenceAgenda} requests={requests} traces={statementTraces} />
         </aside>
       </section>
 
@@ -383,9 +414,9 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, o
           <button className="ghost-action" onClick={() => { streamController.current?.abort(); onExit() }}><ArrowLeft size={16} />退出会话</button>
         </div>
         <div className="action-form">
-          <ActionFields action={action} content={content} setContent={setContent} targetId={targetId} setTargetId={setTargetId} participants={initialCase.participants} statuses={evidenceStatuses} selectedEvidence={selectedEvidence} setSelectedEvidence={setSelectedEvidence} challengeDimensions={challengeDimensions} setChallengeDimensions={setChallengeDimensions} requestType={requestType} setRequestType={setRequestType} targetSequence={targetSequence} setTargetSequence={setTargetSequence} questionEvents={questionEvents} />
+          <ActionFields action={action} content={content} setContent={setContent} targetId={targetId} setTargetId={setTargetId} participants={initialCase.participants} statuses={actionEvidenceStatuses} selectedEvidence={selectedEvidence} setSelectedEvidence={setSelectedEvidence} challengeDimensions={challengeDimensions} setChallengeDimensions={setChallengeDimensions} requestType={requestType} setRequestType={setRequestType} targetSequence={targetSequence} setTargetSequence={setTargetSequence} questionEvents={questionEvents} />
           <div className="action-commands">
-            {session.allowed_actions.includes('complete_phase') && <button className="secondary-action" disabled={busy} onClick={() => void finishPhase()}><Check size={17} />本阶段发言完毕</button>}
+            {session.allowed_actions.includes('complete_phase') && <button className="secondary-action" disabled={busy} onClick={() => void finishPhase()}><Check size={17} />{pendingAgendaForUser.length ? `结束并暂缓 ${pendingAgendaForUser.length} 项` : '本阶段发言完毕'}</button>}
             {legalActions.length > 0 && <button className="primary-action compact" disabled={busy} onClick={() => void submitAction()}>{busy ? <LoaderCircle className="spin" size={18} /> : <Check size={18} />}{actionLabels[action]}</button>}
           </div>
         </div>
@@ -410,11 +441,16 @@ function CasePanel({ active, caseView, statuses }: { active: CaseTab; caseView: 
 }
 
 interface StatusProps {
-  active: StatusTab; statuses: EvidenceStatus[]; requests: ProceduralRequest[]; traces: StatementTrace[]
+  active: StatusTab; statuses: EvidenceStatus[]; agenda: EvidenceAgendaItem[]; requests: ProceduralRequest[]; traces: StatementTrace[]
 }
 
-function StatusPanel({ active, statuses, requests, traces }: StatusProps) {
-  if (active === 'evidence') return <div className="status-body">{statuses.map((item) => <div className="status-row" key={item.evidence_id}><span>{item.evidence_id}</span><strong>{item.title}</strong><small className={item.status}>{item.status === 'submitted' ? '已提交' : '未提交'}</small></div>)}</div>
+function StatusPanel({ active, statuses, agenda, requests, traces }: StatusProps) {
+  if (active === 'evidence') return <div className="status-body">{statuses.map((item) => {
+    const response = agenda.find((entry) => entry.evidence_id === item.evidence_id)
+    const status = response?.status ?? item.status
+    const labels: Record<string, string> = { not_submitted: '未提交', submitted: '已提交', pending: '待回应', challenged: '已质证', no_objection: '无异议', deferred: '暂缓' }
+    return <div className="status-row" key={item.evidence_id}><span>{item.evidence_id}</span><strong>{item.title}</strong><small className={status}>{labels[status] ?? status}</small></div>
+  })}</div>
   if (active === 'requests') return <div className="status-body">{requests.length === 0 ? <EmptyStatus label="暂无程序请求" /> : requests.map((item) => <div className="review-queue-item" key={item.id}><strong>{item.request_type}</strong><p>{item.content}</p><small>{item.resolution ? `已自动处理 · ${item.resolution}` : '等待系统处理'}</small></div>)}</div>
   return <div className="status-body">{traces.length === 0 ? <EmptyStatus label="暂无参与人陈述" /> : traces.map((item) => <div className="review-queue-item" key={item.id}><strong>{item.participant_id} · {item.consistency_status}</strong><p>{item.answer}</p><small>{item.review_status ?? (item.new_statement ? '等待系统审核' : item.supported_statement_ids.join('、') || '明确拒答')}</small></div>)}</div>
 }
@@ -430,7 +466,7 @@ interface ActionFieldsProps {
 
 function ActionFields(props: ActionFieldsProps) {
   const needsContent = ['make_statement', 'question_participant', 'challenge_evidence', 'raise_procedural_request'].includes(props.action)
-  const needsEvidence = ['submit_evidence', 'challenge_evidence'].includes(props.action)
+  const needsEvidence = ['submit_evidence', 'challenge_evidence', 'state_no_objection', 'make_statement'].includes(props.action)
   const evidenceOptions = props.statuses.filter((item) => props.action === 'submit_evidence' ? item.status !== 'submitted' : item.status === 'submitted')
   const toggleEvidence = (evidenceId: string) => props.setSelectedEvidence(
     props.selectedEvidence.includes(evidenceId)
@@ -458,7 +494,7 @@ function ActionFields(props: ActionFieldsProps) {
     )}
     {needsEvidence && (
       <fieldset className="evidence-picker">
-        <legend>证据 <small>已选 {props.selectedEvidence.length}</small></legend>
+        <legend>{props.action === 'make_statement' ? '证据锚点（可选）' : '证据'} <small>已选 {props.selectedEvidence.length}</small></legend>
         <div className="evidence-options">
           {evidenceOptions.map((item) => (
             <label className={props.selectedEvidence.includes(item.evidence_id) ? 'selected' : ''} key={item.evidence_id} title={item.title}>

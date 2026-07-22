@@ -152,10 +152,26 @@ async def _evaluate_procedure_case(
             )
             await _advance(unit_of_work, session_id, item.advance_count, settings)
             if item.pre_submitted_evidence_ids:
+                session_model = await unit_of_work.court_sessions.get(session_id)
+                if session_model is None:
+                    raise RuntimeError("Eval session disappeared during evidence setup")
+                submitted_by = (
+                    "prosecution"
+                    if session_model.phase == CourtPhase.PROSECUTION_EVIDENCE_AND_EXAMINATION.value
+                    else "defense"
+                )
                 unit_of_work.court_sessions.add_evidence_submissions(
                     session_id,
                     item.pre_submitted_evidence_ids,
-                    item.user_role.value,
+                    submitted_by,
+                )
+                unit_of_work.court_sessions.add_evidence_agenda_items(
+                    session_id=session_id,
+                    phase=session_model.phase,
+                    evidence_ids=item.pre_submitted_evidence_ids,
+                    submitted_by=submitted_by,
+                    responding_role="defense" if submitted_by == "prosecution" else "prosecution",
+                    submission_event_sequence=None,
                 )
             for setup in item.setup_actions:
                 await apply_session_action(unit_of_work, session_id, setup, settings)
@@ -349,6 +365,9 @@ async def _evaluate_end_to_end_case(
                 "status": final_view.status,
                 "element_count": len(review.element_findings),
                 "all_elements_cited": all(item.citations for item in review.element_findings),
+                "total_score": review.total_score,
+                "score_dimension_keys": sorted(item.key for item in review.score_dimensions),
+                "recommendation_count": len(review.recommendations),
                 "conclusion": review.conclusion,
             }
             if final_view.phase is not CourtPhase.COMPLETED or final_view.status != "completed":
@@ -359,6 +378,14 @@ async def _evaluate_end_to_end_case(
                 failures.append("LEGAL_TRACEABILITY_INCOMPLETE")
             if review.conclusion is not None:
                 failures.append("DEVELOPMENT_CONCLUSION_NOT_BLOCKED")
+            expected_score_keys = {
+                "issue_closure",
+                "legal_authority_coverage",
+                "opponent_evidence_response",
+                "priority_evidence_submission",
+            }
+            if {item.key for item in review.score_dimensions} != expected_score_keys:
+                failures.append("LEARNING_SCORE_REPORT_INCOMPLETE")
             await session.commit()
     except Exception as exc:
         failures.append(f"UNEXPECTED_{type(exc).__name__}")
@@ -372,6 +399,12 @@ async def _evaluate_end_to_end_case(
             "status": "completed",
             "element_count": 6,
             "all_elements_cited": True,
+            "score_dimension_keys": [
+                "issue_closure",
+                "legal_authority_coverage",
+                "opponent_evidence_response",
+                "priority_evidence_submission",
+            ],
             "conclusion": None,
         },
         actual=actual,

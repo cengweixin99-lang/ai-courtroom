@@ -61,6 +61,7 @@ Content-Type: application/json
 | `make_statement` | 发表陈述 | `content` |
 | `submit_evidence` | 提交证据 | `evidence_ids` |
 | `challenge_evidence` | 对已提交证据质证 | `evidence_ids`, `content` |
+| `state_no_objection` | 对已提交证据明确无异议 | `evidence_ids` |
 | `question_participant` | 询问参与人 | `target_id`, `content` |
 | `raise_procedural_request` | 提出程序性请求 | `content` |
 | `generate_legal_analysis` | 生成法律分析阶段动作 | 无 |
@@ -107,7 +108,9 @@ Agent 输出必须通过严格 Schema，并接受证据或既有陈述的可追�
 在证据正文或可靠性说明中逐字找到，而且每个事实必须在案卷关系图中连接到所引证据；
 `supported_fact` 只接受支持证据，争议事实、推断和意见可使用支持或反驳证据。证人和被告
 引用既有陈述时同样必须提供 `statement_id + quote`，且原文
-片段必须直接出现在回答中。首次格式错误
+片段必须直接出现在回答中。举证动作要求覆盖本轮明确提交的全部证据；质证动作允许 Agent
+从本轮批准范围中选择部分证据，不要求对没有发表意见的证据强行生成异议。质证事件只记录
+实际被引用的证据。首次格式错误
 时最多修复一次。成功调用会把庭审事件和 Trace 放在同一事务中提交；模型异常、修复
 失败或输出越权时返回 `502`，只保存失败 Trace，不写入庭审事件。
 
@@ -243,6 +246,10 @@ Content-Type: application/json
 `GET /api/v1/sessions/{session_id}/evidence-statuses` 返回当前角色的证据可用性、
 `not_submitted` / `submitted` 状态、提交角色和时间，不暴露无权访问的证据正文。
 
+`GET /api/v1/sessions/{session_id}/evidence-agenda` 返回逐证据回应议程。状态包括
+`pending`、`challenged`、`no_objection` 和 `deferred`。质证或无异议只能处理当前席位的
+`pending` 项；在仍有待回应项时完成阶段，会将这些项目确定性记录为 `deferred`。
+
 证据质证必须选择 `AUTHENTICITY`、`LEGALITY`、`RELEVANCE` 或 `PROBATIVE_VALUE`
 中的至少一项。问题制止请求使用 `IRRELEVANT_QUESTION`、`REPETITIVE_QUESTION` 或
 `IMPROPER_QUESTION`，并通过 `target_event_sequence` 指向已发生的发问事件。
@@ -253,6 +260,13 @@ Content-Type: application/json
   "evidence_ids": ["E03"],
   "challenge_dimensions": ["AUTHENTICITY", "PROBATIVE_VALUE"],
   "content": "门禁卡被使用不能单独证明登记人本人进入。"
+}
+```
+
+```json
+{
+  "action": "state_no_objection",
+  "evidence_ids": ["E01", "E02"]
 }
 ```
 
@@ -326,3 +340,28 @@ Content-Type: application/json
 六个冻结构成要件的状态并附引用。CASE-001 未获现实法律结论准入，因此
 `deterministic_conclusion_allowed=false` 且 `conclusion=null`。已生成报告可通过
 `GET /api/v1/sessions/{session_id}/review` 读取持久化快照。
+
+## M4.2 确定性教学评分
+
+结构化复盘同时返回 `total_score`、`score_dimensions` 和 `recommendations`。评分不调用
+LLM，而是从已持久化的证据提交、逐证据议程、法源 Trace、事实判断和构成要件状态计算：
+
+- `priority_evidence_submission`：本席位优先证据提交覆盖，权重 30%；
+- `opponent_evidence_response`：质证或明确无异议的对方证据覆盖，权重 30%；
+- `legal_authority_coverage`：冻结构成要件所需法源覆盖，权重 20%；
+- `issue_closure`：形成明确判断的构成要件比例，权重 20%，争议状态按半分计入。
+
+没有配置优先证据或没有对方证据需要回应时，该维度记为不适用并按 100 分处理，不会
+人为扣分。建议只引用当前会话已有的证据、事实和构成要件 ID，可定位未提交的优先证据、
+被暂缓的质证项以及仍未闭合的事实或要件。评分随复盘报告持久化，后续读取不会因案卷
+或评分规则调整而改变既有教学记录。
+
+## M4.3 逐发言诊断与深度点评
+
+复盘中的 `turn_diagnostics` 只使用用户发言事件的结构化字段，检查证据锚点、关联事实、
+质证维度和询问对象。前端可按 `event_sequence_number` 返回并高亮对应庭审记录。
+
+`POST /api/v1/sessions/{session_id}/review/turn-evaluation` 使用真实 OpenAI-compatible Qwen
+生成表达组织、回应质量和攻防策略点评；结果独立保存，不参与确定性总分，也不能修改庭审
+事件或法律结论。模型返回的事件、证据和事实 ID 必须属于本次允许范围，否则整份点评拒绝
+落库。已生成结果通过同路径 `GET` 读取。

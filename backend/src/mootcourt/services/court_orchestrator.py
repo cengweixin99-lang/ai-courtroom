@@ -15,6 +15,7 @@ from mootcourt.schemas.reviews import NewStatementResolution, NewStatementResolu
 from mootcourt.schemas.runtime import (
     AutoStepResponse,
     AutoStepStatus,
+    EvidenceAgendaStatus,
     ProceduralRequestResolutionRequest,
     ProceduralRequestType,
     ProceduralResolution,
@@ -266,18 +267,23 @@ async def _plan_agent_turn(
                     evidence_ids=tuple(evidence_ids),
                 )
         opposing = Role.DEFENSE if presenting is Role.PROSECUTION else Role.PROSECUTION
-        submitted_here = _phase_evidence_ids(events, phase, presenting)
-        if (
-            user_role is not opposing
-            and submitted_here
-            and not _has_action(events, phase, opposing, CourtAction.CHALLENGE_EVIDENCE)
-        ):
+        pending_agenda = await unit_of_work.court_sessions.list_evidence_agenda(
+            session.session_id,
+            phase=phase.value,
+            responding_role=opposing.value,
+            status=EvidenceAgendaStatus.PENDING.value,
+        )
+        if user_role is not opposing and pending_agenda:
             return PlannedAgentTurn(
                 AgentRole(opposing.value),
                 CourtAction.CHALLENGE_EVIDENCE,
-                evidence_ids=tuple(submitted_here),
+                # 每轮最多处理三项，剩余证据由议程状态驱动后续自动回合。
+                evidence_ids=tuple(item.evidence_id for item in pending_agenda[:3]),
                 challenge_dimensions=("AUTHENTICITY", "RELEVANCE", "PROBATIVE_VALUE"),
-                instruction="请针对本阶段已提交证据发表结构化质证意见。",
+                instruction=(
+                    "请从本阶段已提交证据中选择本方需要质证的项目，发表结构化质证意见；"
+                    "无需为了覆盖全部证据而提出无实质意义的异议。"
+                ),
             )
     elif phase is CourtPhase.WITNESS_QUESTIONING:
         unanswered = _unanswered_question(events)

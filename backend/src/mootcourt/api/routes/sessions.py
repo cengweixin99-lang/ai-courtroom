@@ -2,15 +2,18 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Path, status
 
-from mootcourt.api.dependencies import RuntimeUnitOfWork
+from mootcourt.api.dependencies import RuntimeStructuredAgentProvider, RuntimeUnitOfWork
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.schemas.reviews import (
     CourtReviewGenerateRequest,
     CourtReviewReport,
     NewStatementResolutionRequest,
     NewStatementResolutionResponse,
+    TurnQualityEvaluationGenerateRequest,
+    TurnQualityEvaluationReport,
 )
 from mootcourt.schemas.runtime import (
+    EvidenceAgendaView,
     EvidenceFactSummaryView,
     EvidenceStatusView,
     ProceduralRequestResolutionRequest,
@@ -25,7 +28,9 @@ from mootcourt.schemas.runtime import (
 from mootcourt.services.court_reviews import (
     CourtReviewServiceError,
     generate_court_review,
+    generate_turn_quality_evaluation,
     get_court_review,
+    get_turn_quality_evaluation,
     resolve_new_statement,
 )
 from mootcourt.services.court_sessions import (
@@ -34,6 +39,7 @@ from mootcourt.services.court_sessions import (
     create_court_session,
     get_evidence_fact_summary,
     get_session_view,
+    list_evidence_agenda,
     list_evidence_statuses,
     list_procedural_requests,
     list_session_events,
@@ -123,6 +129,25 @@ async def get_evidence_statuses(
 ) -> list[EvidenceStatusView]:
     """返回确定性证据状态，不暴露当前角色无权访问的证据正文。"""
     result = await list_evidence_statuses(unit_of_work, session_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail={"code": "session_not_found"})
+    return result
+
+
+@router.get(
+    "/{session_id}/evidence-agenda",
+    response_model=list[EvidenceAgendaView],
+    operation_id="list_session_evidence_agenda",
+    summary="获取逐证据质证议程",
+    response_description="逐证据待回应、已质证、无异议或暂缓状态",
+    responses={404: {"description": "庭审会话不存在"}},
+)
+async def get_evidence_agenda(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: RuntimeUnitOfWork,
+) -> list[EvidenceAgendaView]:
+    """返回当前会话的逐证据回应状态，供控制器和前端恢复中断后的议程。"""
+    result = await list_evidence_agenda(unit_of_work, session_id)
     if result is None:
         raise HTTPException(status_code=404, detail={"code": "session_not_found"})
     return result
@@ -262,6 +287,46 @@ async def get_session_court_review(
     result = await get_court_review(unit_of_work, session_id)
     if result is None:
         raise HTTPException(status_code=404, detail={"code": "court_review_not_found"})
+    return result
+
+
+@router.post(
+    "/{session_id}/review/turn-evaluation",
+    response_model=TurnQualityEvaluationReport,
+    operation_id="generate_session_turn_quality_evaluation",
+    summary="生成逐发言教学点评",
+    responses={404: {"description": "复盘不存在"}, 409: {"description": "点评已经生成"}},
+)
+async def create_turn_quality_evaluation(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    request: TurnQualityEvaluationGenerateRequest,
+    unit_of_work: RuntimeUnitOfWork,
+    provider: RuntimeStructuredAgentProvider,
+) -> TurnQualityEvaluationReport:
+    """模型点评单独保存，不能改写庭审事件、证据状态或确定性复盘。"""
+    try:
+        return await generate_turn_quality_evaluation(unit_of_work, session_id, request, provider)
+    except CourtReviewServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": exc.message}
+        ) from exc
+
+
+@router.get(
+    "/{session_id}/review/turn-evaluation",
+    response_model=TurnQualityEvaluationReport,
+    operation_id="get_session_turn_quality_evaluation",
+    summary="获取逐发言教学点评",
+    responses={404: {"description": "复盘或点评不存在"}},
+)
+async def get_session_turn_quality_evaluation(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: RuntimeUnitOfWork,
+) -> TurnQualityEvaluationReport:
+    """返回已经持久化的模型点评，不重新调用 Provider。"""
+    result = await get_turn_quality_evaluation(unit_of_work, session_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail={"code": "turn_quality_evaluation_not_found"})
     return result
 
 

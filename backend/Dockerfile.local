@@ -1,0 +1,13 @@
+# 本地镜像源不可用时，复用已验证的 API 运行时，仅更新当前应用代码。
+FROM mootcourt-lab-api:local-runtime
+
+WORKDIR /app
+
+COPY src ./src
+COPY alembic.ini ./
+COPY migrations ./migrations
+
+# 基础镜像已经包含全部运行依赖，直接加载当前源码以彻底避免访问包仓库。
+ENV PYTHONPATH=/app/src
+
+CMD ["sh", "-c", "alembic upgrade head && uvicorn mootcourt.main:app --host 0.0.0.0 --port 8000"]

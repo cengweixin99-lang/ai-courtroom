@@ -1,0 +1,40 @@
+{
+  "suite": "mootcourt_delivery_acceptance",
+  "mode": "full",
+  "generated_at": "2026-07-22T04:47:31.326269Z",
+  "api_base_url": "http://localhost:8000/api/v1",
+  "web_url": "http://localhost:5173",
+  "elasticsearch_url": "http://localhost:9200",
+  "case_id": "CASE-001",
+  "package_version": "0.2.0-dev",
+  "session_id": "a72fe441-5e9f-40a8-9e0e-bf69dd955597",
+  "final_phase": "COMPLETED",
+  "checks": [
+    {"key": "api_health", "label": "API 健康", "passed": true, "detail": "mootcourt-api is healthy", "latency_ms": 28.64419999968959},
+    {"key": "web_health", "label": "Web 健康", "passed": true, "detail": "HTTP 200", "latency_ms": 6.316900000456371},
+    {"key": "elasticsearch_health", "label": "Elasticsearch 健康", "passed": true, "detail": "cluster status green", "latency_ms": 7.079299999531941},
+    {"key": "database_revision", "label": "数据库迁移", "passed": true, "detail": "database revision 20260721_0010", "latency_ms": 15.324199999668053},
+    {"key": "case_role_isolation", "label": "案卷与角色隔离", "passed": true, "detail": "CASE-001@0.2.0-dev; role materials are isolated", "latency_ms": 48.30279999987397},
+    {"key": "legal_index", "label": "法律索引", "passed": true, "detail": "2 hits; trace 442115d2-beee-430c-b1f4-2330d0fdbcc0", "latency_ms": 76.81210000009742},
+    {"key": "session_creation", "label": "庭审会话创建", "passed": true, "detail": "session a72fe441-5e9f-40a8-9e0e-bf69dd955597; initial phase COURT_OPENING", "latency_ms": 87.64019999944139},
+    {"key": "full_courtroom", "label": "真实模型完整庭审", "passed": true, "detail": "completed with 79 events", "latency_ms": 259934.2824000005}
+  ],
+  "failures": [],
+  "artifacts": {
+    "role_material_counts": {"prosecution": 1, "defense": 1},
+    "smoke_legal_trace_id": "442115d2-beee-430c-b1f4-2330d0fdbcc0",
+    "final_phase": "COMPLETED",
+    "event_count": 79,
+    "agent_trace_count": 20,
+    "legal_trace_ids": [
+      "a01d71a4-206d-4909-9a89-89707a7a984c",
+      "7816b7cf-8928-483b-95b5-f945f6a0968e",
+      "ded3f355-6b10-402a-902c-997ca33f963a",
+      "7f40bf5a-36ac-447f-bf52-bdc2a98a9041",
+      "83432334-79c9-4521-b1f0-191ae4430eac",
+      "59d8b5df-eb33-4fe8-904e-340d5f522043"
+    ],
+    "sse_idempotency_replay_verified": true
+  },
+  "passed": true
+}

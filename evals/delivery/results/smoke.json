@@ -1,0 +1,72 @@
+{
+  "suite": "mootcourt_delivery_acceptance",
+  "mode": "smoke",
+  "generated_at": "2026-07-22T05:16:42.164306Z",
+  "api_base_url": "http://localhost:8000/api/v1",
+  "web_url": "http://localhost:5173",
+  "elasticsearch_url": "http://localhost:9200",
+  "case_id": "CASE-001",
+  "package_version": "0.2.0-dev",
+  "session_id": "9f6995e6-fc88-4e80-9535-6361b69f82f8",
+  "final_phase": "COURT_OPENING",
+  "checks": [
+    {
+      "key": "api_health",
+      "label": "API 健康",
+      "passed": true,
+      "detail": "mootcourt-api is healthy",
+      "latency_ms": 50.73649999940244
+    },
+    {
+      "key": "web_health",
+      "label": "Web 健康",
+      "passed": true,
+      "detail": "HTTP 200",
+      "latency_ms": 9.987900000851369
+    },
+    {
+      "key": "elasticsearch_health",
+      "label": "Elasticsearch 健康",
+      "passed": true,
+      "detail": "cluster status green",
+      "latency_ms": 12.05879999906756
+    },
+    {
+      "key": "database_revision",
+      "label": "数据库迁移",
+      "passed": true,
+      "detail": "database revision 20260721_0010",
+      "latency_ms": 30.50019999864162
+    },
+    {
+      "key": "case_role_isolation",
+      "label": "案卷与角色隔离",
+      "passed": true,
+      "detail": "CASE-001@0.2.0-dev; role materials are isolated",
+      "latency_ms": 205.149800000072
+    },
+    {
+      "key": "legal_index",
+      "label": "法律索引",
+      "passed": true,
+      "detail": "2 hits; trace 3e389f9f-8c51-4bd2-bbf8-b84b72db249f",
+      "latency_ms": 144.20389999941108
+    },
+    {
+      "key": "session_creation",
+      "label": "庭审会话创建",
+      "passed": true,
+      "detail": "session 9f6995e6-fc88-4e80-9535-6361b69f82f8; initial phase COURT_OPENING",
+      "latency_ms": 62.912500001402805
+    }
+  ],
+  "failures": [],
+  "artifacts": {
+    "role_material_counts": {
+      "prosecution": 1,
+      "defense": 1
+    },
+    "smoke_legal_trace_id": "3e389f9f-8c51-4bd2-bbf8-b84b72db249f"
+  },
+  "passed": true
+}

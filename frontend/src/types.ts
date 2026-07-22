@@ -22,6 +22,7 @@ export type CourtAction =
   | 'question_participant'
   | 'raise_procedural_request'
   | 'challenge_evidence'
+  | 'state_no_objection'
   | 'generate_legal_analysis'
   | 'view_review'
   | 'complete_phase'
@@ -142,6 +143,22 @@ export interface EvidenceStatus {
   submitted_at: string | null
 }
 
+export interface EvidenceAgendaItem {
+  id: number
+  session_id: string
+  phase: CourtPhase
+  evidence_id: string
+  submitted_by: UserRole
+  responding_role: UserRole
+  status: 'pending' | 'challenged' | 'no_objection' | 'deferred'
+  submission_event_sequence: number | null
+  response_event_sequence: number | null
+  response_action: CourtAction | null
+  challenge_dimensions: string[]
+  created_at: string
+  updated_at: string
+}
+
 export interface ProceduralRequest {
   id: string
   request_type: string
@@ -196,6 +213,7 @@ export interface CourtReview {
   law_as_of_date: string
   burden_of_proof: string
   standard_of_proof: string
+  user_role: UserRole | ''
   fact_findings: Array<{
     fact_id: string
     description: string
@@ -213,10 +231,63 @@ export interface CourtReview {
     contradicting_fact_ids: string[]
     citations: ReviewCitation[]
   }>
+  total_score: number
+  score_dimensions: Array<{
+    key: string
+    label: string
+    score: number
+    numerator: number
+    denominator: number
+    summary: string
+  }>
+  recommendations: Array<{
+    id: string
+    priority: 'high' | 'medium' | 'low'
+    title: string
+    detail: string
+    related_evidence_ids: string[]
+    related_fact_ids: string[]
+    related_element_ids: string[]
+  }>
+  turn_diagnostics: Array<{
+    event_sequence_number: number
+    actor_role: string
+    phase: CourtPhase
+    action: string
+    score: number
+    evidence_ids: string[]
+    fact_ids: string[]
+    checks: Array<{ key: string; label: string; passed: boolean; detail: string }>
+    recommendation: string | null
+  }>
   unresolved_issue_ids: string[]
   deterministic_conclusion_allowed: boolean
   conclusion: string | null
   disclaimer: string
+}
+
+export interface TurnQualityEvaluationReport {
+  id: string
+  review_id: string
+  session_id: string
+  provider: string
+  model: string
+  evaluations: Array<{
+    event_sequence_number: number
+    organization_score: number
+    responsiveness_score: number
+    advocacy_score: number
+    strengths: string[]
+    improvements: string[]
+    rewritten_example: string | null
+    evidence_ids: string[]
+    fact_ids: string[]
+  }>
+  input_tokens: number
+  output_tokens: number
+  estimated_cost_cny: number
+  repair_count: number
+  created_at: string
 }
 
 export interface AgentTurnPayload {

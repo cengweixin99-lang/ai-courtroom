@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, status
 
 from mootcourt.agents.factory import AgentProviderConfigurationError, build_agent_provider
-from mootcourt.agents.providers import AgentProvider
+from mootcourt.agents.providers import AgentProvider, StructuredAgentProvider
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.db.session import get_session_factory
 from mootcourt.repositories.legal_search import (
@@ -60,6 +60,9 @@ def get_agent_provider(
 
 
 RuntimeAgentProvider = Annotated[AgentProvider, Depends(get_agent_provider)]
+RuntimeStructuredAgentProvider = Annotated[
+    StructuredAgentProvider, Depends(get_agent_provider)
+]
 
 
 def get_legal_search_repository(

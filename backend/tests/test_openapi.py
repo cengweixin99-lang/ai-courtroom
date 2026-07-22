@@ -14,6 +14,10 @@ EXPECTED_OPERATIONS = {
         "get",
     ): "list_session_evidence_statuses",
     (
+        "/api/v1/sessions/{session_id}/evidence-agenda",
+        "get",
+    ): "list_session_evidence_agenda",
+    (
         "/api/v1/sessions/{session_id}/procedural-requests",
         "get",
     ): "list_session_procedural_requests",
@@ -40,6 +44,14 @@ EXPECTED_OPERATIONS = {
     ): "resolve_session_new_statement",
     ("/api/v1/sessions/{session_id}/review", "post"): "generate_session_court_review",
     ("/api/v1/sessions/{session_id}/review", "get"): "get_session_court_review",
+    (
+        "/api/v1/sessions/{session_id}/review/turn-evaluation",
+        "post",
+    ): "generate_session_turn_quality_evaluation",
+    (
+        "/api/v1/sessions/{session_id}/review/turn-evaluation",
+        "get",
+    ): "get_session_turn_quality_evaluation",
     ("/api/v1/legal/search", "post"): "search_case_law",
     ("/api/v1/legal/search-traces/{trace_id}", "get"): "get_legal_search_trace",
     ("/api/v1/legal/citations/validate", "post"): "validate_legal_citations",

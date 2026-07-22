@@ -60,6 +60,7 @@ class CourtAction(StrEnum):
     QUESTION_PARTICIPANT = "question_participant"
     RAISE_PROCEDURAL_REQUEST = "raise_procedural_request"
     CHALLENGE_EVIDENCE = "challenge_evidence"
+    STATE_NO_OBJECTION = "state_no_objection"
     GENERATE_LEGAL_ANALYSIS = "generate_legal_analysis"
     VIEW_REVIEW = "view_review"
     COMPLETE_PHASE = "complete_phase"
@@ -103,6 +104,7 @@ _LEGAL_ACTIONS: dict[CourtPhase, dict[Role, frozenset[CourtAction]]] = {
         Role.DEFENSE: frozenset(
             {
                 CourtAction.CHALLENGE_EVIDENCE,
+                CourtAction.STATE_NO_OBJECTION,
                 CourtAction.RAISE_PROCEDURAL_REQUEST,
                 CourtAction.COMPLETE_PHASE,
             }
@@ -114,6 +116,7 @@ _LEGAL_ACTIONS: dict[CourtPhase, dict[Role, frozenset[CourtAction]]] = {
         Role.PROSECUTION: frozenset(
             {
                 CourtAction.CHALLENGE_EVIDENCE,
+                CourtAction.STATE_NO_OBJECTION,
                 CourtAction.RAISE_PROCEDURAL_REQUEST,
                 CourtAction.COMPLETE_PHASE,
             }

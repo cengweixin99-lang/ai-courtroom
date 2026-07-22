@@ -13,9 +13,10 @@ vi.mock('./api', async (importOriginal) => {
     ...original,
     api: {
       listCases: vi.fn(), getCase: vi.fn(), createSession: vi.fn(), getSession: vi.fn(),
-      getEvents: vi.fn(), getEvidenceStatuses: vi.fn(), getProceduralRequests: vi.fn(),
+      getEvents: vi.fn(), getEvidenceStatuses: vi.fn(), getEvidenceAgenda: vi.fn(), getProceduralRequests: vi.fn(),
       getStatementTraces: vi.fn(), applyAction: vi.fn(), runAgent: vi.fn(), resolveRequest: vi.fn(),
       resolveStatement: vi.fn(), searchLegal: vi.fn(), createReview: vi.fn(), getReview: vi.fn(),
+      getTurnEvaluation: vi.fn(), createTurnEvaluation: vi.fn(),
       autoStep: vi.fn(), streamAutoStep: vi.fn(),
     },
   }
@@ -48,6 +49,7 @@ const session: SessionView = {
 const review: CourtReview = {
   id: 'review-001', session_id: session.session_id, jurisdiction: '中华人民共和国', law_as_of_date: '2026-06-01',
   burden_of_proof: '公诉机关承担举证责任', standard_of_proof: '事实清楚，证据确实、充分',
+  user_role: 'defense', total_score: 72,
   fact_findings: [{
     fact_id: 'F01', description: '涉案相机被取走', status: 'SUPPORTED', submitted_supporting_evidence_ids: ['E01'],
     submitted_contradicting_evidence_ids: [], appeared_statement_ids: [], challenged_evidence_ids: [],
@@ -55,6 +57,20 @@ const review: CourtReview = {
   element_findings: [{
     element_id: 'ELEM-01', description: '盗窃公私财物', status: 'SATISFIED', supporting_fact_ids: ['F01'],
     contradicting_fact_ids: [], citations: [{ source_id: 'LAW-01', instrument_title: '中华人民共和国刑法', article_number: '第二百六十四条', text: '盗窃公私财物。', official_source_url: 'http://www.npc.gov.cn/', trace_id: 'trace-001' }],
+  }],
+  score_dimensions: [{
+    key: 'priority_evidence_submission', label: '优先证据提交', score: 50, numerator: 1, denominator: 2,
+    summary: '已提交 1/2 项本席位优先证据。',
+  }],
+  recommendations: [{
+    id: 'missing-priority-evidence', priority: 'high', title: '补足本席位优先证据',
+    detail: '尚有 1 项优先证据未提交。', related_evidence_ids: ['E02'], related_fact_ids: [], related_element_ids: [],
+  }],
+  turn_diagnostics: [{
+    event_sequence_number: 12, actor_role: 'defense', phase: 'COURT_DEBATE_DEFENSE', action: 'make_statement',
+    score: 40, evidence_ids: [], fact_ids: [],
+    checks: [{ key: 'evidence_anchor', label: '绑定已提交证据', passed: false, detail: '本次陈述没有结构化证据锚点。' }],
+    recommendation: '后续陈述可勾选已经提交的证据。',
   }],
   unresolved_issue_ids: ['ISSUE-01'], deterministic_conclusion_allowed: false, conclusion: null,
   disclaimer: '本报告不构成现实裁判或法律意见。',
@@ -71,8 +87,10 @@ beforeEach(() => {
   mockedApi.getSession.mockResolvedValue(session)
   mockedApi.getEvents.mockResolvedValue([])
   mockedApi.getEvidenceStatuses.mockResolvedValue([])
+  mockedApi.getEvidenceAgenda.mockResolvedValue([])
   mockedApi.getProceduralRequests.mockResolvedValue([])
   mockedApi.getStatementTraces.mockResolvedValue([])
+  mockedApi.getTurnEvaluation.mockRejectedValue(new ApiError('turn_quality_evaluation_not_found', '不存在', 404))
   mockedApi.streamAutoStep.mockResolvedValue({
     status: 'waiting_for_user', session, event: null, message: '现在轮到你执行本方操作。', error: null,
   })
@@ -106,6 +124,9 @@ describe('App', () => {
     mockedApi.listCases.mockRejectedValueOnce(new ApiError('service_unavailable', '服务不可用', 503))
     render(<App />)
     expect(await screen.findByRole('alert')).toHaveTextContent('service_unavailable: 服务不可用')
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /重试加载/ }))
+    expect(await screen.findByRole('heading', { name: caseSummary.title })).toBeInTheDocument()
   })
 
   it('reuses the automatic-step idempotency key after an incomplete stream', async () => {
@@ -129,12 +150,66 @@ describe('App', () => {
     expect(mockedApi.streamAutoStep.mock.calls[1]?.[3]).toBe(firstKey)
   })
 
-  it('renders structured fact and element findings in the review', () => {
-    render(<ReviewPage review={review} onBack={vi.fn()} />)
+  it('allows an idempotent retry after the courtroom network disconnects', async () => {
+    const user = userEvent.setup()
+    mockedApi.streamAutoStep
+      .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+      .mockResolvedValueOnce({
+        status: 'waiting_for_user', session, event: null, message: '等待用户。', error: null,
+      })
+
+    render(<App />)
+    await user.click(await screen.findByRole('radio', { name: '辩护方' }))
+    await user.click(screen.getByRole('button', { name: /开始庭审/ }))
+    expect(await screen.findByText('请求失败，请检查 API 服务。')).toBeInTheDocument()
+    const retry = await screen.findByRole('button', { name: /重试本次 Agent/ })
+    const firstKey = mockedApi.streamAutoStep.mock.calls[0]?.[3]
+
+    await user.click(retry)
+    await waitFor(() => expect(mockedApi.streamAutoStep).toHaveBeenCalledTimes(2))
+
+    expect(mockedApi.streamAutoStep.mock.calls[1]?.[3]).toBe(firstKey)
+  })
+
+  it('renders structured findings and locates a diagnosed courtroom event', async () => {
+    const user = userEvent.setup()
+    const onBack = vi.fn()
+    render(<ReviewPage review={review} onBack={onBack} />)
     expect(screen.getByRole('heading', { name: '逐项事实判断' })).toBeInTheDocument()
     expect(screen.getByText('涉案相机被取走')).toBeInTheDocument()
     expect(screen.getByText('盗窃公私财物')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '本席位庭审评分' })).toBeInTheDocument()
+    expect(screen.getByText('补足本席位优先证据')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: '逐发言检查' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '查看庭审记录 #12' }))
+    expect(onBack).toHaveBeenCalledWith(12)
     expect(screen.getByText('本报告不输出现实裁判结论')).toBeInTheDocument()
+  })
+
+  it('highlights the diagnosed event after returning from review', async () => {
+    const user = userEvent.setup()
+    const reviewSession: SessionView = {
+      ...session, phase: 'REVIEW', allowed_actions: ['complete_phase'], updated_at: '2026-07-18T10:05:00Z',
+    }
+    const diagnosedEvent: SessionEvent = {
+      sequence_number: 12, phase: 'COURT_DEBATE_DEFENSE', actor_role: 'defense', action: 'make_statement',
+      payload: { content: '需要改进的辩护意见' }, created_at: '2026-07-18T10:04:00Z',
+    }
+    mockedApi.streamAutoStep.mockResolvedValueOnce({
+      status: 'progressed', session: reviewSession, event: null, message: '复盘已生成。', error: null,
+    })
+    mockedApi.getSession.mockResolvedValue(reviewSession)
+    mockedApi.getReview.mockResolvedValue(review)
+    mockedApi.getEvents.mockResolvedValue([diagnosedEvent])
+
+    render(<App />)
+    await user.click(await screen.findByRole('radio', { name: '辩护方' }))
+    await user.click(screen.getByRole('button', { name: /开始庭审/ }))
+    await user.click(await screen.findByRole('button', { name: '查看庭审记录 #12' }))
+
+    const entry = (await screen.findByText('需要改进的辩护意见')).closest('article')
+    expect(entry).toHaveClass('review-highlight')
+    expect(entry).toHaveAttribute('data-event-sequence', '12')
   })
 
   it('stays in the courtroom after returning from a generated review', async () => {

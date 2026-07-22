@@ -207,6 +207,10 @@ async def execute_agent_turn(
     content = _output_content(invocation.output)
     _validate_agent_request(locked.user_role, locked.status, CourtPhase(locked.phase), request)
     await _validate_payload(unit_of_work, locked.package_id, locked.id, request, content)
+    event_evidence_ids = request.evidence_ids
+    if request.action is CourtAction.CHALLENGE_EVIDENCE:
+        # 质证范围是 Agent 可选择的证据集合；庭审记录只标记实际引用并发表意见的项目。
+        event_evidence_ids = _advocate_cited_evidence_ids(invocation.output)
 
     provider_result = invocation.provider_result
     if provider_result is None:
@@ -233,6 +237,19 @@ async def execute_agent_turn(
         )
     locked.turns_used += 1
     sequence_number = await unit_of_work.court_sessions.next_event_sequence(locked.id)
+    if request.action is CourtAction.SUBMIT_EVIDENCE:
+        unit_of_work.court_sessions.add_evidence_agenda_items(
+            session_id=locked.id,
+            phase=locked.phase,
+            evidence_ids=request.evidence_ids,
+            submitted_by=request.actor_role.value,
+            responding_role=(
+                AgentRole.DEFENSE.value
+                if request.actor_role is AgentRole.PROSECUTION
+                else AgentRole.PROSECUTION.value
+            ),
+            submission_event_sequence=sequence_number,
+        )
     procedural_request = None
     if request.action is CourtAction.CHALLENGE_EVIDENCE:
         procedural_request = await unit_of_work.court_sessions.add_procedural_request(
@@ -241,7 +258,7 @@ async def execute_agent_turn(
             raised_by=request.actor_role.value,
             event_sequence_number=sequence_number,
             target_event_sequence=None,
-            evidence_ids=request.evidence_ids,
+            evidence_ids=event_evidence_ids,
             challenge_dimensions=request.challenge_dimensions,
             content=content,
             status=ProceduralRequestStatus.RECORDED_FOR_EVALUATION.value,
@@ -254,7 +271,7 @@ async def execute_agent_turn(
         action=request.action.value,
         payload={
             "target_id": request.target_id,
-            "evidence_ids": request.evidence_ids,
+            "evidence_ids": event_evidence_ids,
             "content": content,
             "resulting_phase": locked.phase,
             "agent_role": request.actor_role.value,
@@ -273,6 +290,17 @@ async def execute_agent_turn(
             "challenge_dimensions": request.challenge_dimensions,
         },
     )
+    if request.action is CourtAction.CHALLENGE_EVIDENCE:
+        agenda_rows = await unit_of_work.court_sessions.evidence_agenda_for_update(
+            locked.id, event_evidence_ids
+        )
+        await unit_of_work.court_sessions.record_evidence_agenda_response(
+            agenda_rows,
+            status="challenged",
+            response_action=request.action.value,
+            response_event_sequence=sequence_number,
+            challenge_dimensions=request.challenge_dimensions,
+        )
     if isinstance(invocation.output, (WitnessOutput, DefendantOutput)):
         if context.participant is None or request.participant_id is None:
             raise RuntimeError("validated participant output is missing participant context")
@@ -643,10 +671,7 @@ def _validate_output(context: AgentContext, output: AgentOutput) -> str | None:
             return "substantive advocate output must include structured claims"
         if cited_ids - allowed_evidence_ids:
             return "agent output cites evidence outside the current task scope"
-        if (
-            context.action in {CourtAction.SUBMIT_EVIDENCE, CourtAction.CHALLENGE_EVIDENCE}
-            and task_evidence_ids - cited_ids
-        ):
+        if context.action is CourtAction.SUBMIT_EVIDENCE and task_evidence_ids - cited_ids:
             return "agent output does not address every evidence item approved for this turn"
         normalized_speech = _normalize_grounding_text(output.speech)
         for claim in output.claims:
@@ -725,6 +750,16 @@ def _normalize_participant_output(output: AgentOutput) -> tuple[AgentOutput, boo
     if output.refused_reason is not None:
         rendered_answer += " 对超出既有陈述范围的问题，我无法回答。"
     return output.model_copy(update={"answer": rendered_answer}), True
+
+
+def _advocate_cited_evidence_ids(output: AgentOutput) -> list[str]:
+    if not isinstance(output, AdvocateOutput):
+        return []
+    return list(
+        dict.fromkeys(
+            citation.evidence_id for claim in output.claims for citation in claim.citations
+        )
+    )
 
 
 def _normalize_explicit_refusal_payload(

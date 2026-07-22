@@ -121,7 +121,7 @@ class AgentTurnRequest(StrictAgentModel):
     target_id: str | None = Field(default=None, description="动作指向的庭审参与人标识")
     evidence_ids: list[str] = Field(
         default_factory=list,
-        description="本次举证或质证动作引用的证据标识",
+        description="本次举证项目，或质证时允许 Agent 选择引用的证据范围",
     )
     challenge_dimensions: list[str] = Field(
         default_factory=list,

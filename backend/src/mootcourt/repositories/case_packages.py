@@ -26,12 +26,13 @@ class SqlAlchemyCasePackageRepository:
 
     # 查询已导入的案件包
     async def find_imported(self, case_id: str, package_version: str) -> CasePackageModel | None:
-        return await self._session.scalar(
+        result: CasePackageModel | None = await self._session.scalar(
             select(CasePackageModel).where(
                 CasePackageModel.case_id == case_id,
                 CasePackageModel.package_version == package_version,
             )
         )
+        return result
 
     # 添加案件包
     async def add(self, package: CasePackage) -> CasePackageModel:
@@ -69,7 +70,8 @@ class SqlAlchemyCasePackageRepository:
         )
         if package_version is not None:
             statement = statement.where(CasePackageModel.package_version == package_version)
-        return await self._session.scalar(statement.limit(1))
+        result: CasePackageModel | None = await self._session.scalar(statement.limit(1))
+        return result
 
     # 按数据库 ID 查询
     async def get_by_database_id(self, database_id: int) -> CasePackageModel | None:
@@ -77,7 +79,7 @@ class SqlAlchemyCasePackageRepository:
 
     async def get_runtime_package_by_database_id(self, database_id: int) -> CasePackageModel | None:
         """按会话锁定的数据库 ID 加载构造运行时上下文所需的全部关联数据。"""
-        return await self._session.scalar(
+        result: CasePackageModel | None = await self._session.scalar(
             select(CasePackageModel)
             .where(CasePackageModel.id == database_id)
             .options(
@@ -88,6 +90,7 @@ class SqlAlchemyCasePackageRepository:
                 selectinload(CasePackageModel.legal_sources),
             )
         )
+        return result
 
 
 def _build_package_model(package: CasePackage) -> CasePackageModel:

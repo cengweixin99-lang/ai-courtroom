@@ -41,6 +41,15 @@ Docker 前端通过同源 `/api/v1` 代理访问 API，浏览器无需直接跨�
 docker compose up --build
 ```
 
+如果 Docker 镜像源临时不可用，但本机已经存在可运行的 `mootcourt-lab-api:latest` 和
+`mootcourt-lab-web:latest`，可使用离线更新入口。脚本会先构建前端，再复用已验证的本地运行时镜像更新
+API/Web；不会拉取基础镜像，也不会停止 MySQL/Elasticsearch 或删除数据卷：
+
+```powershell
+.\scripts\rebuild_local.cmd
+.\scripts\accept_delivery.cmd
+```
+
 ## 本机 API 开发
 
 ```powershell
@@ -61,6 +70,21 @@ cd backend
 pytest
 ruff check .
 ```
+
+Docker 环境启动后，可执行不消耗模型额度的交付 smoke 验收：
+
+```powershell
+.\scripts\accept_delivery.cmd
+```
+
+发布前执行真实 Qwen 完整庭审验收：
+
+```powershell
+.\scripts\accept_delivery.cmd --full
+```
+
+两种模式都会在 `evals/delivery/results` 生成 JSON 和 Markdown 报告。完整模式会创建独立
+庭审会话并产生真实模型 Token 和费用；脚本不会拉取镜像、停止容器或删除数据卷。
 
 ## 目录
 
@@ -120,6 +144,10 @@ LegalProfile、强制过滤条件、候选快照、两路分数与耗时；后�
 M4 第一批已完成证据状态台账、结构化证据质证和三类问题制止请求。举证校验证据存在性、
 角色权限和重复提交；质证明确真实性、合法性、关联性或证明力维度；无关、重复和不当问题
 请求写入公开庭审记录，其中重复问题由程序确定性识别，其余保持待控制者复核。
+
+M4.2 已将教学评分接入持久化复盘：按优先证据提交、对方证据回应、必要法源覆盖和争点
+闭合四个维度计算综合分，并将遗漏定位到具体证据、事实和构成要件。评分使用确定性规则，
+不调用 LLM 主观判分；没有对应评价样本的维度按不适用处理，不会人为扣分。
 
 M5.0 已补齐本庭新增陈述审核和结构化教学复盘。新增陈述可纳入或排除庭审记录，但不会
 自动关联事实；复盘只使用公开庭审材料、已提交证据、冻结构成要件和当前案件版本的法律

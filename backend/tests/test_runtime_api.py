@@ -30,6 +30,29 @@ async def create_session_at_phase(
     return session_id, state
 
 
+async def seed_opposing_evidence(
+    session_factory: async_sessionmaker[AsyncSession],
+    session_id: str,
+    evidence_ids: list[str],
+    submitted_by: str,
+) -> None:
+    async with session_factory() as session:
+        unit_of_work = SqlAlchemyUnitOfWork(session)
+        model = await unit_of_work.court_sessions.get(session_id)
+        assert model is not None
+        responding_role = "defense" if submitted_by == "prosecution" else "prosecution"
+        unit_of_work.court_sessions.add_evidence_submissions(session_id, evidence_ids, submitted_by)
+        unit_of_work.court_sessions.add_evidence_agenda_items(
+            session_id=session_id,
+            phase=model.phase,
+            evidence_ids=evidence_ids,
+            submitted_by=submitted_by,
+            responding_role=responding_role,
+            submission_event_sequence=None,
+        )
+        await unit_of_work.commit()
+
+
 @pytest_asyncio.fixture
 async def api_client(
     session_factory: async_sessionmaker[AsyncSession],
@@ -165,6 +188,45 @@ async def test_statement_requires_content(api_client: AsyncClient) -> None:
     assert response.json()["detail"]["code"] == "content_required"
 
 
+async def test_statement_evidence_anchor_must_be_submitted_and_is_persisted(
+    api_client: AsyncClient,
+) -> None:
+    session_id, _ = await create_session_at_phase(api_client, "prosecution", 1)
+    rejected = await api_client.post(
+        f"/api/v1/sessions/{session_id}/actions",
+        json={"action": "make_statement", "content": "公诉意见", "evidence_ids": ["E03"]},
+    )
+
+    assert rejected.status_code == 409
+    assert rejected.json()["detail"]["code"] == "statement_evidence_not_submitted"
+
+    for _ in range(2):
+        await api_client.post(
+            f"/api/v1/sessions/{session_id}/actions", json={"action": "advance_phase"}
+        )
+    submitted = await api_client.post(
+        f"/api/v1/sessions/{session_id}/actions",
+        json={"action": "submit_evidence", "evidence_ids": ["E03"]},
+    )
+    assert submitted.status_code == 200
+    for _ in range(3):
+        await api_client.post(
+            f"/api/v1/sessions/{session_id}/actions", json={"action": "advance_phase"}
+        )
+
+    accepted = await api_client.post(
+        f"/api/v1/sessions/{session_id}/actions",
+        json={
+            "action": "make_statement",
+            "content": "结合证据发表公诉意见。",
+            "evidence_ids": ["E03"],
+        },
+    )
+
+    assert accepted.status_code == 200
+    assert accepted.json()["event"]["payload"]["evidence_ids"] == ["E03"]
+
+
 async def test_defense_cannot_submit_during_prosecution_evidence_phase(
     api_client: AsyncClient,
 ) -> None:
@@ -244,15 +306,12 @@ async def test_evidence_status_ledger_tracks_submission(api_client: AsyncClient)
     assert after_by_id["E03"]["submitted_at"]
 
 
-async def test_structured_evidence_challenge_is_recorded(api_client: AsyncClient) -> None:
-    session_id, _ = await create_session_at_phase(api_client, "prosecution", 3)
-    await api_client.post(
-        f"/api/v1/sessions/{session_id}/actions",
-        json={"action": "submit_evidence", "evidence_ids": ["E03"]},
-    )
-    await api_client.post(
-        f"/api/v1/sessions/{session_id}/actions", json={"action": "advance_phase"}
-    )
+async def test_structured_evidence_challenge_is_recorded(
+    api_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    session_id, _ = await create_session_at_phase(api_client, "defense", 3)
+    await seed_opposing_evidence(session_factory, session_id, ["E03"], "prosecution")
 
     response = await api_client.post(
         f"/api/v1/sessions/{session_id}/actions",
@@ -441,15 +500,10 @@ async def test_controller_resolves_question_request_and_publishes_event(
 
 async def test_resolution_is_session_scoped_and_matches_request_kind(
     api_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
 ) -> None:
-    session_id, _ = await create_session_at_phase(api_client, "prosecution", 3)
-    await api_client.post(
-        f"/api/v1/sessions/{session_id}/actions",
-        json={"action": "submit_evidence", "evidence_ids": ["E03"]},
-    )
-    await api_client.post(
-        f"/api/v1/sessions/{session_id}/actions", json={"action": "advance_phase"}
-    )
+    session_id, _ = await create_session_at_phase(api_client, "defense", 3)
+    await seed_opposing_evidence(session_factory, session_id, ["E03"], "prosecution")
     challenge = await api_client.post(
         f"/api/v1/sessions/{session_id}/actions",
         json={
@@ -589,6 +643,14 @@ async def test_structured_review_requires_verified_case_legal_traces(
     body = created.json()
     assert len(body["element_findings"]) == 6
     assert all(item["citations"] for item in body["element_findings"])
+    assert 0 <= body["total_score"] <= 100
+    assert {item["key"] for item in body["score_dimensions"]} == {
+        "priority_evidence_submission",
+        "opponent_evidence_response",
+        "legal_authority_coverage",
+        "issue_closure",
+    }
+    assert any(item["id"] == "missing-priority-evidence" for item in body["recommendations"])
     assert body["deterministic_conclusion_allowed"] is False
     assert body["conclusion"] is None
     assert "教学模拟" in body["disclaimer"]

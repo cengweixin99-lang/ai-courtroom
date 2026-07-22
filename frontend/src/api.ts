@@ -5,7 +5,9 @@ import type {
   CaseSummary,
   CaseView,
   CourtReview,
+  TurnQualityEvaluationReport,
   EvidenceStatus,
+  EvidenceAgendaItem,
   ProceduralRequest,
   SessionActionPayload,
   SessionEvent,
@@ -133,6 +135,7 @@ export const api = {
   getSession: (sessionId: string) => request<SessionView>(`/sessions/${sessionId}`),
   getEvents: (sessionId: string) => request<SessionEvent[]>(`/sessions/${sessionId}/events`),
   getEvidenceStatuses: (sessionId: string) => request<EvidenceStatus[]>(`/sessions/${sessionId}/evidence-statuses`),
+  getEvidenceAgenda: (sessionId: string) => request<EvidenceAgendaItem[]>(`/sessions/${sessionId}/evidence-agenda`),
   getProceduralRequests: (sessionId: string) => request<ProceduralRequest[]>(`/sessions/${sessionId}/procedural-requests`),
   getStatementTraces: (sessionId: string) => request<StatementTrace[]>(`/sessions/${sessionId}/participant-statement-traces`),
   applyAction: (sessionId: string, payload: SessionActionPayload) =>
@@ -163,6 +166,11 @@ export const api = {
       method: 'POST', body: JSON.stringify({ legal_search_trace_ids: traceIds }),
     }),
   getReview: (sessionId: string) => request<CourtReview>(`/sessions/${sessionId}/review`),
+  getTurnEvaluation: (sessionId: string) => request<TurnQualityEvaluationReport>(`/sessions/${sessionId}/review/turn-evaluation`),
+  createTurnEvaluation: (sessionId: string, eventSequenceNumbers: number[] = []) =>
+    request<TurnQualityEvaluationReport>(`/sessions/${sessionId}/review/turn-evaluation`, {
+      method: 'POST', body: JSON.stringify({ event_sequence_numbers: eventSequenceNumbers }),
+    }),
   autoStep: (sessionId: string) =>
     request<AutoStepResponse>(`/sessions/${sessionId}/auto-step`, { method: 'POST' }),
   streamAutoStep,

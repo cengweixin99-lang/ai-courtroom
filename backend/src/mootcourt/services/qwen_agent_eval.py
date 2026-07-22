@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from mootcourt.agents.providers import AgentProvider
 from mootcourt.core.config import Settings
-from mootcourt.domain.courtroom import CourtAction
+from mootcourt.domain.courtroom import CourtAction, CourtPhase
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.schemas.agents import AdvocateOutput, AgentTurnRequest
 from mootcourt.schemas.qwen_agent_eval import (
@@ -112,10 +112,26 @@ async def _evaluate_case(
                     settings,
                 )
             if item.pre_submitted_evidence_ids:
+                session_model = await unit_of_work.court_sessions.get(session_id)
+                if session_model is None:
+                    raise RuntimeError("Qwen Eval session disappeared during evidence setup")
+                submitted_by = (
+                    "prosecution"
+                    if session_model.phase == CourtPhase.PROSECUTION_EVIDENCE_AND_EXAMINATION.value
+                    else "defense"
+                )
                 unit_of_work.court_sessions.add_evidence_submissions(
                     session_id,
                     item.pre_submitted_evidence_ids,
-                    item.user_role.value,
+                    submitted_by,
+                )
+                unit_of_work.court_sessions.add_evidence_agenda_items(
+                    session_id=session_id,
+                    phase=session_model.phase,
+                    evidence_ids=item.pre_submitted_evidence_ids,
+                    submitted_by=submitted_by,
+                    responding_role="defense" if submitted_by == "prosecution" else "prosecution",
+                    submission_event_sequence=None,
                 )
             # 每个真实模型样例在调用前提交独立场景，失败时仍可按 session_id 复盘。
             await session.commit()
