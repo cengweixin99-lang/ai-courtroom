@@ -73,6 +73,7 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install -r backend/requirements-dev.lock
           python -m pip install --no-deps -e backend
+          python -m pip check
       - name: Prepare independent evaluation data
         working-directory: backend
         run: |

@@ -9,7 +9,7 @@ COPY alembic.ini ./
 COPY migrations ./migrations
 
 # 本地运行时镜像可能是旧版本，显式补齐 Redis 与指标依赖，保证源码升级后仍可启动。
-RUN python -m pip install --no-cache-dir "redis>=5,<6" "prometheus-client>=0.20,<1"
+RUN python -m pip install --no-cache-dir "redis>=5,<6" "prometheus-client>=0.21,<1"
 
 # 基础镜像已经包含全部运行依赖，直接加载当前源码以彻底避免访问包仓库。
 ENV PYTHONPATH=/app/src

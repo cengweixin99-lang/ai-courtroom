@@ -54,6 +54,7 @@ packaging==26.2
 pathspec==1.1.1
 pluggy==1.6.0
 propcache==0.5.2
+prometheus-client==0.25.0
 pydantic==2.13.4
 pydantic-settings==2.14.2
 pydantic_core==2.46.4
