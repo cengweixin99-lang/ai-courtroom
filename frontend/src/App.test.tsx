@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import App from './App'
 import { api, ApiError } from './api'
+import { CourtroomPage } from './components/CourtroomPage'
 import { ReviewPage } from './components/ReviewPage'
 import type { CaseSummary, CaseView, CourtReview, SessionEvent, SessionView } from './types'
 
@@ -14,7 +15,7 @@ vi.mock('./api', async (importOriginal) => {
     api: {
       listCases: vi.fn(), getCase: vi.fn(), createSession: vi.fn(), getSession: vi.fn(),
       getEvents: vi.fn(), getEvidenceStatuses: vi.fn(), getEvidenceAgenda: vi.fn(), getProceduralRequests: vi.fn(),
-      getStatementTraces: vi.fn(), applyAction: vi.fn(), runAgent: vi.fn(), resolveRequest: vi.fn(),
+      getStatementTraces: vi.fn(), getAgentUsage: vi.fn(), applyAction: vi.fn(), runAgent: vi.fn(), resolveRequest: vi.fn(),
       resolveStatement: vi.fn(), searchLegal: vi.fn(), createReview: vi.fn(), getReview: vi.fn(),
       getTurnEvaluation: vi.fn(), createTurnEvaluation: vi.fn(),
       autoStep: vi.fn(), streamAutoStep: vi.fn(),
@@ -90,6 +91,10 @@ beforeEach(() => {
   mockedApi.getEvidenceAgenda.mockResolvedValue([])
   mockedApi.getProceduralRequests.mockResolvedValue([])
   mockedApi.getStatementTraces.mockResolvedValue([])
+  mockedApi.getAgentUsage.mockResolvedValue({
+    trace_count: 2, input_tokens: 1234, output_tokens: 321, total_tokens: 1555,
+    latency_ms: 2400, estimated_cost_cny: 0,
+  })
   mockedApi.getTurnEvaluation.mockRejectedValue(new ApiError('turn_quality_evaluation_not_found', '不存在', 404))
   mockedApi.streamAutoStep.mockResolvedValue({
     status: 'waiting_for_user', session, event: null, message: '现在轮到你执行本方操作。', error: null,
@@ -118,6 +123,82 @@ describe('App', () => {
       'session-001', expect.any(Object), expect.any(AbortSignal), expect.any(String),
     )
     expect(screen.queryByRole('button', { name: '被告人陈述' })).not.toBeInTheDocument()
+  })
+
+  it('hides evidence selection for a plain statement and lets both side panels collapse', async () => {
+    const user = userEvent.setup()
+    const statementSession: SessionView = {
+      ...session,
+      phase: 'COURT_INVESTIGATION',
+      allowed_actions: ['make_statement', 'complete_phase'],
+    }
+    mockedApi.getSession.mockResolvedValue(statementSession)
+    mockedApi.getEvidenceStatuses.mockResolvedValue([{
+      evidence_id: 'E01', title: '器材资产及盘点记录', available_to_current_role: true,
+      status: 'submitted', submitted_by: 'prosecution', submitted_at: '2026-07-18T10:01:00Z',
+    }])
+
+    render(<CourtroomPage
+      initialCase={{ ...caseView, evidence: [{
+        id: 'E01', type: 'document', title: '器材资产及盘点记录', content: '盘点记录内容', source: '工作室',
+        reliability_notes: [], related_fact_ids: [], status: 'ready',
+      }] }}
+      initialSession={statementSession}
+      autoStart={false}
+      onExit={vi.fn()}
+      onReview={vi.fn()}
+    />)
+
+    const statementButton = await screen.findByRole('button', { name: '发表陈述' })
+    expect(screen.getByText('Token 用量')).toBeInTheDocument()
+    expect(screen.getByText('1.55k')).toBeInTheDocument()
+    expect(screen.getByText('入 1.23k · 出 321')).toBeInTheDocument()
+    expect(statementButton.closest('.action-dock')?.closest('.transcript')).not.toBeNull()
+    expect(screen.queryByRole('tablist', { name: '当前合法操作' })).not.toBeInTheDocument()
+    expect(screen.queryByText('本次处理的证据')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '折叠案卷' }))
+    expect(screen.getByRole('button', { name: '展开案卷' })).toBeInTheDocument()
+    expect(screen.queryByRole('navigation', { name: '案卷目录' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: '折叠庭审台账' }))
+    expect(screen.getByRole('button', { name: '展开庭审台账' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: '证据' })).not.toBeInTheDocument()
+  })
+
+  it('places the current user on the right and every other courtroom role on the left', async () => {
+    const opposingEvents: SessionEvent[] = [
+      { sequence_number: 1, phase: 'COURT_INVESTIGATION', actor_role: 'prosecution', action: 'make_statement', payload: { content: '公诉意见' }, created_at: '2026-07-18T10:01:00Z' },
+      { sequence_number: 2, phase: 'COURT_INVESTIGATION', actor_role: 'defense', action: 'make_statement', payload: { content: '辩护意见' }, created_at: '2026-07-18T10:02:00Z' },
+      { sequence_number: 3, phase: 'COURT_INVESTIGATION', actor_role: 'controller', action: 'advance_phase', payload: { content: '庭审控制记录' }, created_at: '2026-07-18T10:03:00Z' },
+    ]
+    mockedApi.getEvents.mockResolvedValue(opposingEvents)
+
+    render(<CourtroomPage initialCase={caseView} initialSession={session} autoStart={false} onExit={vi.fn()} onReview={vi.fn()} />)
+
+    expect((await screen.findByText('公诉意见')).closest('article')).toHaveClass('lane-left')
+    expect(screen.getByText('辩护意见').closest('article')).toHaveClass('lane-right')
+    expect(screen.getByText('庭审控制记录').closest('article')).toHaveClass('lane-left', 'role-controller')
+  })
+
+  it('isolates the desktop courtroom from body nodes injected by selection tools', async () => {
+    const { unmount } = render(
+      <CourtroomPage
+        initialCase={caseView}
+        initialSession={session}
+        autoStart={false}
+        onExit={vi.fn()}
+        onReview={vi.fn()}
+      />,
+    )
+
+    await screen.findByText('公开庭审记录')
+    expect(document.documentElement).toHaveClass('courtroom-active')
+    expect(document.body).toHaveClass('courtroom-active')
+
+    unmount()
+    expect(document.documentElement).not.toHaveClass('courtroom-active')
+    expect(document.body).not.toHaveClass('courtroom-active')
   })
 
   it('shows a stable API error when loading cases fails', async () => {
@@ -240,13 +321,19 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: '返回庭审' }))
 
     expect(await screen.findByText('公开庭审记录')).toBeInTheDocument()
-    expect(screen.getByText('教学复盘')).toBeInTheDocument()
+    const reopenReview = screen.getByRole('button', { name: '查看教学复盘' })
+    expect(reopenReview).toBeInTheDocument()
     await waitFor(() => expect(mockedApi.streamAutoStep).toHaveBeenCalledTimes(1))
+
+    await user.click(reopenReview)
+    expect(await screen.findByRole('heading', { name: '证据、事实与法律适用' })).toBeInTheDocument()
+    expect(mockedApi.getReview).toHaveBeenCalledTimes(1)
   })
 
   it('renders agent text before the streaming step completes', async () => {
     const user = userEvent.setup()
     let release: (() => void) | undefined
+    let emitDelta: ((text: string) => void) | undefined
     const pending = new Promise<void>((resolve) => { release = resolve })
     const completedEvent: SessionEvent = {
       sequence_number: 2,
@@ -259,6 +346,7 @@ describe('App', () => {
     mockedApi.getEvents.mockResolvedValueOnce([]).mockResolvedValueOnce([completedEvent])
     mockedApi.streamAutoStep.mockImplementationOnce(async (_sessionId, handlers) => {
       handlers.onTurnStarted?.({ actor_role: 'prosecution', participant_id: null })
+      emitDelta = (text) => handlers.onTurnDelta?.({ text })
       handlers.onTurnDelta?.({ text: '公诉方正在形成的流式陈述' })
       await pending
       return {
@@ -274,12 +362,59 @@ describe('App', () => {
     expect(streamingEntry).toHaveClass('record-entry', 'role-prosecution')
     expect(streamingEntry).not.toHaveClass('streaming-entry')
     expect(streamingEntry).toHaveAttribute('aria-busy', 'true')
+    const transcriptBody = streamingEntry?.closest('.transcript')?.querySelector('.transcript-body') as HTMLElement
+    Object.defineProperty(transcriptBody, 'scrollHeight', { configurable: true, value: 640 })
+    transcriptBody.scrollTop = 0
+    await act(async () => emitDelta?.('stream grows and wraps onto more lines'))
+    await waitFor(() => expect(transcriptBody.scrollTop).toBe(640))
+    await waitFor(() => expect(
+      sessionStorage.getItem(`mootcourt:streaming-turn:${session.session_id}`),
+    ).toContain('stream grows and wraps onto more lines'))
     expect(screen.getByText('正在发言')).toBeInTheDocument()
     release?.()
     const completedEntry = (await screen.findByText('公诉方完整陈述')).closest('article')
     expect(completedEntry).toHaveClass('record-entry', 'role-prosecution')
     expect(completedEntry).not.toHaveAttribute('aria-busy')
+    await waitFor(() => expect(
+      sessionStorage.getItem(`mootcourt:streaming-turn:${session.session_id}`),
+    ).toBeNull())
     expect(screen.queryByText('正在发言')).not.toBeInTheDocument()
+  })
+
+  it('restores the unfinished streaming bubble from session storage', async () => {
+    sessionStorage.setItem(`mootcourt:auto-step:${session.session_id}`, 'restored-step-001')
+    sessionStorage.setItem(`mootcourt:streaming-turn:${session.session_id}`, JSON.stringify({
+      actorRole: 'prosecution', participantId: null, text: 'unfinished streamed statement', status: 'receiving',
+    }))
+
+    render(<CourtroomPage
+      initialCase={caseView}
+      initialSession={session}
+      autoStart={false}
+      onExit={vi.fn()}
+      onReview={vi.fn()}
+    />)
+
+    const restored = (await screen.findByText('unfinished streamed statement')).closest('article')
+    expect(restored).toHaveAttribute('aria-busy', 'true')
+    expect(restored).toHaveClass('role-prosecution')
+  })
+
+  it('automatically reconnects a running idempotent Agent step', async () => {
+    const user = userEvent.setup()
+    mockedApi.streamAutoStep
+      .mockRejectedValueOnce(new ApiError('agent_invocation_in_progress', 'still running', 409))
+      .mockResolvedValueOnce({
+        status: 'waiting_for_user', session, event: null, message: 'waiting for user', error: null,
+      })
+
+    render(<App />)
+    await user.click(await screen.findByRole('radio', { name: '辩护方' }))
+    await user.click(screen.getByRole('button', { name: /开始庭审/ }))
+    await waitFor(() => expect(mockedApi.streamAutoStep).toHaveBeenCalledTimes(2), { timeout: 2_000 })
+
+    expect(mockedApi.streamAutoStep.mock.calls[1]?.[3]).toBe(mockedApi.streamAutoStep.mock.calls[0]?.[3])
+    expect(screen.queryByRole('button', { name: /重试本次 Agent/ })).not.toBeInTheDocument()
   })
 
   it('restores a stored session with its locked role and package version', async () => {
@@ -289,5 +424,27 @@ describe('App', () => {
 
     await screen.findByText('公开庭审记录')
     await waitFor(() => expect(mockedApi.getCase).toHaveBeenCalledWith('CASE-001', 'defense', '1.0.0'))
+  })
+
+  it('restores a generated review while respecting the last selected session view', async () => {
+    const reviewSession: SessionView = {
+      ...session,
+      phase: 'REVIEW',
+      allowed_actions: ['complete_phase'],
+    }
+    sessionStorage.setItem('mootcourt.active-session-id', reviewSession.session_id)
+    sessionStorage.setItem('mootcourt.active-session-view', 'courtroom')
+    mockedApi.getSession.mockResolvedValue(reviewSession)
+    mockedApi.getReview.mockResolvedValue(review)
+
+    const { unmount } = render(<App />)
+    expect(await screen.findByText('公开庭审记录')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: '查看教学复盘' })).toBeInTheDocument()
+    unmount()
+
+    sessionStorage.setItem('mootcourt.active-session-view', 'review')
+    render(<App />)
+    expect(await screen.findByRole('heading', { name: '证据、事实与法律适用' })).toBeInTheDocument()
+    expect(mockedApi.getReview).toHaveBeenCalledTimes(2)
   })
 })

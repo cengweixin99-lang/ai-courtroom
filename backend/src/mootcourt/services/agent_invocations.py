@@ -8,12 +8,16 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+import structlog
+
+from mootcourt.core.payload_crypto import PayloadCryptoError, decrypt_payload, encrypt_payload
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 
 _IDEMPOTENCY_KEY_PATTERN = re.compile(r"^[A-Za-z0-9._:-]+$")
 _RUNNING = "running"
 _COMPLETED = "completed"
 _ABANDONED = "abandoned"
+logger = structlog.get_logger(__name__)
 
 
 class AgentInvocationError(Exception):
@@ -44,6 +48,7 @@ async def acquire_agent_invocation(
     idempotency_key: str | None,
     request_payload: dict[str, Any],
     lease_seconds: int,
+    encryption_key: str = "",
 ) -> AgentInvocationLease:
     key = _validated_key(idempotency_key)
     fingerprint = _request_fingerprint(operation, request_payload)
@@ -63,23 +68,38 @@ async def acquire_agent_invocation(
                 "idempotency key was already used for a different request",
             )
         if existing.status == _COMPLETED:
-            if not isinstance(existing.response_payload, dict):
+            try:
+                replayed_payload = decrypt_payload(existing.response_payload, encryption_key)
+            except PayloadCryptoError as exc:
                 raise AgentInvocationError(
                     "idempotency_result_unavailable",
                     "completed idempotent request has no reusable response",
                     500,
-                )
-            return AgentInvocationLease(
+                ) from exc
+            lease = AgentInvocationLease(
                 invocation_id=existing.id,
                 idempotency_key=key,
                 operation=operation,
                 lease_token=existing.lease_token,
-                replayed_payload=existing.response_payload,
+                replayed_payload=replayed_payload,
             )
+            logger.info(
+                "agent_invocation_replayed",
+                session_id=session_id,
+                invocation_id=existing.id,
+                operation=operation,
+            )
+            return lease
 
     active_id = session.active_agent_invocation_id
     active_expires_at = _aware_utc(session.active_agent_lease_expires_at)
     if active_id is not None and active_expires_at is not None and active_expires_at > now:
+        logger.warning(
+            "agent_invocation_blocked",
+            session_id=session_id,
+            invocation_id=active_id,
+            operation=operation,
+        )
         if existing is None or active_id != existing.id:
             raise AgentInvocationError(
                 "agent_invocation_in_progress",
@@ -95,6 +115,12 @@ async def acquire_agent_invocation(
         if expired is not None and expired.status == _RUNNING:
             expired.status = _ABANDONED
             expired.error_code = "agent_invocation_lease_expired"
+            logger.warning(
+                "agent_invocation_lease_expired",
+                session_id=session_id,
+                invocation_id=expired.id,
+                operation=expired.operation,
+            )
 
     lease_token = str(uuid4())
     if existing is None:
@@ -118,12 +144,20 @@ async def acquire_agent_invocation(
     session.active_agent_invocation_id = existing.id
     session.active_agent_lease_token = lease_token
     session.active_agent_lease_expires_at = expires_at
-    return AgentInvocationLease(
+    lease = AgentInvocationLease(
         invocation_id=existing.id,
         idempotency_key=key,
         operation=operation,
         lease_token=lease_token,
     )
+    logger.info(
+        "agent_invocation_acquired",
+        session_id=session_id,
+        invocation_id=existing.id,
+        operation=operation,
+        lease_seconds=lease_seconds,
+    )
+    return lease
 
 
 async def complete_agent_invocation(
@@ -131,6 +165,7 @@ async def complete_agent_invocation(
     session_id: str,
     lease: AgentInvocationLease,
     response_payload: dict[str, Any],
+    encryption_key: str = "",
 ) -> None:
     session = await unit_of_work.court_sessions.get_for_update(session_id)
     invocation = await unit_of_work.agent_invocations.get_for_update(lease.invocation_id)
@@ -149,9 +184,15 @@ async def complete_agent_invocation(
         )
 
     invocation.status = _COMPLETED
-    invocation.response_payload = response_payload
+    invocation.response_payload = encrypt_payload(response_payload, encryption_key)
     invocation.error_code = None
     _clear_session_lease(session)
+    logger.info(
+        "agent_invocation_completed",
+        session_id=session_id,
+        invocation_id=lease.invocation_id,
+        operation=lease.operation,
+    )
 
 
 async def abandon_agent_invocation(
@@ -174,6 +215,13 @@ async def abandon_agent_invocation(
     invocation.status = _ABANDONED
     invocation.error_code = error_code
     _clear_session_lease(session)
+    logger.warning(
+        "agent_invocation_abandoned",
+        session_id=session_id,
+        invocation_id=lease.invocation_id,
+        operation=lease.operation,
+        error_code=error_code,
+    )
 
 
 def _validated_key(value: str | None) -> str:

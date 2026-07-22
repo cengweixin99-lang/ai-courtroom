@@ -4,6 +4,7 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Protocol
 
+from mootcourt.agents.citation_anchors import build_evidence_citation_anchors
 from mootcourt.domain.courtroom import CourtAction
 from mootcourt.schemas.agents import (
     AgentContext,
@@ -13,6 +14,8 @@ from mootcourt.schemas.agents import (
 )
 
 TextUpdateCallback = Callable[[str], Awaitable[None]]
+CONTROLLED_CITATION_PROTOCOL = "controlled_anchor_v1"
+LEGACY_CITATION_PROTOCOL = "legacy_quote_v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -40,7 +43,10 @@ class AgentProviderResult:
     model: str
     input_tokens: int = 0
     output_tokens: int = 0
+    estimated_input_tokens: int = 0
+    provider_request_count: int = 0
     estimated_cost_cny: float = 0
+    citation_protocol: str = LEGACY_CITATION_PROTOCOL
 
 
 class AgentProvider(Protocol):
@@ -51,7 +57,6 @@ class AgentProvider(Protocol):
     def model_name(self) -> str: ...
 
     async def generate(self, request: AgentProviderRequest) -> AgentProviderResult: ...
-
 
 
 class StructuredAgentProvider(AgentProvider, Protocol):
@@ -87,6 +92,7 @@ class FakeAgentProvider:
             output=output,
             provider=self.provider_name,
             model=self.model_name,
+            citation_protocol=CONTROLLED_CITATION_PROTOCOL,
         )
 
     async def generate_structured(self, request: StructuredProviderRequest) -> AgentProviderResult:
@@ -115,6 +121,9 @@ class FakeAgentProvider:
             for item in context.evidence
             if not task_evidence_ids or item.id in task_evidence_ids
         ]
+        anchor_by_evidence_id: dict[str, str] = {}
+        for anchor in build_evidence_citation_anchors(context):
+            anchor_by_evidence_id.setdefault(anchor.evidence_id, anchor.anchor_id)
         claims = [
             {
                 "text": f"本方依据证据 {item.id} 提出该项主张。",
@@ -129,13 +138,13 @@ class FakeAgentProvider:
                 ][:1],
                 "citations": [
                     {
-                        "evidence_id": item.id,
-                        "quote": item.content[:500],
+                        "anchor_id": anchor_by_evidence_id[item.id],
                     }
                 ],
             }
             for item in selected[: max(1, len(task_evidence_ids))]
-            if any(
+            if item.id in anchor_by_evidence_id
+            and any(
                 fact.id in item.related_fact_ids and item.id in fact.supporting_evidence_ids
                 for fact in context.facts
             )

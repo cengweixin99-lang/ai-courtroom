@@ -1,0 +1,17 @@
+{
+  "namespace": "mootcourt:load:5df639ef-9aca-4639-99ca-e40e7844622c",
+  "replica_count": 4,
+  "request_count": 64,
+  "configured_max_concurrency": 4,
+  "accepted_count": 4,
+  "rejection_codes": {
+    "agent_provider_overloaded": 60
+  },
+  "unexpected_error_count": 0,
+  "observed_max_concurrency": 4,
+  "acquire_latency_p95_ms": 6.571900004928466,
+  "acquire_latency_p99_ms": 6.571900004928466,
+  "elapsed_ms": 116.49710000347113,
+  "circuit_shared": true,
+  "passed": true
+}

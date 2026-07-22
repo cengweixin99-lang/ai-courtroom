@@ -16,7 +16,7 @@ button:disabled { cursor: not-allowed; opacity: .55; }
 a { color: inherit; }
 
 .lobby-shell { min-height: 100vh; background: #f7f8f6; }
-.brand-bar, .courtroom-header, .review-header {
+.brand-bar, .review-header {
   min-height: 68px; padding: 0 6vw; display: flex; align-items: center; justify-content: space-between;
   border-bottom: 1px solid #d9dfdc; background: rgba(255,255,255,.96);
 }
@@ -65,16 +65,11 @@ a { color: inherit; }
 .page-error { width: min(1100px, calc(100% - 40px)); margin: 24px auto; padding: 13px 16px; border-left: 3px solid #a5242f; background: #f9e9e9; color: #81232b; font-size: 14px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 
 /* 工作台使用固定视口高度，三个信息区各自滚动。 */
-.courtroom-shell { height: 100vh; min-height: 700px; display: grid; grid-template-rows: 68px minmax(0, 1fr) auto; overflow: hidden; background: #edf0ee; }
-.courtroom-header { padding: 0 28px; }
-.phase-status { display: flex; align-items: stretch; height: 68px; }
-.phase-status div { min-width: 118px; max-width: 220px; padding: 9px 18px; border-left: 1px solid #dbe0de; display: flex; flex-direction: column; justify-content: center; }
-.phase-status span { color: #78827e; font-size: 11px; }
-.phase-status strong { margin-top: 4px; color: #26332e; font-size: 13px; line-height: 1.25; overflow-wrap: anywhere; }
+.courtroom-shell { height: 100vh; min-height: 700px; display: grid; grid-template-rows: minmax(0, 1fr); overflow: hidden; background: #edf0ee; }
 .workspace { min-height: 0; display: grid; grid-template-columns: minmax(230px, 18vw) minmax(420px, 1fr) minmax(260px, 21vw); gap: 1px; background: #d7ddda; }
 .workspace-panel, .transcript { min-width: 0; min-height: 0; background: #f8f9f8; overflow: hidden; }
 .workspace-panel { display: flex; flex-direction: column; }
-.transcript { display: grid; grid-template-rows: 52px minmax(0, 1fr); }
+.transcript { display: grid; grid-template-rows: 52px minmax(0, 1fr) auto; }
 .panel-title { height: 52px; flex: 0 0 52px; padding: 0 16px; display: flex; align-items: center; gap: 9px; border-bottom: 1px solid #dfe4e1; color: #24483e; }
 .panel-title h2 { margin: 0; font-size: 14px; font-weight: 760; }
 .case-files nav { flex: 0 0 auto; padding: 8px; border-bottom: 1px solid #e0e5e2; }
@@ -169,6 +164,303 @@ a { color: inherit; }
 @keyframes spin { to { transform: rotate(360deg); } }
 @keyframes stream-blink { 50% { opacity: 0; } }
 
+/* 庭审工作台：用审判席、双方席位和中轴记录建立法庭空间，而不是后台表格感。 */
+@media (min-width: 761px) {
+  html.courtroom-active,
+  body.courtroom-active {
+    overflow: hidden;
+    overscroll-behavior: none;
+  }
+
+  body.courtroom-active .courtroom-shell {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+  }
+}
+
+.courtroom-shell {
+  background: #e8e5df;
+  grid-template-rows: minmax(0, 1fr);
+}
+
+.workspace {
+  grid-template-columns: minmax(250px, 18vw) minmax(520px, 1fr) minmax(280px, 20vw);
+  gap: 14px;
+  padding: 14px 14px 0;
+  background: #d6d2cb;
+  transition: grid-template-columns .2s ease;
+}
+.workspace.case-collapsed { grid-template-columns: 58px minmax(520px, 1fr) minmax(280px, 20vw); }
+.workspace.status-collapsed { grid-template-columns: minmax(250px, 18vw) minmax(520px, 1fr) 58px; }
+.workspace.case-collapsed.status-collapsed { grid-template-columns: 58px minmax(520px, 1fr) 58px; }
+.workspace-panel {
+  border: 1px solid #c8c4bc;
+  background: #f4f2ed;
+  box-shadow: 0 2px 8px rgba(32, 39, 36, .06);
+}
+.panel-title {
+  height: 64px;
+  flex: 0 0 64px;
+  padding-inline: 18px;
+  border-bottom-color: #d6d1c8;
+  background: #eeeae2;
+  color: #253b34;
+}
+.panel-title h2 { font-family: Georgia, "Songti SC", serif; font-size: 16px; }
+.panel-toggle {
+  width: 34px;
+  height: 34px;
+  margin-left: auto;
+  padding: 0;
+  border: 0;
+  display: inline-grid;
+  place-items: center;
+  background: transparent;
+  color: #54635e;
+}
+.panel-toggle:hover { background: #ddd8ce; color: #7f1d2b; }
+.workspace-panel.collapsed .panel-title {
+  height: 100%;
+  padding: 14px 0;
+  flex-direction: column;
+  justify-content: flex-start;
+  gap: 15px;
+  border-bottom: 0;
+}
+.workspace-panel.collapsed .panel-toggle { margin: 0; }
+.case-files nav { background: #f7f5f0; border-bottom-color: #d6d1c8; }
+.case-files nav { padding: 12px; }
+.file-item {
+  min-height: 48px;
+  padding-inline: 12px;
+  gap: 10px;
+  border-left: 3px solid transparent;
+  font-size: 14px;
+}
+.file-item.active {
+  border-left-color: #8f2632;
+  background: #e8e3da;
+  color: #61212a;
+  box-shadow: none;
+}
+.case-panel-body {
+  padding: 22px 20px 32px;
+  background: #fbfaf7;
+  font-size: 14px;
+  line-height: 1.8;
+}
+.case-panel-body h3 { margin-bottom: 14px; font-size: 17px; line-height: 1.5; }
+.case-panel-body h4 { margin-top: 24px; font-size: 13px; }
+.brief-item { padding: 17px 0; border-bottom-color: #ded9d0; }
+.brief-item p { margin-top: 8px; line-height: 1.72; }
+
+.transcript {
+  grid-template-rows: 78px minmax(0, 1fr) auto;
+  border: 1px solid #bbb6ad;
+  background: #f8f5ef;
+  box-shadow: 0 3px 15px rgba(27, 32, 30, .1);
+}
+.court-bench {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(190px, auto) minmax(420px, 1fr) auto;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  border-bottom: 2px solid #8f2632;
+  background: #283630;
+  color: #fff;
+}
+.bench-identity {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.bench-emblem {
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(214,182,106,.58);
+  color: #e0c477;
+}
+.court-bench span { color: #bfc8c4; font-size: 11px; }
+.court-bench h2 {
+  margin: 2px 0 0;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 16px;
+  font-weight: 650;
+}
+.bench-status {
+  min-width: 0;
+  height: 48px;
+  display: grid;
+  grid-template-columns: minmax(150px, 1.5fr) repeat(3, minmax(86px, 1fr));
+  align-items: stretch;
+  border-left: 1px solid rgba(255,255,255,.15);
+}
+.bench-status div {
+  min-width: 0;
+  padding: 5px 12px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border-right: 1px solid rgba(255,255,255,.15);
+}
+.bench-status span { color: #9faca6; font-family: Inter, "Microsoft YaHei", sans-serif; }
+.bench-status strong {
+  margin-top: 3px;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.bench-status .token-usage small {
+  margin-top: 1px;
+  color: #bfc8c4;
+  font-size: 9px;
+  line-height: 1.15;
+  white-space: nowrap;
+}
+.court-bench .live-status { color: #dce7e2; }
+.court-bench .live-status::before { background: #56b897; }
+.bench-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.bench-review-action {
+  height: 30px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgba(224,196,119,.55);
+  background: rgba(255,255,255,.06);
+  color: #f3e4b8;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.bench-review-action:hover { background: rgba(224,196,119,.14); }
+.transcript-body {
+  padding: 18px 18px 30px;
+  display: flex;
+  flex-direction: column;
+  background: #f8f6f1;
+}
+.record-entry {
+  width: fit-content;
+  max-width: min(82%, 780px);
+  margin-bottom: 14px;
+  padding: 10px 13px 11px;
+  border: 1px solid #d2cec6;
+  border-radius: 6px;
+  background: #fff;
+  box-shadow: 0 1px 4px rgba(34, 41, 38, .07);
+}
+.record-entry.lane-left { align-self: flex-start; }
+.record-entry.lane-right {
+  align-self: flex-end;
+  border-color: #9cb9ae;
+  background: #eaf3ef;
+}
+.record-entry.role-controller {
+  border-color: #ddc8c9;
+  border-left: 3px solid #762730;
+  background: #fbf7f6;
+  box-shadow: 0 1px 4px rgba(76, 34, 39, .08);
+}
+/* 控制器通过暗红身份徽标区分，正文保持浅色阅读面，避免大色块压迫对话区。 */
+.record-entry.role-controller .speaker > span {
+  padding: 3px 7px;
+  border-radius: 3px;
+  background: #762730;
+  color: #fffaf8;
+  font-family: Inter, "Microsoft YaHei", sans-serif;
+  font-size: 11px;
+  font-weight: 720;
+}
+.record-entry.role-controller .speaker small { color: #8b7778; }
+.record-entry.role-controller p { color: #493d3e; }
+.record-entry.role-witness, .record-entry.role-defendant { border-color: #d8c7a6; background: #fffaf0; }
+.record-entry.role-defense .speaker { color: #205443; }
+.record-entry.role-prosecution .speaker { color: #79232d; }
+.record-entry.review-highlight { margin-inline: 0; padding: 10px 13px 11px; }
+.record-entry p { margin-top: 7px; color: #38443f; font-size: 14px; line-height: 1.72; }
+.speaker { font-family: Georgia, "Songti SC", serif; font-size: 13px; }
+.speaker > span { display: inline-flex; align-items: center; gap: 6px; }
+.speaker small { font-family: Inter, "Microsoft YaHei", sans-serif; font-size: 10px; }
+.record-tags { margin-top: 9px; gap: 5px; }
+.record-tags span { padding: 2px 6px; border: 1px solid #d1c7af; background: #f5eddc; color: #68532b; font-size: 10px; }
+
+.panel-tabs {
+  height: 64px;
+  flex: 0 0 64px;
+  grid-template-columns: 44px repeat(3, minmax(0, 1fr));
+  background: #eeeae2;
+  border-bottom-color: #d6d1c8;
+}
+.panel-tabs .panel-toggle { margin: auto; }
+.panel-tabs button:not(.panel-toggle) { background: transparent; }
+.panel-tabs button:not(.panel-toggle) { font-size: 13px; }
+.panel-tabs button.active { border-bottom-color: #8f2632; color: #6f242d; }
+.status-panel.collapsed .panel-tabs { height: 100%; display: flex; justify-content: center; }
+.status-panel.collapsed .panel-toggle { margin: 12px auto auto; }
+.status-body { background: #fbfaf7; }
+.status-row, .review-queue-item { padding: 17px 16px; }
+.status-row {
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 7px 10px;
+  border-bottom-color: #ded9d0;
+  font-size: 13px;
+}
+.status-row strong { font-size: 13px; line-height: 1.5; }
+.status-row small { grid-column: 2; justify-self: start; padding: 4px 7px; }
+.review-queue-item strong { font-size: 13px; }
+.review-queue-item p { margin-block: 9px 11px; font-size: 13px; line-height: 1.7; }
+
+.action-dock {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  max-height: min(36vh, 330px);
+  padding: 9px 14px 8px;
+  display: grid;
+  grid-template-rows: auto auto auto;
+  gap: 7px;
+  overflow: auto;
+  border-top: 1px solid #8e968f;
+  background: #f7f4ee;
+  box-shadow: 0 -3px 10px rgba(30, 37, 34, .08);
+}
+.action-topline { min-height: 28px; justify-content: flex-end; }
+.action-tabs { gap: 0; border: 1px solid #c9c3b9; }
+.action-tabs { margin-right: auto; }
+.action-tabs button { min-height: 30px; padding-inline: 11px; border: 0; border-right: 1px solid #d4cec4; background: #eeeae3; font-size: 11px; }
+.action-tabs button.active { background: #273d35; color: #fff; }
+.action-topline .ghost-action { min-height: 28px; padding-inline: 6px; font-size: 11px; }
+.field-row textarea, .field-row select { border-color: #bdb7ad; background: #fffefa; }
+.field-row { gap: 9px; }
+.field-row > label, .compact-control, .evidence-picker legend { font-size: 12px; }
+.field-row textarea { min-height: 60px; max-height: 112px; padding: 9px 11px; font-size: 13px; line-height: 1.55; }
+.field-row select { min-height: 36px; padding-inline: 10px; font-size: 12px; }
+.field-row textarea:focus, .field-row select:focus { border-color: #7c2a34; }
+.evidence-options { height: 78px; gap: 1px; border-color: #bdb7ad; background: #d7d1c7; }
+.evidence-options label { min-height: 36px; padding: 6px 8px; gap: 5px; background: #fffefa; }
+.evidence-options strong, .evidence-options span { font-size: 11px; }
+.evidence-options label.selected { background: #eee4cf; color: #66262d; }
+.primary-action { border-color: #761d28; background: #922633; }
+.secondary-action { border-color: #789087; background: #e7eeea; color: #214e40; }
+.action-commands { gap: 7px; }
+.primary-action.compact, .secondary-action { min-height: 36px; padding-inline: 12px; font-size: 12px; }
+.action-message { min-height: 20px; color: #735b35; font-size: 11px; }
+
 .review-shell { min-height: 100vh; background: #f7f8f6; color: #26322e; }
 .review-header { position: sticky; top: 0; z-index: 2; padding-inline: max(24px, calc((100vw - 1120px) / 2)); }
 .review-intro, .review-section, .review-boundary { width: min(1040px, calc(100% - 40px)); margin-inline: auto; }
@@ -260,8 +552,14 @@ a { color: inherit; }
 .review-boundary p { margin: 5px 0; color: #5d625f; font-size: 13px; line-height: 1.6; }
 
 @media (max-width: 1050px) {
-  .workspace { grid-template-columns: 210px minmax(360px, 1fr) 245px; }
-  .phase-status div { min-width: 105px; padding-inline: 12px; }
+  .workspace { grid-template-columns: 220px minmax(420px, 1fr) 250px; }
+  .workspace.case-collapsed { grid-template-columns: 58px minmax(420px, 1fr) 250px; }
+  .workspace.status-collapsed { grid-template-columns: 220px minmax(420px, 1fr) 58px; }
+  .workspace.case-collapsed.status-collapsed { grid-template-columns: 58px minmax(420px, 1fr) 58px; }
+  .transcript { grid-template-rows: 104px minmax(0, 1fr) auto; }
+  .court-bench { grid-template-columns: minmax(180px, auto) 1fr auto; gap: 16px; padding-inline: 18px; }
+  .bench-status { height: 76px; grid-template-columns: 1fr 1fr; }
+  .bench-status div { padding: 6px 10px; }
   .action-form { align-items: stretch; flex-direction: column; }
   .action-commands { justify-content: flex-start; }
 }
@@ -275,21 +573,48 @@ a { color: inherit; }
   .role-controls { align-items: stretch; flex-direction: column; }
   .segment { min-width: 0; }
   .courtroom-shell { height: auto; min-height: 100vh; display: block; overflow: visible; }
-  .courtroom-header { min-height: 62px; padding-inline: 15px; position: sticky; top: 0; z-index: 4; }
-  .courtroom-header .brand span { display: none; }
-  .phase-status { height: 62px; min-width: 0; flex: 1; justify-content: flex-end; }
-  .phase-status div { min-width: 0; max-width: 50%; padding: 7px 10px; }
-  .phase-status div:nth-child(n+3) { display: none; }
-  .workspace { display: flex; flex-direction: column; min-height: auto; gap: 8px; background: #edf0ee; }
+  .workspace, .workspace.case-collapsed, .workspace.status-collapsed, .workspace.case-collapsed.status-collapsed {
+    display: flex;
+    flex-direction: column;
+    min-height: auto;
+    gap: 8px;
+    padding: 8px;
+    background: #d6d2cb;
+  }
   .workspace-panel, .transcript { overflow: visible; }
+  .workspace-panel.collapsed .panel-title { height: 52px; padding: 0 14px; flex-direction: row; justify-content: space-between; }
+  .workspace-panel.collapsed .panel-title::after { content: '案卷已折叠'; color: #77736c; font-size: 11px; }
+  .workspace-panel.collapsed .panel-toggle { margin-left: auto; }
   .case-files { max-height: 370px; }
   .case-files nav { display: grid; grid-template-columns: 1fr 1fr; }
   .case-panel-body { overflow: auto; }
-  .transcript { display: grid; grid-template-rows: 52px 420px; }
-  .transcript-body { overflow: auto; }
+  .transcript { display: grid; grid-template-rows: auto 520px auto; }
+  .court-bench {
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+    padding: 14px;
+  }
+  .bench-identity { grid-column: 1; }
+  .bench-status {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    width: 100%;
+    height: auto;
+    grid-template-columns: 1fr 1fr;
+    border-top: 1px solid rgba(255,255,255,.15);
+  }
+  .bench-status div { min-height: 42px; }
+  .bench-tools { grid-column: 2; grid-row: 1; flex-direction: column; align-items: flex-end; gap: 6px; }
+  .bench-review-action { padding-inline: 8px; }
+  .transcript-body { padding: 14px 10px 24px; overflow: auto; background: #f8f6f1; }
+  .record-entry, .record-entry.lane-left, .record-entry.lane-right, .record-entry.role-controller { max-width: 92%; }
   .status-panel { min-height: 300px; max-height: 430px; }
+  .status-panel.collapsed { min-height: 52px; max-height: 52px; }
+  .status-panel.collapsed .panel-tabs { height: 52px; display: flex; justify-content: flex-end; }
+  .status-panel.collapsed .panel-tabs::before { content: '庭审台账已折叠'; margin-right: auto; align-self: center; color: #77736c; font-size: 11px; }
+  .status-panel.collapsed .panel-toggle { margin: auto 10px auto auto; }
   .status-body { overflow: auto; }
-  .action-dock { position: relative; max-height: none; padding: 12px 14px 18px; overflow: visible; }
+  .action-dock { position: relative; max-height: none; padding: 9px 10px 12px; overflow: visible; }
   .action-topline { align-items: flex-start; }
   .ghost-action { flex: 0 0 auto; }
   .field-row { flex-direction: column; align-items: stretch; }

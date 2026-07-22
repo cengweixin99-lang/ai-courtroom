@@ -4,6 +4,7 @@ from mootcourt.main import app
 
 EXPECTED_OPERATIONS = {
     ("/api/v1/health", "get"): "health_check",
+    ("/api/v1/ready", "get"): "readiness_check",
     ("/api/v1/cases", "get"): "list_case_packages",
     ("/api/v1/cases/{case_id}", "get"): "get_role_scoped_case",
     ("/api/v1/sessions", "post"): "create_court_session",
@@ -34,6 +35,7 @@ EXPECTED_OPERATIONS = {
     ("/api/v1/sessions/{session_id}/auto-step", "post"): "run_automatic_court_step",
     ("/api/v1/sessions/{session_id}/auto-step/stream", "post"): "stream_automatic_court_step",
     ("/api/v1/sessions/{session_id}/traces", "get"): "list_agent_traces",
+    ("/api/v1/sessions/{session_id}/usage", "get"): "get_agent_usage",
     (
         "/api/v1/sessions/{session_id}/participant-statement-traces",
         "get",
@@ -95,6 +97,21 @@ def test_agent_endpoint_documents_failure_trace_response() -> None:
     )
     assert idempotency["in"] == "header"
     assert idempotency["required"] is False
+
+
+def test_diagnostic_trace_endpoints_document_authentication_header() -> None:
+    schema = app.openapi()
+    for path in (
+        "/api/v1/sessions/{session_id}/traces",
+        "/api/v1/legal/search-traces/{trace_id}",
+    ):
+        operation = schema["paths"][path]["get"]
+        parameter = next(
+            item for item in operation["parameters"] if item["name"] == "X-Diagnostics-Key"
+        )
+        assert parameter["in"] == "header"
+        assert parameter["required"] is False
+        assert "401" in operation["responses"]
 
 
 def test_action_request_fields_have_descriptions() -> None:

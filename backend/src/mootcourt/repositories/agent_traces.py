@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mootcourt.db.models import AgentTraceModel
@@ -13,6 +14,7 @@ AgentTraceRecord = AgentTraceModel
 
 @dataclass(frozen=True, slots=True)
 class SessionAgentUsage:
+    trace_count: int
     input_tokens: int
     output_tokens: int
     latency_ms: int
@@ -79,6 +81,30 @@ class SqlAlchemyAgentTraceRepository:
             )
         )
 
+    async def list_legacy(self, *, limit: int = 500) -> list[AgentTraceModel]:
+        """读取尚未采用新脱敏 schema 的历史 Trace，供维护任务分批处理。"""
+        schema_version = AgentTraceModel.request_payload["schema_version"].as_string()
+        rows = await self._session.scalars(
+            select(AgentTraceModel)
+            .where(
+                or_(
+                    schema_version.is_(None),
+                    ~schema_version.in_(
+                        ["agent-trace-redacted-v1", "agent-trace-none-v1"]
+                    ),
+                )
+            )
+            .order_by(AgentTraceModel.created_at, AgentTraceModel.id)
+            .limit(limit)
+        )
+        return list(rows)
+
+    async def delete_older_than(self, cutoff: datetime) -> int:
+        result = await self._session.execute(
+            delete(AgentTraceModel).where(AgentTraceModel.created_at < cutoff)
+        )
+        return int(getattr(result, "rowcount", 0) or 0)
+
     async def usage_for_session(
         self, session_id: str, *, lock_rows: bool = False
     ) -> SessionAgentUsage:
@@ -92,6 +118,7 @@ class SqlAlchemyAgentTraceRepository:
                 )
             )
             return SessionAgentUsage(
+                trace_count=len(rows),
                 input_tokens=sum(item.input_tokens for item in rows),
                 output_tokens=sum(item.output_tokens for item in rows),
                 latency_ms=sum(item.latency_ms for item in rows),
@@ -100,6 +127,7 @@ class SqlAlchemyAgentTraceRepository:
         row = (
             await self._session.execute(
                 select(
+                    func.count(AgentTraceModel.id).label("trace_count"),
                     func.coalesce(func.sum(AgentTraceModel.input_tokens), 0).label("input_tokens"),
                     func.coalesce(func.sum(AgentTraceModel.output_tokens), 0).label(
                         "output_tokens"
@@ -112,6 +140,7 @@ class SqlAlchemyAgentTraceRepository:
             )
         ).one()
         return SessionAgentUsage(
+            trace_count=int(row.trace_count),
             input_tokens=int(row.input_tokens),
             output_tokens=int(row.output_tokens),
             latency_ms=int(row.latency_ms),

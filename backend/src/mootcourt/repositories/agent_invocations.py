@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import cast
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mootcourt.db.models import AgentInvocationModel
@@ -64,3 +64,12 @@ class SqlAlchemyAgentInvocationRepository:
 
     async def flush(self) -> None:
         await self._session.flush()
+
+    async def delete_finished_older_than(self, cutoff: datetime) -> int:
+        result = await self._session.execute(
+            delete(AgentInvocationModel).where(
+                AgentInvocationModel.updated_at < cutoff,
+                AgentInvocationModel.status.in_(["completed", "abandoned"]),
+            )
+        )
+        return int(getattr(result, "rowcount", 0) or 0)

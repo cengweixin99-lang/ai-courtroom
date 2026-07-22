@@ -1,12 +1,19 @@
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 
 from mootcourt.agents.factory import AgentProviderConfigurationError, build_agent_provider
 from mootcourt.agents.providers import AgentProvider, StructuredAgentProvider
 from mootcourt.core.config import Settings, get_settings
-from mootcourt.db.session import get_session_factory
+from mootcourt.core.redis import get_redis_client
+from mootcourt.core.security import DIAGNOSTICS_KEY_HEADER, diagnostics_access_allowed
+from mootcourt.db.session import get_engine, get_session_factory
+from mootcourt.repositories.health import (
+    DatabaseHealthRepository,
+    ElasticsearchHealthRepository,
+    RedisHealthRepository,
+)
 from mootcourt.repositories.legal_search import (
     ElasticsearchLegalSearchRepository,
     LegalSearchRepository,
@@ -60,9 +67,58 @@ def get_agent_provider(
 
 
 RuntimeAgentProvider = Annotated[AgentProvider, Depends(get_agent_provider)]
-RuntimeStructuredAgentProvider = Annotated[
-    StructuredAgentProvider, Depends(get_agent_provider)
+RuntimeStructuredAgentProvider = Annotated[StructuredAgentProvider, Depends(get_agent_provider)]
+
+
+def get_database_health_probe() -> DatabaseHealthRepository:
+    return DatabaseHealthRepository(get_engine())
+
+
+def get_search_health_probe() -> ElasticsearchHealthRepository:
+    return ElasticsearchHealthRepository(get_elasticsearch_client())
+
+
+RuntimeDatabaseHealthProbe = Annotated[
+    DatabaseHealthRepository,
+    Depends(get_database_health_probe),
 ]
+RuntimeSearchHealthProbe = Annotated[
+    ElasticsearchHealthRepository,
+    Depends(get_search_health_probe),
+]
+
+
+def get_redis_health_probe(
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> RedisHealthRepository | None:
+    if not settings.redis_url:
+        return None
+    return RedisHealthRepository(get_redis_client(settings.redis_url))
+
+
+RuntimeRedisHealthProbe = Annotated[
+    RedisHealthRepository | None,
+    Depends(get_redis_health_probe),
+]
+
+
+def require_diagnostics_access(
+    settings: Annotated[Settings, Depends(get_settings)],
+    provided_key: Annotated[str | None, Header(alias=DIAGNOSTICS_KEY_HEADER)] = None,
+) -> None:
+    if diagnostics_access_allowed(provided_key, settings):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail={
+            "code": "diagnostics_auth_required",
+            "message": "valid diagnostics credentials are required",
+        },
+        headers={"WWW-Authenticate": "ApiKey"},
+    )
+
+
+RuntimeDiagnosticsAccess = Annotated[None, Depends(require_diagnostics_access)]
 
 
 def get_legal_search_repository(

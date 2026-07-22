@@ -54,6 +54,10 @@ class QwenAgentEvalCaseResult(StrictAgentModel):
     trace_id: str | None = None
     input_tokens: int = 0
     output_tokens: int = 0
+    estimated_input_tokens: int = 0
+    provider_request_count: int = 0
+    input_token_estimation_ratio: float | None = None
+    input_token_underestimated: bool | None = None
     estimated_cost_cny: float = 0
     latency_ms: float = Field(ge=0)
     repair_count: int = 0
@@ -79,6 +83,18 @@ class QwenAgentEvalCost(StrictAgentModel):
     normalization_rate: float
 
 
+class QwenAgentTokenCalibration(StrictAgentModel):
+    sample_count: int = Field(ge=0)
+    estimated_input_tokens: int = Field(ge=0)
+    actual_input_tokens: int = Field(ge=0)
+    weighted_estimate_to_actual_ratio: float | None = Field(default=None, ge=0)
+    mean_absolute_percentage_error: float | None = Field(default=None, ge=0)
+    underestimation_count: int = Field(ge=0)
+    underestimation_rate: float | None = Field(default=None, ge=0, le=1)
+    max_underestimation_ratio: float | None = Field(default=None, ge=0, le=1)
+    passed: bool | None
+
+
 class QwenAgentEvalReport(StrictAgentModel):
     dataset: str
     dataset_version: str
@@ -91,6 +107,7 @@ class QwenAgentEvalReport(StrictAgentModel):
     cases: list[QwenAgentEvalCaseResult]
     checks: list[QwenAgentEvalCheck]
     cost: QwenAgentEvalCost
+    token_calibration: QwenAgentTokenCalibration
     passed: bool
 
 

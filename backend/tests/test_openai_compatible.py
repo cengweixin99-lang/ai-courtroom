@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 from typing import Any
 
@@ -8,20 +9,32 @@ import pytest
 from fastapi import HTTPException
 from pydantic import SecretStr
 
+from mootcourt.agents.context_budget import ContextBudgetExceeded
 from mootcourt.agents.openai_compatible import (
     AgentProviderError,
     OpenAICompatibleProvider,
 )
-from mootcourt.agents.prompt_builder import build_agent_prompt
-from mootcourt.agents.providers import AgentProviderRequest, FakeAgentProvider
+from mootcourt.agents.prompt_builder import build_agent_prompt, estimate_agent_prompt_tokens
+from mootcourt.agents.provider_resilience import (
+    ProviderResilience,
+    ProviderResilienceError,
+    ProviderRuntimeGate,
+    RedisProviderResilience,
+)
+from mootcourt.agents.providers import (
+    CONTROLLED_CITATION_PROTOCOL,
+    AgentProviderRequest,
+    FakeAgentProvider,
+)
 from mootcourt.api.dependencies import get_agent_provider
 from mootcourt.core.config import Settings
-from mootcourt.domain.courtroom import CourtAction, CourtPhase
+from mootcourt.domain.courtroom import CourtAction, CourtPhase, Role
 from mootcourt.schemas.agents import (
     AgentCaseContext,
     AgentContext,
     AgentEvidenceContext,
     AgentFactContext,
+    AgentHistoryEvent,
     AgentParticipantContext,
     AgentRole,
     AgentTaskContext,
@@ -111,12 +124,23 @@ def test_prompt_limits_evidence_citation_schema_to_current_task() -> None:
     citation_schema = prompt.response_schema["properties"]["claims"]["items"]["properties"][
         "citations"
     ]["items"]
-    assert citation_schema["properties"]["evidence_id"]["enum"] == ["E01"]
+    assert citation_schema["required"] == ["anchor_id"]
+    assert citation_schema["properties"]["anchor_id"]["enum"] == [
+        "E01:content:1",
+        "E01:reliability-1:1",
+    ]
+    assert set(citation_schema["properties"]) == {"anchor_id"}
     fact_id_schema = prompt.response_schema["properties"]["claims"]["items"]["properties"][
         "fact_ids"
     ]["items"]
     assert fact_id_schema["enum"] == ["F01"]
     assert "本轮允许引用的证据 ID 仅为 ['E01']" in prompt.messages[0]["content"]
+    user_payload = json.loads(prompt.messages[1]["content"])
+    assert user_payload["citation_anchor_catalog"][0] == {
+        "anchor_id": "E01:content:1",
+        "evidence_id": "E01",
+        "quote": "这是可以逐字引用的测试证据原文。",
+    }
 
 
 def test_prompt_requires_participant_citation_anchors() -> None:
@@ -153,6 +177,55 @@ def test_prompt_requires_participant_citation_anchors() -> None:
     assert "披露私有上下文" in system_prompt
 
 
+def test_prompt_trims_oldest_events_to_input_token_budget() -> None:
+    context = _context().model_copy(
+        update={
+            "recent_events": [
+                AgentHistoryEvent(
+                    sequence_number=index,
+                    phase=CourtPhase.COURT_INVESTIGATION,
+                    actor_role=Role.CONTROLLER,
+                    action="instruction",
+                    content=f"history-{index}-" + ("content" * 200),
+                )
+                for index in range(1, 21)
+            ]
+        }
+    )
+    base_tokens = estimate_agent_prompt_tokens(build_agent_prompt(_context(), None, None))
+    prompt = build_agent_prompt(
+        context,
+        None,
+        None,
+        max_input_tokens=base_tokens + 100,
+    )
+
+    assert prompt.budget_report is not None
+    assert prompt.budget_report.removed_event_count > 0
+    assert prompt.budget_report.final_tokens <= base_tokens + 100
+    assert len(context.recent_events) == 20
+
+
+def test_prompt_rejects_mandatory_evidence_that_cannot_fit_budget() -> None:
+    context = _context().model_copy(
+        update={
+            "task": AgentTaskContext(target_id=None, evidence_ids=["E01"], challenge_dimensions=[]),
+            "evidence": [
+                AgentEvidenceContext(
+                    id="E01",
+                    title="mandatory",
+                    content="evidence-content" * 5_000,
+                    reliability_notes=[],
+                    related_fact_ids=[],
+                )
+            ],
+        }
+    )
+
+    with pytest.raises(ContextBudgetExceeded):
+        build_agent_prompt(context, None, None, max_input_tokens=1_000)
+
+
 async def test_provider_sends_strict_schema_and_records_usage() -> None:
     captured: dict[str, Any] = {}
 
@@ -185,7 +258,10 @@ async def test_provider_sends_strict_schema_and_records_usage() -> None:
     assert result.output == _advocate_output()
     assert result.input_tokens == 1_000
     assert result.output_tokens == 500
+    assert result.estimated_input_tokens > 0
+    assert result.provider_request_count == 1
     assert result.estimated_cost_cny == pytest.approx(0.004)
+    assert result.citation_protocol == CONTROLLED_CITATION_PROTOCOL
 
 
 async def test_provider_maps_upstream_http_error_without_request_data() -> None:
@@ -470,6 +546,8 @@ async def test_provider_regenerates_truncated_output_and_merges_usage() -> None:
     assert result.output == _advocate_output()
     assert result.input_tokens == 210
     assert result.output_tokens == 1_290
+    assert result.estimated_input_tokens > 0
+    assert result.provider_request_count == 2
 
 
 async def test_provider_rejects_truncated_output_after_recovery_is_exhausted() -> None:
@@ -505,6 +583,8 @@ async def test_provider_rejects_truncated_output_after_recovery_is_exhausted() -
     assert error.value.code == "agent_provider_incomplete"
     assert error.value.input_tokens == 200
     assert error.value.output_tokens == 2_400
+    assert error.value.estimated_input_tokens > 0
+    assert error.value.provider_request_count == 2
 
 
 async def test_provider_invalid_json_preserves_billed_usage() -> None:
@@ -728,3 +808,264 @@ async def test_qwen_provider_disables_thinking_for_structured_agent_output() -> 
 
     assert captured["payload"]["enable_thinking"] is False
     assert captured["payload"]["temperature"] == 0
+
+
+async def test_provider_concurrency_queue_rejects_second_request() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        started.set()
+        await release.wait()
+        return httpx.Response(
+            200, json={"choices": [{"message": {"content": json.dumps(_advocate_output())}}]}
+        )
+
+    resilience = ProviderResilience(
+        max_concurrency=1,
+        requests_per_second=0,
+        queue_timeout_seconds=0.01,
+        circuit_failure_threshold=5,
+        circuit_recovery_seconds=30,
+    )
+    provider = OpenAICompatibleProvider(
+        api_key="test-key",
+        model="test-model",
+        max_retries=0,
+        transport=httpx.MockTransport(handler),
+        resilience=resilience,
+    )
+    first = asyncio.create_task(
+        provider.generate(AgentProviderRequest(context=_context(), instruction=None))
+    )
+    await started.wait()
+    with pytest.raises(AgentProviderError) as error:
+        await provider.generate(AgentProviderRequest(context=_context(), instruction=None))
+    assert error.value.code == "agent_provider_overloaded"
+    release.set()
+    await first
+
+
+async def test_provider_circuit_opens_after_transient_failures() -> None:
+    calls = 0
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(503, json={"error": {"message": "unavailable"}})
+
+    resilience = ProviderResilience(
+        max_concurrency=2,
+        requests_per_second=0,
+        queue_timeout_seconds=1,
+        circuit_failure_threshold=2,
+        circuit_recovery_seconds=60,
+    )
+    provider = OpenAICompatibleProvider(
+        api_key="test-key",
+        model="test-model",
+        max_retries=0,
+        transport=httpx.MockTransport(handler),
+        resilience=resilience,
+    )
+    request = AgentProviderRequest(context=_context(), instruction=None)
+    for _ in range(2):
+        with pytest.raises(AgentProviderError):
+            await provider.generate(request)
+    with pytest.raises(AgentProviderError) as error:
+        await provider.generate(request)
+    assert error.value.code == "agent_provider_circuit_open"
+    assert calls == 2
+
+
+async def test_provider_rate_limit_rejects_when_local_queue_would_exceed_timeout() -> None:
+    resilience = ProviderResilience(
+        max_concurrency=2,
+        requests_per_second=0.1,
+        queue_timeout_seconds=0.01,
+        circuit_failure_threshold=5,
+        circuit_recovery_seconds=30,
+    )
+    await resilience.acquire()
+    await resilience.before_request()
+    resilience.release()
+    await resilience.acquire()
+    with pytest.raises(ProviderResilienceError) as error:
+        await resilience.before_request()
+    resilience.release()
+    assert error.value.code == "agent_provider_rate_limited"
+
+
+async def test_provider_rate_limit_applies_to_retry_attempts() -> None:
+    calls = 0
+
+    async def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(503, json={"error": {"message": "unavailable"}})
+
+    resilience = ProviderResilience(
+        max_concurrency=1,
+        requests_per_second=0.1,
+        queue_timeout_seconds=0.01,
+        circuit_failure_threshold=5,
+        circuit_recovery_seconds=30,
+    )
+    provider = OpenAICompatibleProvider(
+        api_key="test-key",
+        model="test-model",
+        max_retries=1,
+        retry_base_delay_seconds=0,
+        transport=httpx.MockTransport(handler),
+        resilience=resilience,
+    )
+    with pytest.raises(AgentProviderError) as error:
+        await provider.generate(AgentProviderRequest(context=_context(), instruction=None))
+    assert error.value.code == "agent_provider_rate_limited"
+    assert calls == 1
+
+
+async def test_provider_circuit_half_open_probe_recovers() -> None:
+    now = 0.0
+
+    def clock() -> float:
+        return now
+
+    resilience = ProviderResilience(
+        max_concurrency=1,
+        requests_per_second=0,
+        queue_timeout_seconds=1,
+        circuit_failure_threshold=1,
+        circuit_recovery_seconds=10,
+        clock=clock,
+    )
+    await resilience.acquire()
+    await resilience.record_failure(transient=True)
+    resilience.release()
+    with pytest.raises(ProviderResilienceError):
+        await resilience.acquire()
+    now = 11
+    await resilience.acquire()
+    await resilience.record_success()
+    resilience.release()
+    await resilience.acquire()
+    resilience.release()
+
+
+async def test_redis_resilience_uses_atomic_claim_and_releases_lease() -> None:
+    class FakeRedis:
+        def __init__(self) -> None:
+            self.calls: list[tuple[object, ...]] = []
+
+        async def eval(self, *args: object) -> int:
+            self.calls.append(args)
+            return 1
+
+        async def zrem(self, *_: object) -> int:
+            return 1
+
+    redis = FakeRedis()
+    resilience = RedisProviderResilience(
+        redis,
+        namespace="test:provider",
+        max_concurrency=1,
+        requests_per_second=0,
+        queue_timeout_seconds=1,
+        circuit_failure_threshold=2,
+        circuit_recovery_seconds=10,
+    )
+    await resilience.acquire()
+    await resilience.release_async()
+    assert len(redis.calls) == 1
+    assert redis.calls[0][1] == 3
+
+
+async def test_redis_resilience_fails_closed_when_store_is_unavailable() -> None:
+    class BrokenRedis:
+        async def eval(self, *_: object) -> int:
+            raise OSError("redis down")
+
+    resilience = RedisProviderResilience(
+        BrokenRedis(),
+        namespace="test:provider",
+        max_concurrency=1,
+        requests_per_second=0,
+        queue_timeout_seconds=1,
+        circuit_failure_threshold=2,
+        circuit_recovery_seconds=10,
+    )
+    with pytest.raises(ProviderResilienceError) as error:
+        await resilience.acquire()
+    assert error.value.code == "agent_provider_guard_unavailable"
+
+
+async def test_redis_resilience_records_rate_and_circuit_state() -> None:
+    class FakeRedis:
+        def __init__(self) -> None:
+            self.failures = 0
+            self.values: dict[str, object] = {}
+
+        async def eval(self, _script: str, key_count: int, *_: object) -> int:
+            return 1 if key_count == 3 else 0
+
+        async def exists(self, key: str) -> bool:
+            return key in self.values
+
+        async def incr(self, _key: str) -> int:
+            self.failures += 1
+            return self.failures
+
+        async def pexpire(self, *_: object) -> bool:
+            return True
+
+        async def set(self, key: str, value: object, **_: object) -> bool:
+            self.values[key] = value
+            return True
+
+        async def delete(self, *keys: str) -> int:
+            for key in keys:
+                self.values.pop(key, None)
+            return len(keys)
+
+        async def zrem(self, *_: object) -> int:
+            return 1
+
+    redis = FakeRedis()
+    resilience = RedisProviderResilience(
+        redis,
+        namespace="test:provider-state",
+        max_concurrency=1,
+        requests_per_second=10,
+        queue_timeout_seconds=1,
+        circuit_failure_threshold=2,
+        circuit_recovery_seconds=10,
+    )
+    await resilience.acquire()
+    await resilience.before_request()
+    await resilience.record_failure(transient=True)
+    await resilience.record_failure(transient=True)
+    assert any(key.endswith("open-until") for key in redis.values)
+    await resilience.record_success()
+    await resilience.release_async()
+
+
+async def test_runtime_gate_drains_active_calls_and_rejects_new_work() -> None:
+    gate = ProviderRuntimeGate()
+    await gate.enter()
+    drain = asyncio.create_task(gate.drain(1))
+    await asyncio.sleep(0)
+    with pytest.raises(ProviderResilienceError) as error:
+        await gate.enter()
+    assert error.value.code == "agent_provider_draining"
+    await gate.leave()
+    assert await drain is True
+    await gate.resume()
+    await gate.enter()
+    await gate.leave()
+
+
+async def test_runtime_gate_reports_drain_timeout() -> None:
+    gate = ProviderRuntimeGate()
+    await gate.enter()
+    assert await gate.drain(0.001) is False
+    await gate.leave()

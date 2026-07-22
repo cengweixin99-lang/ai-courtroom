@@ -7,6 +7,8 @@ import { ReviewPage } from './components/ReviewPage'
 import type { CaseSummary, CaseView, CourtReview, SessionView, UserRole } from './types'
 
 const SESSION_STORAGE_KEY = 'mootcourt.active-session-id'
+const SESSION_VIEW_STORAGE_KEY = 'mootcourt.active-session-view'
+type SessionViewMode = 'courtroom' | 'review'
 
 function errorMessage(caught: unknown): string {
   if (caught instanceof ApiError) return `${caught.code}: ${caught.message}`
@@ -18,6 +20,7 @@ export default function App() {
   const [caseView, setCaseView] = useState<CaseView | null>(null)
   const [session, setSession] = useState<SessionView | null>(null)
   const [review, setReview] = useState<CourtReview | null>(null)
+  const [sessionViewMode, setSessionViewMode] = useState<SessionViewMode>('courtroom')
   const [focusedEventSequence, setFocusedEventSequence] = useState<number | null>(null)
   const [autoStartCourtroom, setAutoStartCourtroom] = useState(true)
   const [loading, setLoading] = useState(true)
@@ -43,9 +46,23 @@ export default function App() {
           restoredSession.user_role,
           restoredSession.package_version,
         )
+        let restoredReview: CourtReview | null = null
+        if (restoredSession.phase === 'REVIEW' || restoredSession.phase === 'COMPLETED') {
+          try {
+            restoredReview = await api.getReview(restoredSession.session_id)
+          } catch (caught) {
+            // 复盘阶段可能正在生成报告；404 时仍允许先恢复庭审记录。
+            if (!(caught instanceof ApiError) || caught.status !== 404) throw caught
+          }
+        }
         if (!active) return
         setSession(restoredSession)
         setCaseView(restoredCase)
+        setReview(restoredReview)
+        const storedView = sessionStorage.getItem(SESSION_VIEW_STORAGE_KEY)
+        setSessionViewMode(
+          restoredReview && storedView !== 'courtroom' ? 'review' : 'courtroom',
+        )
       } catch (caught) {
         sessionStorage.removeItem(SESSION_STORAGE_KEY)
         if (active) setError(errorMessage(caught))
@@ -67,8 +84,11 @@ export default function App() {
         api.createSession(selectedCase.case_id, role, selectedCase.package_version),
       ])
       sessionStorage.setItem(SESSION_STORAGE_KEY, nextSession.session_id)
+      sessionStorage.setItem(SESSION_VIEW_STORAGE_KEY, 'courtroom')
       setAutoStartCourtroom(true)
       setFocusedEventSequence(null)
+      setReview(null)
+      setSessionViewMode('courtroom')
       setCaseView(nextCase)
       setSession(nextSession)
     } catch (caught) {
@@ -80,7 +100,9 @@ export default function App() {
 
   const exitSession = () => {
     sessionStorage.removeItem(SESSION_STORAGE_KEY)
+    sessionStorage.removeItem(SESSION_VIEW_STORAGE_KEY)
     setReview(null)
+    setSessionViewMode('courtroom')
     setFocusedEventSequence(null)
     setAutoStartCourtroom(true)
     setSession(null)
@@ -88,12 +110,19 @@ export default function App() {
     setError(null)
   }
 
-  if (review) {
+  const openReview = (nextReview: CourtReview) => {
+    setReview(nextReview)
+    setSessionViewMode('review')
+    sessionStorage.setItem(SESSION_VIEW_STORAGE_KEY, 'review')
+  }
+
+  if (review && sessionViewMode === 'review') {
     return <ReviewPage review={review} onBack={(eventSequence) => {
       // 用户明确返回庭审时禁止重新执行自动编排，否则 REVIEW 状态会立即再次打开复盘。
       setAutoStartCourtroom(false)
       setFocusedEventSequence(eventSequence ?? null)
-      setReview(null)
+      setSessionViewMode('courtroom')
+      sessionStorage.setItem(SESSION_VIEW_STORAGE_KEY, 'courtroom')
     }} />
   }
   if (session && caseView) {
@@ -103,7 +132,13 @@ export default function App() {
       autoStart={autoStartCourtroom}
       focusedEventSequence={focusedEventSequence}
       onExit={exitSession}
-      onReview={setReview}
+      onReview={openReview}
+      reviewAvailable={review !== null}
+      onOpenReview={() => {
+        setFocusedEventSequence(null)
+        setSessionViewMode('review')
+        sessionStorage.setItem(SESSION_VIEW_STORAGE_KEY, 'review')
+      }}
     />
   }
   return <CaseLobby

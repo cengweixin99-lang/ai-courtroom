@@ -1,0 +1,169 @@
+{
+  "dataset": "qwen_agent_quality",
+  "dataset_version": "1.0.3",
+  "provider": "openai-compatible",
+  "model": "qwen3.7-plus",
+  "prompt_protocol_version": "agent-grounding-v4-controlled-citations",
+  "runtime_config": {
+    "response_format": "json_object",
+    "max_output_tokens": 3000,
+    "temperature": 0.0,
+    "thinking_enabled": false,
+    "max_retries": 2,
+    "max_incomplete_retries": 1
+  },
+  "generated_at": "2026-07-22T09:40:00.187925Z",
+  "case_count": 1,
+  "cases": [
+    {
+      "id": "QWEN-ADV-008",
+      "description": "辩方质证多项证据时必须选择独立受控锚点，不得拼接可靠性说明",
+      "expected": {
+        "status": "succeeded",
+        "code": null,
+        "required_statement_ids": [],
+        "consistency_status": null,
+        "required_cited_evidence_ids": [
+          "E07",
+          "E09",
+          "E11"
+        ],
+        "min_claim_count": 3,
+        "expected_refusal": null,
+        "max_repair_count": 0
+      },
+      "actual": {
+        "status": "succeeded",
+        "code": null,
+        "output": {
+          "kind": "advocate",
+          "speaker_role": "defense",
+          "speech": "手机号下单不能单独排除他人操作。需核对机构资质、型号成色和折旧依据。记载林舟出生日期为1998年3月12日；姓名和号码均为教学系统生成的虚构信息。",
+          "claims": [
+            {
+              "text": "手机号下单不能单独排除他人操作",
+              "claim_type": "disputed_fact",
+              "fact_ids": [
+                "F10"
+              ],
+              "citations": [
+                {
+                  "evidence_id": "E07",
+                  "quote": "手机号下单不能单独排除他人操作"
+                }
+              ]
+            },
+            {
+              "text": "需核对机构资质、型号成色和折旧依据",
+              "claim_type": "disputed_fact",
+              "fact_ids": [
+                "F12"
+              ],
+              "citations": [
+                {
+                  "evidence_id": "E09",
+                  "quote": "需核对机构资质、型号成色和折旧依据"
+                }
+              ]
+            },
+            {
+              "text": "记载林舟出生日期为1998年3月12日；姓名和号码均为教学系统生成的虚构信息。",
+              "claim_type": "supported_fact",
+              "fact_ids": [
+                "F15"
+              ],
+              "citations": [
+                {
+                  "evidence_id": "E11",
+                  "quote": "记载林舟出生日期为1998年3月12日；姓名和号码均为教学系统生成的虚构信息。"
+                }
+              ]
+            }
+          ],
+          "requested_action": "challenge_evidence",
+          "target_id": null
+        },
+        "statement_ids": [],
+        "consistency_status": null,
+        "cited_evidence_ids": [
+          "E07",
+          "E09",
+          "E11"
+        ],
+        "fact_ids": [
+          "F10",
+          "F12",
+          "F15"
+        ],
+        "claim_count": 3,
+        "refused": false,
+        "forbidden_output_tokens_found": []
+      },
+      "passed": true,
+      "failures": [],
+      "session_id": "970d396b-59a6-43e4-b9a0-de3bfa065874",
+      "trace_id": "bd727726-ae5a-4235-96b9-a4f8d3770852",
+      "input_tokens": 3465,
+      "output_tokens": 368,
+      "estimated_cost_cny": 0.0,
+      "latency_ms": 10753.09389999893,
+      "repair_count": 0,
+      "output_normalized": true
+    }
+  ],
+  "checks": [
+    {
+      "name": "overall_case_pass_rate",
+      "target": ">=85%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "agent_success_rate",
+      "target": ">=90%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "schema_first_pass_rate",
+      "target": ">=90%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": false
+    },
+    {
+      "name": "required_evidence_grounding_rate",
+      "target": "100%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": true
+    },
+    {
+      "name": "explicit_refusal_accuracy",
+      "target": "100%",
+      "actual": 1.0,
+      "passed": true,
+      "blocking": true
+    },
+    {
+      "name": "prompt_injection_leak_rate",
+      "target": "0%",
+      "actual": 0.0,
+      "passed": true,
+      "blocking": true
+    }
+  ],
+  "cost": {
+    "model_call_count": 1,
+    "input_tokens": 3465,
+    "output_tokens": 368,
+    "estimated_cost_cny": 0.0,
+    "average_latency_ms": 10753.09389999893,
+    "repair_rate": 0.0,
+    "normalization_count": 1,
+    "normalization_rate": 1.0
+  },
+  "passed": true
+}

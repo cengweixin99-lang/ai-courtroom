@@ -7,10 +7,13 @@ from pathlib import Path
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from pydantic import SecretStr
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from sse_starlette.sse import AppStatus
 
 from mootcourt.agents.openai_compatible import AgentProviderError
 from mootcourt.agents.providers import (
+    CONTROLLED_CITATION_PROTOCOL,
     AgentProviderRequest,
     AgentProviderResult,
     FakeAgentProvider,
@@ -36,11 +39,7 @@ def test_participant_normalization_keeps_auditable_partial_refusal() -> None:
     output = WitnessOutput(
         answer="我只能回答其中一部分。",
         supported_by_statement_ids=["W01-S01"],
-        citations=[
-            AgentStatementCitation(
-                statement_id="W01-S01", quote="我看见被告人离开现场"
-            )
-        ],
+        citations=[AgentStatementCitation(statement_id="W01-S01", quote="我看见被告人离开现场")],
         certainty=Certainty.MEDIUM,
         refused_reason="其余问题超出既有陈述范围",
     )
@@ -72,6 +71,11 @@ class BlockingFakeProvider(FakeAgentProvider):
         self.started.set()
         await self.release.wait()
         return await super().generate(request)
+
+
+class CancelledFakeProvider(FakeAgentProvider):
+    async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        raise asyncio.CancelledError
 
 
 class InvalidOutputProvider:
@@ -224,6 +228,124 @@ class UnverifiedEvidenceQuoteProvider:
             },
             provider=self.provider_name,
             model=self.model_name,
+        )
+
+
+class AnchoredEvidenceProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    @property
+    def provider_name(self) -> str:
+        return "anchored-evidence-test"
+
+    @property
+    def model_name(self) -> str:
+        return "anchored-evidence"
+
+    async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        self.calls += 1
+        claim_text = "本方依据受控证据锚点提出主张。"
+        return AgentProviderResult(
+            output={
+                "kind": "advocate",
+                "speaker_role": request.context.actor_role.value,
+                "speech": claim_text,
+                "claims": [
+                    {
+                        "text": claim_text,
+                        "claim_type": "supported_fact",
+                        "fact_ids": ["F01"],
+                        "citations": [{"anchor_id": "E01:content:1"}],
+                    }
+                ],
+                "requested_action": request.context.action.value,
+                "target_id": None,
+            },
+            provider=self.provider_name,
+            model=self.model_name,
+        )
+
+
+class JoinedEvidenceNotesProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    @property
+    def provider_name(self) -> str:
+        return "joined-evidence-notes-test"
+
+    @property
+    def model_name(self) -> str:
+        return "joined-evidence-notes"
+
+    async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        self.calls += 1
+        claim_text = "手机号下单不能单独排除他人操作，寄存柜开启程序也需要核对。"
+        return AgentProviderResult(
+            output={
+                "kind": "advocate",
+                "speaker_role": request.context.actor_role.value,
+                "speech": claim_text,
+                "claims": [
+                    {
+                        "text": claim_text,
+                        "claim_type": "disputed_fact",
+                        "fact_ids": ["F10"],
+                        "citations": [
+                            {
+                                "evidence_id": "E07",
+                                "quote": (
+                                    "需核对开启程序、见证人和连续保管情况\n"
+                                    "手机号下单不能单独排除他人操作"
+                                ),
+                            }
+                        ],
+                    }
+                ],
+                "requested_action": request.context.action.value,
+                "target_id": None,
+            },
+            provider=self.provider_name,
+            model=self.model_name,
+        )
+
+
+class ControlledLegacyQuoteProvider:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    @property
+    def provider_name(self) -> str:
+        return "controlled-legacy-quote-test"
+
+    @property
+    def model_name(self) -> str:
+        return "controlled-legacy-quote"
+
+    async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        self.calls += 1
+        evidence = next(item for item in request.context.evidence if item.id == "E01")
+        claim_text = "该输出错误地绕过受控锚点直接填写引文。"
+        return AgentProviderResult(
+            output={
+                "kind": "advocate",
+                "speaker_role": request.context.actor_role.value,
+                "speech": claim_text,
+                "claims": [
+                    {
+                        "text": claim_text,
+                        "claim_type": "supported_fact",
+                        "fact_ids": ["F01"],
+                        "citations": [{"evidence_id": "E01", "quote": evidence.content}],
+                    }
+                ],
+                "requested_action": request.context.action.value,
+                "target_id": None,
+            },
+            provider=self.provider_name,
+            model=self.model_name,
+            citation_protocol=CONTROLLED_CITATION_PROTOCOL,
         )
 
 
@@ -759,6 +881,32 @@ async def test_stream_auto_step_emits_temporary_text_before_committed_event(
     assert events.json()[-1]["actor_role"] == "prosecution"
 
 
+async def test_cancelled_stream_releases_lease_for_same_idempotency_key(
+    agent_api_client: AsyncClient,
+) -> None:
+    # sse-starlette 的退出事件绑定创建它的 event loop，测试隔离时需要重置。
+    AppStatus.should_exit_event = None
+    _use_provider(CancelledFakeProvider())
+    session_id = await _create_session(agent_api_client, user_role="defense")
+    await agent_api_client.post(f"/api/v1/sessions/{session_id}/auto-step")
+    headers = {"Idempotency-Key": "cancelled-stream-retry-001"}
+
+    interrupted = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/auto-step/stream", headers=headers
+    )
+
+    assert interrupted.status_code == 200
+    assert "stream_client_disconnected" in interrupted.text
+
+    _use_provider(FakeAgentProvider())
+    recovered = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/auto-step/stream", headers=headers
+    )
+
+    assert recovered.status_code == 200
+    assert "event: step.completed" in recovered.text
+
+
 async def test_witness_context_excludes_private_and_forbidden_material(
     agent_api_client: AsyncClient,
 ) -> None:
@@ -991,6 +1139,79 @@ async def test_auto_evidence_challenge_runs_in_pending_batches(
     assert {item["status"] for item in agenda.json()} == {"challenged"}
 
 
+async def test_agent_anchor_is_materialized_to_authoritative_evidence_quote(
+    agent_api_client: AsyncClient,
+) -> None:
+    provider = AnchoredEvidenceProvider()
+    _use_provider(provider)
+    session_id = await _create_session(agent_api_client)
+    await _advance(agent_api_client, session_id, 2)
+
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={"actor_role": "defense", "action": "make_statement"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    citation = payload["output"]["claims"][0]["citations"][0]
+    assert provider.calls == 1
+    assert payload["trace"]["repair_count"] == 0
+    assert payload["trace"]["output_normalized"] is True
+    assert citation["evidence_id"] == "E01"
+    assert citation["quote"] == (
+        "记载序列号QH-X9-042相机及硬箱归青禾影像工作室登记持有；"
+        "5月18日18时05分盘点状态为在库，5月19日09时10分状态为缺失。"
+    )
+
+
+async def test_joined_grounded_evidence_notes_are_split_without_model_repair(
+    agent_api_client: AsyncClient,
+) -> None:
+    provider = JoinedEvidenceNotesProvider()
+    _use_provider(provider)
+    session_id = await _create_session(agent_api_client)
+    await _advance(agent_api_client, session_id, 2)
+
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={"actor_role": "defense", "action": "make_statement"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    citations = payload["output"]["claims"][0]["citations"]
+    assert provider.calls == 1
+    assert payload["trace"]["repair_count"] == 0
+    assert payload["trace"]["output_normalized"] is True
+    assert [item["quote"] for item in citations] == [
+        "需核对开启程序、见证人和连续保管情况",
+        "手机号下单不能单独排除他人操作",
+    ]
+
+
+async def test_controlled_provider_cannot_fall_back_to_free_text_quote(
+    agent_api_client: AsyncClient,
+) -> None:
+    provider = ControlledLegacyQuoteProvider()
+    _use_provider(provider)
+    session_id = await _create_session(agent_api_client)
+    await _advance(agent_api_client, session_id, 2)
+
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={"actor_role": "defense", "action": "make_statement"},
+    )
+
+    assert response.status_code == 502
+    assert provider.calls == 2
+    assert response.json()["trace"]["repair_count"] == 1
+    assert response.json()["error"] == {
+        "code": "agent_output_forbidden",
+        "message": "advocate citation must select exactly one valid controlled anchor_id",
+    }
+
+
 async def test_agent_output_cannot_invent_evidence_quote(
     agent_api_client: AsyncClient,
 ) -> None:
@@ -1121,7 +1342,7 @@ async def test_provider_failure_is_traced_without_courtroom_event(
     assert len(events.json()) == 3
 
 
-async def test_repair_failure_merges_usage_and_failed_usage_exhausts_budget(
+async def test_repair_failure_usage_is_recorded_without_blocking_the_next_call(
     agent_api_client: AsyncClient,
 ) -> None:
     provider = RepairFailureProvider()
@@ -1154,9 +1375,21 @@ async def test_repair_failure_merges_usage_and_failed_usage_exhausts_budget(
         },
     )
 
-    assert second.status_code == 429
-    assert second.json()["detail"]["code"] == "session_token_budget_exceeded"
-    assert provider.calls == 2
+    assert second.status_code == 502
+    assert second.json()["trace"]["input_tokens"] == 20
+    assert second.json()["trace"]["output_tokens"] == 4
+    assert provider.calls == 3
+
+    usage = await agent_api_client.get(f"/api/v1/sessions/{session_id}/usage")
+    assert usage.status_code == 200
+    assert usage.json() == {
+        "trace_count": 2,
+        "input_tokens": 50,
+        "output_tokens": 10,
+        "total_tokens": 60,
+        "latency_ms": usage.json()["latency_ms"],
+        "estimated_cost_cny": pytest.approx(0.05),
+    }
 
 
 async def test_user_controlled_role_cannot_be_invoked_as_agent(
@@ -1287,6 +1520,40 @@ async def test_unknown_session_has_no_agent_traces(agent_api_client: AsyncClient
     assert response.status_code == 404
     assert response.json()["detail"]["code"] == "session_not_found"
 
+    usage = await agent_api_client.get("/api/v1/sessions/missing/usage")
+    assert usage.status_code == 404
+    assert usage.json()["detail"]["code"] == "session_not_found"
+
+
+async def test_production_diagnostics_trace_endpoint_requires_key(
+    agent_api_client: AsyncClient,
+) -> None:
+    session_id = await _create_session(agent_api_client)
+    settings = Settings(
+        app_env="production",
+        diagnostics_api_key=SecretStr("d" * 32),
+        trace_redaction_hmac_key=SecretStr("h" * 32),
+    )
+    app.dependency_overrides[get_settings] = lambda: settings
+    try:
+        denied = await agent_api_client.get(f"/api/v1/sessions/{session_id}/traces")
+        wrong = await agent_api_client.get(
+            f"/api/v1/sessions/{session_id}/traces",
+            headers={"X-Diagnostics-Key": "wrong"},
+        )
+        allowed = await agent_api_client.get(
+            f"/api/v1/sessions/{session_id}/traces",
+            headers={"X-Diagnostics-Key": "d" * 32},
+        )
+        usage = await agent_api_client.get(f"/api/v1/sessions/{session_id}/usage")
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+    assert denied.status_code == 401
+    assert wrong.status_code == 401
+    assert allowed.status_code == 200
+    assert usage.status_code == 200
+
 
 async def test_prosecution_target_context_does_not_receive_defense_position(
     agent_api_client: AsyncClient,
@@ -1314,10 +1581,32 @@ async def test_prosecution_target_context_does_not_receive_defense_position(
     assert response.json()["output"]["target_id"] == "D01"
 
 
-async def test_over_budget_agent_call_persists_only_failed_trace(
+async def test_budget_is_observability_only_by_default(
     agent_api_client: AsyncClient,
 ) -> None:
     _use_provider(ExpensiveProvider())
+    session_id = await _create_session(agent_api_client)
+    await _advance(agent_api_client, session_id, 2)
+
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={"actor_role": "defense", "action": "make_statement"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["trace"]["estimated_cost_cny"] == 21
+    usage = await agent_api_client.get(f"/api/v1/sessions/{session_id}/usage")
+    assert usage.json()["total_tokens"] == 1_500
+    assert usage.json()["estimated_cost_cny"] == 21
+
+
+async def test_explicit_budget_enforcement_persists_over_budget_call_as_failed_trace(
+    agent_api_client: AsyncClient,
+) -> None:
+    _use_provider(ExpensiveProvider())
+    app.dependency_overrides[get_settings] = lambda: Settings(
+        session_budget_enforcement_enabled=True
+    )
     session_id = await _create_session(agent_api_client)
     await _advance(agent_api_client, session_id, 2)
 
@@ -1337,6 +1626,7 @@ async def test_over_budget_agent_call_persists_only_failed_trace(
 
 def test_idle_time_does_not_consume_agent_time_budget() -> None:
     usage = SessionAgentUsage(
+        trace_count=1,
         input_tokens=0,
         output_tokens=0,
         latency_ms=0,
@@ -1349,6 +1639,7 @@ def test_idle_time_does_not_consume_agent_time_budget() -> None:
 
 def test_accumulated_agent_latency_exhausts_time_budget() -> None:
     usage = SessionAgentUsage(
+        trace_count=1,
         input_tokens=0,
         output_tokens=0,
         latency_ms=1_000,
@@ -1356,6 +1647,9 @@ def test_accumulated_agent_latency_exhausts_time_budget() -> None:
     )
 
     with pytest.raises(AgentTurnServiceError) as caught:
-        _validate_budget_before_call(usage, Settings(session_max_seconds=1))
+        _validate_budget_before_call(
+            usage,
+            Settings(session_budget_enforcement_enabled=True, session_max_seconds=1),
+        )
 
     assert caught.value.code == "session_time_budget_exceeded"

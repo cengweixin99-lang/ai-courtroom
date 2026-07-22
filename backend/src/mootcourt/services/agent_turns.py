@@ -5,16 +5,24 @@ from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from time import perf_counter
 
+import structlog
 from pydantic import TypeAdapter, ValidationError
 
+from mootcourt.agents.citation_anchors import build_evidence_citation_anchors
 from mootcourt.agents.openai_compatible import AgentProviderError
 from mootcourt.agents.providers import (
+    CONTROLLED_CITATION_PROTOCOL,
     AgentProvider,
     AgentProviderRequest,
     AgentProviderResult,
     TextUpdateCallback,
 )
 from mootcourt.core.config import Settings
+from mootcourt.core.observability import record_agent_turn
+from mootcourt.core.trace_security import (
+    protect_agent_trace_payloads,
+    protected_trace_error_message,
+)
 from mootcourt.domain.courtroom import ActionRequest, CourtAction, CourtPhase, Role, validate_action
 from mootcourt.repositories.agent_traces import AgentTraceRecord, SessionAgentUsage
 from mootcourt.repositories.court_sessions import SessionEventRecord
@@ -22,12 +30,14 @@ from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.schemas.agents import (
     AdvocateOutput,
     AgentContext,
+    AgentEvidenceCitation,
     AgentOutput,
     AgentRole,
     AgentTraceStatus,
     AgentTraceView,
     AgentTurnError,
     AgentTurnRequest,
+    AgentUsageView,
     ClaimType,
     DefendantOutput,
     WitnessOutput,
@@ -52,6 +62,7 @@ from mootcourt.services.court_sessions import (
 
 _OUTPUT_ADAPTER: TypeAdapter[AgentOutput] = TypeAdapter(AgentOutput)
 AgentStreamCallback = Callable[[str, dict[str, object]], Awaitable[None]]
+logger = structlog.get_logger(__name__)
 
 
 class AgentTurnServiceError(Exception):
@@ -82,6 +93,14 @@ async def execute_agent_turn(
     settings: Settings,
     stream_callback: AgentStreamCallback | None = None,
 ) -> AgentTurnResponse:
+    logger.info(
+        "agent_turn_started",
+        session_id=session_id,
+        actor_role=request.actor_role.value,
+        action=request.action.value,
+        provider=provider.provider_name,
+        model=provider.model_name,
+    )
     session = await unit_of_work.court_sessions.get(session_id)
     if session is None:
         raise AgentTurnServiceError("session_not_found", "court session not found", 404)
@@ -129,7 +148,7 @@ async def execute_agent_turn(
         await stream_callback("turn.validating", {})
     if invocation.output is None:
         return await _record_failed_turn(
-            unit_of_work, session_id, request, context, provider, invocation
+            unit_of_work, session_id, request, context, provider, invocation, settings
         )
 
     budget_error = _budget_error_after_call(usage, invocation, settings)
@@ -145,7 +164,7 @@ async def execute_agent_turn(
             error_message=message,
         )
         return await _record_failed_turn(
-            unit_of_work, session_id, request, context, provider, failed
+            unit_of_work, session_id, request, context, provider, failed, settings
         )
 
     output_error = _validate_output(context, invocation.output)
@@ -160,7 +179,7 @@ async def execute_agent_turn(
             error_message=output_error,
         )
         return await _record_failed_turn(
-            unit_of_work, session_id, request, context, provider, failed
+            unit_of_work, session_id, request, context, provider, failed, settings
         )
 
     # 模型调用期间不持有行锁；落库前重新加锁并验证阶段未变化，避免过期输出污染庭审记录。
@@ -182,7 +201,7 @@ async def execute_agent_turn(
             error_message="session state changed while the agent was running",
         )
         return await _record_failed_turn(
-            unit_of_work, session_id, request, context, provider, changed
+            unit_of_work, session_id, request, context, provider, changed, settings
         )
     if locked.turns_used >= settings.session_max_turns:
         raise AgentTurnServiceError("turn_limit_reached", "session turn limit reached")
@@ -201,7 +220,7 @@ async def execute_agent_turn(
             error_message=message,
         )
         return await _record_failed_turn(
-            unit_of_work, session_id, request, context, provider, failed
+            unit_of_work, session_id, request, context, provider, failed, settings
         )
 
     content = _output_content(invocation.output)
@@ -215,6 +234,12 @@ async def execute_agent_turn(
     provider_result = invocation.provider_result
     if provider_result is None:
         raise RuntimeError("successful agent invocation is missing provider metadata")
+    trace_request_payload, trace_response_payload = protect_agent_trace_payloads(
+        _trace_request(context, request.instruction),
+        invocation.raw_output,
+        mode=settings.agent_trace_payload_mode,
+        hmac_key=settings.trace_redaction_hmac_key.get_secret_value(),
+    )
     trace = await unit_of_work.agent_traces.add(
         session_id=session_id,
         actor_role=request.actor_role.value,
@@ -224,8 +249,8 @@ async def execute_agent_turn(
         status=AgentTraceStatus.SUCCEEDED.value,
         repair_count=invocation.repair_count,
         output_normalized=invocation.output_normalized,
-        request_payload=_trace_request(context, request.instruction),
-        response_payload=invocation.raw_output,
+        request_payload=trace_request_payload,
+        response_payload=trace_response_payload,
         input_tokens=provider_result.input_tokens,
         output_tokens=provider_result.output_tokens,
         latency_ms=invocation.latency_ms,
@@ -334,6 +359,33 @@ async def execute_agent_turn(
     session_view = await get_session_view(unit_of_work, locked.id)
     if session_view is None:
         raise RuntimeError("session disappeared after agent event flush")
+    record_agent_turn(
+        actor_role=request.actor_role.value,
+        action=request.action.value,
+        status=AgentTraceStatus.SUCCEEDED.value,
+        error_code=None,
+        provider=provider_result.provider,
+        model=provider_result.model,
+        latency_ms=invocation.latency_ms,
+        input_tokens=provider_result.input_tokens,
+        output_tokens=provider_result.output_tokens,
+        repair_count=invocation.repair_count,
+        output_normalized=invocation.output_normalized,
+    )
+    logger.info(
+        "agent_turn_succeeded",
+        session_id=session_id,
+        trace_id=trace.id,
+        actor_role=request.actor_role.value,
+        action=request.action.value,
+        provider=provider_result.provider,
+        model=provider_result.model,
+        latency_ms=invocation.latency_ms,
+        input_tokens=provider_result.input_tokens,
+        output_tokens=provider_result.output_tokens,
+        repair_count=invocation.repair_count,
+        output_normalized=invocation.output_normalized,
+    )
     return AgentTurnResponse(
         status=AgentTraceStatus.SUCCEEDED,
         session=session_view,
@@ -351,6 +403,22 @@ async def list_agent_traces(
     return [
         _trace_view(item) for item in await unit_of_work.agent_traces.list_for_session(session_id)
     ]
+
+
+async def get_agent_usage(
+    unit_of_work: SqlAlchemyUnitOfWork, session_id: str
+) -> AgentUsageView | None:
+    if await unit_of_work.court_sessions.get(session_id) is None:
+        return None
+    usage = await unit_of_work.agent_traces.usage_for_session(session_id)
+    return AgentUsageView(
+        trace_count=usage.trace_count,
+        input_tokens=usage.input_tokens,
+        output_tokens=usage.output_tokens,
+        total_tokens=usage.total_tokens,
+        latency_ms=usage.latency_ms,
+        estimated_cost_cny=usage.estimated_cost_cny,
+    )
 
 
 async def list_participant_statement_traces(
@@ -491,25 +559,33 @@ async def _invoke_provider(
                 on_text_update=on_text_update,
             )
         )
-        first_payload, payload_normalized = _normalize_explicit_refusal_payload(first_result.output)
-        try:
-            output = _OUTPUT_ADAPTER.validate_python(first_payload)
-        except ValidationError as exc:
-            repair_instruction = _repair_instruction(context, exc)
+        first_payload, anchors_materialized, anchor_error = _materialize_advocate_citation_anchors(
+            context,
+            first_result.output,
+            require_controlled=(first_result.citation_protocol == CONTROLLED_CITATION_PROTOCOL),
+        )
+        first_payload, payload_normalized = _normalize_explicit_refusal_payload(first_payload)
+        if anchor_error is not None:
+            repair_instruction = _business_repair_instruction(context, anchor_error)
         else:
-            output, output_normalized = _normalize_participant_output(output)
-            output_normalized = payload_normalized or output_normalized
-            output_error = _validate_output(context, output)
-            if output_error is None:
-                return _InvocationResult(
-                    output=output,
-                    provider_result=first_result,
-                    raw_output=first_result.output,
-                    repair_count=0,
-                    latency_ms=_elapsed_ms(started),
-                    output_normalized=output_normalized,
-                )
-            repair_instruction = _business_repair_instruction(context, output_error)
+            try:
+                output = _OUTPUT_ADAPTER.validate_python(first_payload)
+            except ValidationError as exc:
+                repair_instruction = _repair_instruction(context, exc)
+            else:
+                output, output_normalized = _normalize_agent_output(context, output)
+                output_normalized = anchors_materialized or payload_normalized or output_normalized
+                output_error = _validate_output(context, output)
+                if output_error is None:
+                    return _InvocationResult(
+                        output=output,
+                        provider_result=first_result,
+                        raw_output=first_result.output,
+                        repair_count=0,
+                        latency_ms=_elapsed_ms(started),
+                        output_normalized=output_normalized,
+                    )
+                repair_instruction = _business_repair_instruction(context, output_error)
 
         # Schema 或确定性业务校验失败时只允许一次修复，防止无上限重试吞噬会话预算。
         if on_text_update is not None:
@@ -522,7 +598,24 @@ async def _invoke_provider(
                 on_text_update=on_text_update,
             )
         )
-        repaired_payload, payload_normalized = _normalize_explicit_refusal_payload(repaired.output)
+        repaired_payload, anchors_materialized, anchor_error = (
+            _materialize_advocate_citation_anchors(
+                context,
+                repaired.output,
+                require_controlled=(repaired.citation_protocol == CONTROLLED_CITATION_PROTOCOL),
+            )
+        )
+        repaired_payload, payload_normalized = _normalize_explicit_refusal_payload(repaired_payload)
+        if anchor_error is not None:
+            return _InvocationResult(
+                output=None,
+                provider_result=_merge_usage(first_result, repaired),
+                raw_output=repaired.output,
+                repair_count=1,
+                latency_ms=_elapsed_ms(started),
+                error_code="agent_output_forbidden",
+                error_message=anchor_error,
+            )
         try:
             output = _OUTPUT_ADAPTER.validate_python(repaired_payload)
         except ValidationError as repaired_exc:
@@ -535,8 +628,8 @@ async def _invoke_provider(
                 error_code="agent_output_invalid",
                 error_message=str(repaired_exc),
             )
-        output, output_normalized = _normalize_participant_output(output)
-        output_normalized = payload_normalized or output_normalized
+        output, output_normalized = _normalize_agent_output(context, output)
+        output_normalized = anchors_materialized or payload_normalized or output_normalized
         repaired_output_error = _validate_output(context, output)
         if repaired_output_error is not None:
             return _InvocationResult(
@@ -563,6 +656,8 @@ async def _invoke_provider(
             model=provider.model_name,
             input_tokens=exc.input_tokens,
             output_tokens=exc.output_tokens,
+            estimated_input_tokens=exc.estimated_input_tokens,
+            provider_request_count=exc.provider_request_count,
             estimated_cost_cny=exc.estimated_cost_cny,
         )
         return _InvocationResult(
@@ -611,7 +706,8 @@ def _business_repair_instruction(context: AgentContext, error: str) -> str:
     if context.actor_role in {AgentRole.PROSECUTION, AgentRole.DEFENSE}:
         extra = (
             "先生成 claims，再把每个 claim.text 不作任何改写地逐字复制进 speech；"
-            "fact_ids、citations、动作和目标仍只能使用原任务允许值。"
+            "每项 citation 只能选择动态 Schema 允许的单个 anchor_id，禁止输出、合并或改写 quote；"
+            "fact_ids、动作和目标仍只能使用原任务允许值。"
         )
     else:
         extra = "引用锚点必须来自既有陈述并逐字出现在 answer；禁止补充新的案卷事实。"
@@ -625,7 +721,10 @@ def _merge_usage(first: AgentProviderResult, second: AgentProviderResult) -> Age
         model=second.model,
         input_tokens=first.input_tokens + second.input_tokens,
         output_tokens=first.output_tokens + second.output_tokens,
+        estimated_input_tokens=(first.estimated_input_tokens + second.estimated_input_tokens),
+        provider_request_count=first.provider_request_count + second.provider_request_count,
         estimated_cost_cny=first.estimated_cost_cny + second.estimated_cost_cny,
+        citation_protocol=second.citation_protocol,
     )
 
 
@@ -734,6 +833,106 @@ def _validate_output(context: AgentContext, output: AgentOutput) -> str | None:
     return None
 
 
+def _materialize_advocate_citation_anchors(
+    context: AgentContext,
+    payload: dict[str, object],
+    *,
+    require_controlled: bool,
+) -> tuple[dict[str, object], bool, str | None]:
+    """把模型选择的锚点展开为现有领域模型使用的证据 ID 和权威原文。"""
+
+    if payload.get("kind") != "advocate":
+        return payload, False, None
+    anchor_by_id = {item.anchor_id: item for item in build_evidence_citation_anchors(context)}
+    claims = payload.get("claims")
+    if not isinstance(claims, list):
+        return payload, False, None
+
+    materialized = False
+    protocol_error = False
+    normalized_claims: list[object] = []
+    for claim in claims:
+        if not isinstance(claim, dict):
+            normalized_claims.append(claim)
+            continue
+        citations = claim.get("citations")
+        if not isinstance(citations, list):
+            normalized_claims.append(claim)
+            continue
+        normalized_citations: list[object] = []
+        for citation in citations:
+            if not isinstance(citation, dict) or set(citation) != {"anchor_id"}:
+                protocol_error = protocol_error or require_controlled
+                normalized_citations.append(citation)
+                continue
+            anchor_id = citation.get("anchor_id")
+            anchor = anchor_by_id.get(anchor_id) if isinstance(anchor_id, str) else None
+            if anchor is None:
+                protocol_error = protocol_error or require_controlled
+                normalized_citations.append(citation)
+                continue
+            normalized_citations.append({"evidence_id": anchor.evidence_id, "quote": anchor.quote})
+            materialized = True
+        normalized_claim = dict(claim)
+        normalized_claim["citations"] = normalized_citations
+        normalized_claims.append(normalized_claim)
+
+    error = (
+        "advocate citation must select exactly one valid controlled anchor_id"
+        if protocol_error
+        else None
+    )
+    if not materialized:
+        return payload, False, error
+    normalized_payload = dict(payload)
+    normalized_payload["claims"] = normalized_claims
+    return normalized_payload, True, error
+
+
+def _normalize_agent_output(context: AgentContext, output: AgentOutput) -> tuple[AgentOutput, bool]:
+    if isinstance(output, AdvocateOutput):
+        return _normalize_advocate_output(context, output)
+    return _normalize_participant_output(output)
+
+
+def _normalize_advocate_output(
+    context: AgentContext, output: AdvocateOutput
+) -> tuple[AgentOutput, bool]:
+    """只拆分能逐行核验的旧式拼接引文，不做任何语义改写或模糊匹配。"""
+
+    evidence_by_id = {item.id: item for item in context.evidence}
+    normalized_claims = []
+    changed = False
+    for claim in output.claims:
+        normalized_citations: list[AgentEvidenceCitation] = []
+        for citation in claim.citations:
+            evidence = evidence_by_id.get(citation.evidence_id)
+            if evidence is None:
+                normalized_citations.append(citation)
+                continue
+            sources = [evidence.content, *evidence.reliability_notes]
+            if _quote_is_grounded(citation.quote, sources):
+                normalized_citations.append(citation)
+                continue
+            parts = list(
+                dict.fromkeys(part.strip() for part in citation.quote.splitlines() if part.strip())
+            )
+            if len(parts) > 1 and all(
+                len(part) >= 6 and _quote_is_grounded(part, sources) for part in parts
+            ):
+                normalized_citations.extend(
+                    AgentEvidenceCitation(evidence_id=citation.evidence_id, quote=part)
+                    for part in parts
+                )
+                changed = True
+            else:
+                normalized_citations.append(citation)
+        normalized_claims.append(claim.model_copy(update={"citations": normalized_citations}))
+    if not changed:
+        return output, False
+    return output.model_copy(update={"claims": normalized_claims}), True
+
+
 def _normalize_participant_output(output: AgentOutput) -> tuple[AgentOutput, bool]:
     if not isinstance(output, (WitnessOutput, DefendantOutput)):
         return output, False
@@ -800,8 +999,15 @@ async def _record_failed_turn(
     context: AgentContext,
     provider: AgentProvider,
     invocation: _InvocationResult,
+    settings: Settings,
 ) -> AgentTurnResponse:
     result = invocation.provider_result
+    trace_request_payload, trace_response_payload = protect_agent_trace_payloads(
+        _trace_request(context, request.instruction),
+        invocation.raw_output,
+        mode=settings.agent_trace_payload_mode,
+        hmac_key=settings.trace_redaction_hmac_key.get_secret_value(),
+    )
     trace = await unit_of_work.agent_traces.add(
         session_id=session_id,
         actor_role=request.actor_role.value,
@@ -811,18 +1017,52 @@ async def _record_failed_turn(
         status=AgentTraceStatus.FAILED.value,
         repair_count=invocation.repair_count,
         output_normalized=invocation.output_normalized,
-        request_payload=_trace_request(context, request.instruction),
-        response_payload=invocation.raw_output,
+        request_payload=trace_request_payload,
+        response_payload=trace_response_payload,
         input_tokens=result.input_tokens if result else 0,
         output_tokens=result.output_tokens if result else 0,
         latency_ms=invocation.latency_ms,
         estimated_cost_cny=result.estimated_cost_cny if result else 0,
         error_code=invocation.error_code,
-        error_message=invocation.error_message,
+        error_message=protected_trace_error_message(
+            invocation.error_message,
+            mode=settings.agent_trace_payload_mode,
+        ),
     )
     session_view = await get_session_view(unit_of_work, session_id)
     if session_view is None:
         raise RuntimeError("session disappeared while recording failed agent trace")
+    provider_name = result.provider if result else provider.provider_name
+    model_name = result.model if result else provider.model_name
+    input_tokens = result.input_tokens if result else 0
+    output_tokens = result.output_tokens if result else 0
+    record_agent_turn(
+        actor_role=request.actor_role.value,
+        action=request.action.value,
+        status=AgentTraceStatus.FAILED.value,
+        error_code=invocation.error_code,
+        provider=provider_name,
+        model=model_name,
+        latency_ms=invocation.latency_ms,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        repair_count=invocation.repair_count,
+        output_normalized=invocation.output_normalized,
+    )
+    logger.warning(
+        "agent_turn_failed",
+        session_id=session_id,
+        trace_id=trace.id,
+        actor_role=request.actor_role.value,
+        action=request.action.value,
+        provider=provider_name,
+        model=model_name,
+        error_code=invocation.error_code or "agent_turn_failed",
+        latency_ms=invocation.latency_ms,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        repair_count=invocation.repair_count,
+    )
     return AgentTurnResponse(
         status=AgentTraceStatus.FAILED,
         session=session_view,
@@ -888,6 +1128,9 @@ def _validate_budget_before_call(
     usage: SessionAgentUsage,
     settings: Settings,
 ) -> None:
+    # 开发阶段只记录资源消耗；需要生产硬限额时通过显式配置恢复阻断。
+    if not settings.session_budget_enforcement_enabled:
+        return
     if usage.total_tokens >= settings.session_max_tokens:
         raise AgentTurnServiceError(
             "session_token_budget_exceeded", "session token budget is exhausted", 429
@@ -907,6 +1150,8 @@ def _budget_error_after_call(
     invocation: _InvocationResult,
     settings: Settings,
 ) -> tuple[str, str] | None:
+    if not settings.session_budget_enforcement_enabled:
+        return None
     result = invocation.provider_result
     if result is None:
         return None

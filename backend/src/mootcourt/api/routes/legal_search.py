@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, HTTPException, Path
 
 from mootcourt.api.dependencies import (
+    RuntimeDiagnosticsAccess,
     RuntimeLegalEmbeddingProvider,
     RuntimeLegalSearchRepository,
     RuntimeUnitOfWork,
@@ -65,11 +66,15 @@ async def search_legal_authority(
     operation_id="get_legal_search_trace",
     summary="获取法律检索审计 Trace",
     response_description="固定过滤条件、候选法源、检索分数、模型版本和耗时",
-    responses={404: {"description": "法律检索 Trace 不存在"}},
+    responses={
+        401: {"description": "生产环境需要诊断访问凭据"},
+        404: {"description": "法律检索 Trace 不存在"},
+    },
 )
 async def get_search_trace(
     trace_id: Annotated[str, Path(description="法律检索 Trace 唯一标识")],
     unit_of_work: RuntimeUnitOfWork,
+    _: RuntimeDiagnosticsAccess,
 ) -> LegalSearchTraceView:
     """返回可复现检索审计信息，不包含 embedding 数组、密钥或数据库连接信息。"""
     result = await get_legal_search_trace(unit_of_work, trace_id)

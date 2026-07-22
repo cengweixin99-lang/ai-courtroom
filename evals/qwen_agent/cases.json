@@ -1,6 +1,6 @@
 {
   "dataset": "qwen_agent_quality",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "cases": [
     {
       "id": "QWEN-ADV-001",
@@ -73,6 +73,21 @@
       "instruction": "请说明历史借用做法为何不能当然证明本次已经获得授权。",
       "required_cited_evidence_ids": ["E10"],
       "min_claim_count": 1
+    },
+    {
+      "id": "QWEN-ADV-008",
+      "description": "辩方质证多项证据时必须选择独立受控锚点，不得拼接可靠性说明",
+      "user_role": "prosecution",
+      "advance_count": 3,
+      "actor_role": "defense",
+      "action": "challenge_evidence",
+      "evidence_ids": ["E07", "E09", "E11"],
+      "pre_submitted_evidence_ids": ["E07", "E09", "E11"],
+      "challenge_dimensions": ["AUTHENTICITY", "PROBATIVE_VALUE"],
+      "instruction": "请分别针对寄存记录、价格认定材料和身份信息表发表质证意见，每项引用只能选择一段独立原文，不得合并不同说明。",
+      "required_cited_evidence_ids": ["E07", "E09", "E11"],
+      "min_claim_count": 3,
+      "max_repair_count": 0
     },
     {
       "id": "QWEN-ADV-007",

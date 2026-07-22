@@ -6,12 +6,18 @@ on:
       - "backend/**"
       - "data/authoring/CASE-001/**"
       - "scripts/validate_case_package.py"
+      - "monitoring/**"
+      - "compose.yaml"
+      - ".github/workflows/agent-admission.yml"
       - ".github/workflows/backend.yml"
   pull_request:
     paths:
       - "backend/**"
       - "data/authoring/CASE-001/**"
       - "scripts/validate_case_package.py"
+      - "monitoring/**"
+      - "compose.yaml"
+      - ".github/workflows/agent-admission.yml"
       - ".github/workflows/backend.yml"
 
 jobs:

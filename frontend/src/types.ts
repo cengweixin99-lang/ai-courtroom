@@ -299,6 +299,15 @@ export interface AgentTurnPayload {
   instruction?: string
 }
 
+export interface AgentUsage {
+  trace_count: number
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+  latency_ms: number
+  estimated_cost_cny: number
+}
+
 export interface AgentTurnResponse {
   status: 'succeeded' | 'failed'
   session: SessionView

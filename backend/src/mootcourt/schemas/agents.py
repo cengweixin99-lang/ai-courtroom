@@ -228,6 +228,17 @@ class AgentTraceView(StrictAgentModel):
     created_at: datetime
 
 
+class AgentUsageView(StrictAgentModel):
+    """庭审会话累计模型用量；统计失败调用和修复调用消耗，不作为默认阻断条件。"""
+
+    trace_count: int = Field(ge=0)
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    total_tokens: int = Field(ge=0)
+    latency_ms: int = Field(ge=0)
+    estimated_cost_cny: float = Field(ge=0)
+
+
 class AgentTurnError(StrictAgentModel):
     code: str
     message: str

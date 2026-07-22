@@ -2,18 +2,38 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import urlparse
 
 import httpx
+import structlog
 
+from mootcourt.agents.context_budget import ContextBudgetExceeded, estimate_text_tokens
 from mootcourt.agents.prompt_builder import build_agent_prompt
+from mootcourt.agents.provider_resilience import (
+    ProviderResilience,
+    ProviderResilienceError,
+    enter_provider_call,
+    leave_provider_call,
+)
 from mootcourt.agents.providers import (
+    CONTROLLED_CITATION_PROTOCOL,
     AgentProviderRequest,
     AgentProviderResult,
     StructuredProviderRequest,
     TextUpdateCallback,
 )
+from mootcourt.core.observability import record_provider_guard_rejection, record_provider_retry
+
+logger = structlog.get_logger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _GeneratedBody:
+    body: dict[str, Any]
+    estimated_input_tokens: int
+    request_count: int
 
 
 class AgentProviderError(Exception):
@@ -24,6 +44,8 @@ class AgentProviderError(Exception):
         *,
         input_tokens: int = 0,
         output_tokens: int = 0,
+        estimated_input_tokens: int = 0,
+        provider_request_count: int = 0,
         estimated_cost_cny: float = 0,
     ) -> None:
         super().__init__(message)
@@ -31,6 +53,8 @@ class AgentProviderError(Exception):
         self.message = message
         self.input_tokens = input_tokens
         self.output_tokens = output_tokens
+        self.estimated_input_tokens = estimated_input_tokens
+        self.provider_request_count = provider_request_count
         self.estimated_cost_cny = estimated_cost_cny
 
 
@@ -45,6 +69,7 @@ class OpenAICompatibleProvider:
         base_url: str = "https://api.openai.com/v1",
         timeout_seconds: float = 30,
         max_output_tokens: int = 2_000,
+        max_input_tokens: int = 24_000,
         max_retries: int = 2,
         max_incomplete_retries: int = 1,
         retry_base_delay_seconds: float = 0.5,
@@ -57,12 +82,14 @@ class OpenAICompatibleProvider:
         input_cost_per_million_cny: float = 0,
         output_cost_per_million_cny: float = 0,
         transport: httpx.AsyncBaseTransport | None = None,
+        resilience: ProviderResilience | None = None,
     ) -> None:
         self._api_key = api_key
         self._model = model
         self._base_url = base_url.rstrip("/")
         self._timeout = timeout_seconds
         self._max_output_tokens = max_output_tokens
+        self._max_input_tokens = max_input_tokens
         self._max_retries = max_retries
         self._max_incomplete_retries = max_incomplete_retries
         self._retry_base_delay_seconds = retry_base_delay_seconds
@@ -73,6 +100,13 @@ class OpenAICompatibleProvider:
         self._input_cost_per_million_cny = input_cost_per_million_cny
         self._output_cost_per_million_cny = output_cost_per_million_cny
         self._transport = transport
+        self._resilience = resilience or ProviderResilience(
+            max_concurrency=8,
+            requests_per_second=0,
+            queue_timeout_seconds=5,
+            circuit_failure_threshold=5,
+            circuit_recovery_seconds=30,
+        )
 
     @property
     def provider_name(self) -> str:
@@ -83,11 +117,27 @@ class OpenAICompatibleProvider:
         return self._model
 
     async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
-        prompt = build_agent_prompt(
-            request.context,
-            request.instruction,
-            request.repair_instruction,
-        )
+        try:
+            prompt = build_agent_prompt(
+                request.context,
+                request.instruction,
+                request.repair_instruction,
+                max_input_tokens=self._max_input_tokens,
+            )
+        except ContextBudgetExceeded as exc:
+            raise AgentProviderError("agent_context_too_large", str(exc)) from exc
+        if prompt.budget_report is not None:
+            logger.info(
+                "agent_context_trimmed",
+                provider=self.provider_name,
+                model=self.model_name,
+                original_tokens=prompt.budget_report.original_tokens,
+                final_tokens=prompt.budget_report.final_tokens,
+                removed_event_count=prompt.budget_report.removed_event_count,
+                removed_evidence_count=len(prompt.budget_report.removed_evidence_ids),
+                removed_fact_count=len(prompt.budget_report.removed_fact_ids),
+                removed_statement_count=len(prompt.budget_report.removed_statement_ids),
+            )
         visible_field: Literal["speech", "answer"] = (
             "speech" if request.context.actor_role.value in {"prosecution", "defense"} else "answer"
         )
@@ -121,6 +171,62 @@ class OpenAICompatibleProvider:
         on_text_update: TextUpdateCallback | None,
         visible_field: Literal["speech", "answer"] | None,
     ) -> AgentProviderResult:
+        try:
+            await enter_provider_call()
+        except ProviderResilienceError as exc:
+            record_provider_guard_rejection(
+                provider=self.provider_name,
+                model=self.model_name,
+                reason=exc.code,
+            )
+            logger.warning(
+                "agent_provider_guard_rejected",
+                provider=self.provider_name,
+                model=self.model_name,
+                reason=exc.code,
+            )
+            raise AgentProviderError(exc.code, exc.message) from exc
+        try:
+            try:
+                await self._resilience.acquire()
+            except ProviderResilienceError as exc:
+                record_provider_guard_rejection(
+                    provider=self.provider_name,
+                    model=self.model_name,
+                    reason=exc.code,
+                )
+                raise AgentProviderError(exc.code, exc.message) from exc
+            try:
+                result = await self._perform_generate_payload(
+                    messages=messages,
+                    schema_name=schema_name,
+                    response_schema=response_schema,
+                    on_text_update=on_text_update,
+                    visible_field=visible_field,
+                )
+            except AgentProviderError as exc:
+                if exc.code == "agent_provider_rate_limited":
+                    await self._resilience.record_local_rejection()
+                else:
+                    await self._resilience.record_failure(transient=_is_transient_error(exc))
+                raise
+            else:
+                await self._resilience.record_success()
+                return result
+            finally:
+                await self._resilience.release_async()
+        finally:
+            await leave_provider_call()
+
+    async def _perform_generate_payload(
+        self,
+        *,
+        messages: list[dict[str, str]],
+        schema_name: str,
+        response_schema: dict[str, Any],
+        on_text_update: TextUpdateCallback | None,
+        visible_field: Literal["speech", "answer"] | None,
+    ) -> AgentProviderResult:
         payload: dict[str, Any] = {
             "model": self._model,
             "messages": messages,
@@ -142,6 +248,13 @@ class OpenAICompatibleProvider:
         elif self._response_format == "json_object":
             # 部分兼容服务只接受 JSON Object 模式；输出仍由本地 Pydantic 严格校验。
             payload["response_format"] = {"type": "json_object"}
+        estimated_tokens = _estimate_payload_input_tokens(payload)
+        if estimated_tokens > self._max_input_tokens:
+            raise AgentProviderError(
+                "agent_context_too_large",
+                f"model input requires approximately {estimated_tokens} tokens; "
+                f"configured limit is {self._max_input_tokens}",
+            )
         headers = {
             "Authorization": f"Bearer {self._api_key}",
             "Content-Type": "application/json",
@@ -152,13 +265,14 @@ class OpenAICompatibleProvider:
             # 本地服务不经过系统代理，外部 Provider 继续遵循部署环境代理配置。
             trust_env=not _is_loopback_url(self._base_url),
         ) as client:
-            body = await self._generate_complete_body(
+            generated = await self._generate_complete_body(
                 client,
                 headers,
                 payload,
                 on_text_update=on_text_update,
                 visible_field=visible_field,
             )
+        body = generated.body
         usage = body.get("usage")
         usage_object = usage if isinstance(usage, dict) else {}
         input_tokens = _non_negative_int(usage_object.get("prompt_tokens"))
@@ -176,6 +290,10 @@ class OpenAICompatibleProvider:
                 exc.message,
                 input_tokens=exc.input_tokens + input_tokens,
                 output_tokens=exc.output_tokens + output_tokens,
+                estimated_input_tokens=(
+                    exc.estimated_input_tokens + generated.estimated_input_tokens
+                ),
+                provider_request_count=(exc.provider_request_count + generated.request_count),
                 estimated_cost_cny=exc.estimated_cost_cny + estimated_cost,
             ) from exc
         return AgentProviderResult(
@@ -184,7 +302,10 @@ class OpenAICompatibleProvider:
             model=self.model_name,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
+            estimated_input_tokens=generated.estimated_input_tokens,
+            provider_request_count=generated.request_count,
             estimated_cost_cny=estimated_cost,
+            citation_protocol=CONTROLLED_CITATION_PROTOCOL,
         )
 
     async def _generate_complete_body(
@@ -195,15 +316,20 @@ class OpenAICompatibleProvider:
         *,
         on_text_update: TextUpdateCallback | None,
         visible_field: Literal["speech", "answer"] | None,
-    ) -> dict[str, Any]:
+    ) -> _GeneratedBody:
         """长度截断时重新生成完整对象，并累计所有实际模型调用的用量。"""
         total_input_tokens = 0
         total_output_tokens = 0
+        total_estimated_input_tokens = 0
+        request_count = 0
         body: dict[str, Any] = {}
         for incomplete_attempt in range(self._max_incomplete_retries + 1):
             attempt_payload = (
                 payload if incomplete_attempt == 0 else _with_incomplete_retry_instruction(payload)
             )
+            # 每次拿到模型 usage 的请求都单独计入估算，避免截断重生成被误判为 tokenizer 偏差。
+            total_estimated_input_tokens += _estimate_payload_input_tokens(attempt_payload)
+            request_count += 1
             if on_text_update is not None:
                 if visible_field is None:
                     raise RuntimeError("streamed structured request is missing a visible field")
@@ -224,6 +350,18 @@ class OpenAICompatibleProvider:
             if not _was_length_limited(body):
                 break
             if incomplete_attempt < self._max_incomplete_retries:
+                record_provider_retry(
+                    provider=self.provider_name,
+                    model=self.model_name,
+                    reason="incomplete_output",
+                )
+                logger.warning(
+                    "agent_provider_retrying",
+                    provider=self.provider_name,
+                    model=self.model_name,
+                    reason="incomplete_output",
+                    attempt=incomplete_attempt + 1,
+                )
                 # 半截 JSON 不能继续落库；清空预览后从头生成更精简的完整对象。
                 if on_text_update is not None:
                     await on_text_update("")
@@ -233,7 +371,11 @@ class OpenAICompatibleProvider:
             "prompt_tokens": total_input_tokens,
             "completion_tokens": total_output_tokens,
         }
-        return body
+        return _GeneratedBody(
+            body=body,
+            estimated_input_tokens=total_estimated_input_tokens,
+            request_count=request_count,
+        )
 
     async def _request_non_stream_body(
         self,
@@ -264,6 +406,7 @@ class OpenAICompatibleProvider:
         """仅重试瞬时网络故障和可恢复状态码，鉴权与参数错误立即返回。"""
         for attempt in range(self._max_retries + 1):
             try:
+                await self._before_upstream_request()
                 response = await client.post(
                     f"{self._base_url}/chat/completions",
                     headers=headers,
@@ -274,6 +417,7 @@ class OpenAICompatibleProvider:
                     raise AgentProviderError(
                         "agent_provider_timeout", "model request timed out"
                     ) from exc
+                self._record_retry("timeout", attempt)
                 await self._retry_delay(attempt)
                 continue
             except httpx.HTTPError as exc:
@@ -281,12 +425,14 @@ class OpenAICompatibleProvider:
                     raise AgentProviderError(
                         "agent_provider_unavailable", "model endpoint is unavailable"
                     ) from exc
+                self._record_retry("connection_error", attempt)
                 await self._retry_delay(attempt)
                 continue
             if response.status_code not in {408, 429} and response.status_code < 500:
                 return response
             if attempt >= self._max_retries:
                 return response
+            self._record_retry(_retry_reason_for_status(response.status_code), attempt)
             await self._retry_delay(attempt)
         raise RuntimeError("model retry loop ended unexpectedly")
 
@@ -309,6 +455,7 @@ class OpenAICompatibleProvider:
             finish_reason: object = None
             usage: dict[str, Any] = {}
             try:
+                await self._before_upstream_request()
                 async with client.stream(
                     "POST",
                     f"{self._base_url}/chat/completions",
@@ -318,6 +465,9 @@ class OpenAICompatibleProvider:
                     if response.status_code >= 400:
                         await response.aread()
                         if _retryable_status(response.status_code) and attempt < self._max_retries:
+                            self._record_retry(
+                                _retry_reason_for_status(response.status_code), attempt
+                            )
                             await on_text_update("")
                             await self._retry_delay(attempt)
                             continue
@@ -377,11 +527,13 @@ class OpenAICompatibleProvider:
                     raise AgentProviderError(
                         "agent_provider_timeout", "model request timed out"
                     ) from exc
+                self._record_retry("timeout", attempt)
             except httpx.HTTPError as exc:
                 if attempt >= self._max_retries:
                     raise AgentProviderError(
                         "agent_provider_unavailable", "model endpoint is unavailable"
                     ) from exc
+                self._record_retry("connection_error", attempt)
             await on_text_update("")
             await self._retry_delay(attempt)
         raise RuntimeError("streaming model retry loop ended unexpectedly")
@@ -390,6 +542,37 @@ class OpenAICompatibleProvider:
         delay = self._retry_base_delay_seconds * (2**attempt)
         if delay > 0:
             await asyncio.sleep(delay)
+
+    async def _before_upstream_request(self) -> None:
+        try:
+            await self._resilience.before_request()
+        except ProviderResilienceError as exc:
+            record_provider_guard_rejection(
+                provider=self.provider_name,
+                model=self.model_name,
+                reason=exc.code,
+            )
+            logger.warning(
+                "agent_provider_guard_rejected",
+                provider=self.provider_name,
+                model=self.model_name,
+                reason=exc.code,
+            )
+            raise AgentProviderError(exc.code, exc.message) from exc
+
+    def _record_retry(self, reason: str, attempt: int) -> None:
+        record_provider_retry(
+            provider=self.provider_name,
+            model=self.model_name,
+            reason=reason,
+        )
+        logger.warning(
+            "agent_provider_retrying",
+            provider=self.provider_name,
+            model=self.model_name,
+            reason=reason,
+            attempt=attempt + 1,
+        )
 
 
 def _response_object(response: httpx.Response) -> dict[str, Any]:
@@ -404,6 +587,14 @@ def _response_object(response: httpx.Response) -> dict[str, Any]:
             "agent_provider_invalid_response", "model response root must be an object"
         )
     return body
+
+
+def _is_transient_error(error: AgentProviderError) -> bool:
+    if error.code in {"agent_provider_timeout", "agent_provider_unavailable"}:
+        return True
+    if error.code != "agent_provider_http_error":
+        return False
+    return any(f"HTTP {status}" in error.message for status in (408, 429, *range(500, 600)))
 
 
 def _stream_chunk(data: str) -> dict[str, Any]:
@@ -549,12 +740,29 @@ def _safe_error_message(response: httpx.Response) -> str:
     return "unspecified provider error"
 
 
+def _estimate_payload_input_tokens(payload: dict[str, Any]) -> int:
+    """只估算会进入模型上下文的字段，避免把超时、温度等控制参数算作 Token。"""
+
+    model_input: dict[str, Any] = {"messages": payload.get("messages", [])}
+    if "response_format" in payload:
+        model_input["response_format"] = payload["response_format"]
+    return estimate_text_tokens(json.dumps(model_input, ensure_ascii=False, separators=(",", ":")))
+
+
 def _non_negative_int(value: object) -> int:
     return value if isinstance(value, int) and value >= 0 else 0
 
 
 def _retryable_status(status_code: int) -> bool:
     return status_code in {408, 429} or status_code >= 500
+
+
+def _retry_reason_for_status(status_code: int) -> str:
+    if status_code == 408:
+        return "http_408"
+    if status_code == 429:
+        return "http_429"
+    return "http_5xx"
 
 
 def _grammar_initialization_failed(response: httpx.Response) -> bool:

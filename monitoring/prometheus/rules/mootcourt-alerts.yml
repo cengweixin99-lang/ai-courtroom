@@ -1,0 +1,116 @@
+groups:
+  - name: mootcourt-api
+    interval: 30s
+    rules:
+      - alert: MootCourtApiTargetDown
+        expr: up{job="mootcourt-api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: mootcourt-api
+        annotations:
+          summary: "MootCourt API 指标目标不可达"
+          description: "Prometheus 连续 2 分钟无法抓取 {{ $labels.instance }}。"
+
+      - alert: MootCourtApiHigh5xxRatio
+        expr: |
+          (
+            sum(rate(mootcourt_http_requests_total{job="mootcourt-api",status_code=~"5.."}[5m]))
+            /
+            clamp_min(sum(rate(mootcourt_http_requests_total{job="mootcourt-api"}[5m])), 0.001)
+          ) > 0.05
+        for: 10m
+        labels:
+          severity: critical
+          service: mootcourt-api
+        annotations:
+          summary: "MootCourt API 5xx 比例过高"
+          description: "最近 5 分钟服务端错误比例超过 5%，持续时间已超过 10 分钟。"
+
+      - alert: MootCourtAgentFailureRatioHigh
+        expr: |
+          (
+            sum(increase(mootcourt_agent_turns_total{job="mootcourt-api",status!="succeeded"}[10m]))
+            >= 3
+          ) and on()
+          (
+            sum(increase(mootcourt_agent_turns_total{job="mootcourt-api"}[10m])) > 0
+            and
+            sum(increase(mootcourt_agent_turns_total{job="mootcourt-api",status!="succeeded"}[10m]))
+            /
+            clamp_min(sum(increase(mootcourt_agent_turns_total{job="mootcourt-api"}[10m])), 1)
+            > 0.10
+          )
+        for: 10m
+        labels:
+          severity: warning
+          service: mootcourt-api
+        annotations:
+          summary: "Agent 回合失败比例过高"
+          description: "最近 10 分钟至少 3 次失败，且失败比例超过 10%。"
+
+      - alert: MootCourtAgentLatencyP95High
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le) (
+              rate(mootcourt_agent_turn_duration_seconds_bucket{job="mootcourt-api",status="succeeded"}[10m])
+            )
+          ) > 60
+        for: 15m
+        labels:
+          severity: warning
+          service: mootcourt-api
+        annotations:
+          summary: "Agent 成功回合 p95 延迟过高"
+          description: "Agent 成功回合 p95 延迟连续 15 分钟超过 60 秒。"
+
+      - alert: MootCourtProviderRetriesGrowing
+        expr: sum(increase(mootcourt_agent_provider_retries_total{job="mootcourt-api"}[10m])) >= 5
+        for: 10m
+        labels:
+          severity: warning
+          service: mootcourt-api
+        annotations:
+          summary: "模型 Provider 重试持续增长"
+          description: "最近 10 分钟发生至少 5 次受控重试，请检查上游限流或网络。"
+
+      - alert: MootCourtProviderGuardRejecting
+        expr: sum(increase(mootcourt_agent_provider_guard_rejections_total{job="mootcourt-api"}[10m])) >= 5
+        for: 5m
+        labels:
+          severity: warning
+          service: mootcourt-api
+        annotations:
+          summary: "Provider Guard 持续拒绝请求"
+          description: "最近 10 分钟至少 5 次请求被并发、熔断或 Redis Guard 拒绝。"
+
+      - alert: MootCourtAgentNormalizationSpike
+        expr: |
+          (
+            sum(increase(mootcourt_agent_output_normalizations_total{job="mootcourt-api"}[15m])) >= 5
+          ) and on()
+          (
+            sum(increase(mootcourt_agent_output_normalizations_total{job="mootcourt-api"}[15m]))
+            /
+            clamp_min(sum(increase(mootcourt_agent_turns_total{job="mootcourt-api",status="succeeded"}[15m])), 1)
+            > 0.50
+          )
+        for: 15m
+        labels:
+          severity: warning
+          service: mootcourt-api
+        annotations:
+          summary: "Agent 输出归一化比例异常"
+          description: "最近 15 分钟归一化至少 5 次且占成功回合超过 50%，请检查模型协议漂移。"
+
+      - alert: MootCourtAgentRepairSpike
+        expr: |
+          sum(increase(mootcourt_agent_repairs_total{job="mootcourt-api"}[15m])) >= 3
+        for: 15m
+        labels:
+          severity: warning
+          service: mootcourt-api
+        annotations:
+          summary: "Agent 结构化输出修复次数异常"
+          description: "最近 15 分钟发生至少 3 次结构化输出修复。"

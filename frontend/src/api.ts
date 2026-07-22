@@ -1,4 +1,5 @@
 import type {
+  AgentUsage,
   AgentTurnPayload,
   AgentTurnResponse,
   AutoStepResponse,
@@ -138,6 +139,7 @@ export const api = {
   getEvidenceAgenda: (sessionId: string) => request<EvidenceAgendaItem[]>(`/sessions/${sessionId}/evidence-agenda`),
   getProceduralRequests: (sessionId: string) => request<ProceduralRequest[]>(`/sessions/${sessionId}/procedural-requests`),
   getStatementTraces: (sessionId: string) => request<StatementTrace[]>(`/sessions/${sessionId}/participant-statement-traces`),
+  getAgentUsage: (sessionId: string) => request<AgentUsage>(`/sessions/${sessionId}/usage`),
   applyAction: (sessionId: string, payload: SessionActionPayload) =>
     request<{ session: SessionView; event: SessionEvent }>(`/sessions/${sessionId}/actions`, {
       method: 'POST',

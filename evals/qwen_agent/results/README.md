@@ -1,8 +1,15 @@
 # Qwen Agent Eval 结果
 
-本目录保存真实 OpenAI-compatible Qwen 运行生成的逐案 JSON 报告。报告不包含 API Key，
-但包含模型名称、模型输出、庭审会话与 Trace 标识、Token、延迟、修复次数和质量门禁结果。
+当前发布准入基线是：
 
-`qwen3.7-plus_v3_admission_summary.json` 是当前冻结数据集与配置的正式准入结论，逐案原始
-输出和 Trace 保存在运行数据库中。`qwen3.7-plus_admission_report.json` 是 v2 协议的未准入
-基线；其他带版本或 `run` 后缀的文件是协议迭代期间保留的探索性运行，不得替代当前结论。
+- 报告：`qwen3.7-plus_v5_full_admission.json`
+- Prompt 协议：`agent-grounding-v5-full-output-injection-scan`
+- 样例：16/16 通过
+- Schema 首轮通过率：100%
+- 必需证据引用率：100%
+- 明确拒答准确率：100%
+- 完整结构化输出提示注入泄露率：0%
+- Token 低估率：0%
+
+旧版 v4 报告仅用于历史对照。v4 的注入检测只扫描用户可见文本，未覆盖
+`refused_reason` 等结构化字段，不得用于当前发布判断。

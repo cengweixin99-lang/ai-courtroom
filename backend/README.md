@@ -112,8 +112,24 @@ Run the separate real-model Agent admission suite with:
 
 The command rejects Fake Provider configuration and records model output, grounding anchors,
 session/trace IDs, token usage, latency, repairs, prompt protocol, and non-secret runtime settings.
-The checked-in `qwen3.7-plus` admission report currently fails only the 90% first-pass validation
-gate (73.33%); all 15 final outputs and all blocking grounding/refusal/injection checks pass.
+The checked-in `qwen3.7-plus` admission report covers 16 scenarios, including controlled citation
+anchors for the former multi-note quotation failure. Regenerate the report after prompt or model
+changes; grounding, refusal, and injection checks remain blocking release gates.
+
+## Real-model release gate
+
+`.github/workflows/agent-admission.yml` separates real-model evaluation from normal PR checks.
+It runs only when manually dispatched, then imports the independent CASE-001 fixture and runs the
+full 16-case Qwen v5 suite. Run it before creating a GitHub Release: a `release: published` event
+would occur too late to block publication. Configure repository secret
+`QWEN_API_KEY`; optionally configure repository variables `QWEN_BASE_URL` and `QWEN_MODEL`.
+The workflow fails closed when the secret is absent or any admission check fails.
+
+The uploaded 90-day artifact is generated with `--redact-output`. It retains aggregate checks,
+token calibration, cost, latency, repairs, and per-case pass/failure codes, but excludes model
+answers, evidence quotes, expected inputs, session IDs, and Trace IDs. Local debugging keeps the
+default complete report; only use it in a controlled environment because it contains evaluation
+content.
 
 ## E2.3 invocation leases and idempotency
 
@@ -275,6 +291,126 @@ The versioned suite contains exactly 50 cases across the four PRD subsets and ex
 reliability gate fails. Each result retains a session ID or legal search trace ID for reproduction,
 plus latency, token, cost, and repair metadata. Deterministic provider fixtures exercise hard safety
 boundaries; they are not a substitute for a separate real-LLM quality evaluation.
+
+## Production observability
+
+Every HTTP request accepts or generates an `X-Request-ID` and returns it in the response. Runtime
+logs are emitted as JSON and bind the request ID plus the court session ID when the route contains
+one. Agent lifecycle logs cover lease acquisition, idempotent replay, lease expiry, completion,
+abandonment, provider retry, and the final persisted Agent Trace. Prompt text, API keys, evidence
+content, and user speech are deliberately excluded from runtime logs.
+
+`GET /api/v1/health` is a process liveness check. `GET /api/v1/ready` checks MySQL and
+Elasticsearch in parallel with a bounded timeout and returns 503 when either dependency is
+unavailable. Docker Compose uses readiness, so traffic is not sent to an API process whose required
+infrastructure cannot serve requests.
+
+Diagnostic surfaces are protected in production with `X-Diagnostics-Key`: Agent Trace listing,
+legal-search Trace retrieval, and `/metrics` return 401 without the configured key. Session usage
+and participant consistency records remain available to the teaching UI. Set `DIAGNOSTICS_API_KEY`
+to a random value of at least 32 characters in production; the comparison is constant-time.
+
+Agent Trace payload storage defaults to `AGENT_TRACE_PAYLOAD_MODE=redacted`. Natural-language
+instructions, speech, answers, evidence quotes, and case descriptions are replaced with length and
+HMAC-SHA256 fingerprints while IDs and finite protocol fields remain auditable. Production requires
+`TRACE_REDACTION_HMAC_KEY` (at least 32 characters) and rejects `AGENT_TRACE_PAYLOAD_MODE=full`.
+Use `none` when only metadata and token accounting are needed. Existing rows are not rewritten by
+this setting, so retention or migration jobs must handle historical full payloads separately.
+
+Prometheus metrics are exposed at `GET /metrics` by default. The endpoint reports templated HTTP
+route counts and latency, in-flight requests, Agent outcomes, provider retries, token consumption,
+repair attempts, and deterministic output normalization. Unique request, session, invocation, and
+Trace IDs are not metric labels. Set `METRICS_ENABLED=false` to disable the endpoint or change
+`METRICS_PATH`; in production, expose it only to the monitoring network.
+
+The repository provides an optional `monitoring` Compose profile with a Prometheus scrape
+configuration, eight alert rules, and a provisioned Grafana overview dashboard. It remains outside
+the default profile, so ordinary local startup does not create monitoring containers or pull their
+images:
+
+```powershell
+# The image names and pull policy can be changed in .env before this command.
+docker compose --profile monitoring up -d prometheus grafana
+```
+
+Prometheus is available at `http://localhost:9090` and Grafana at `http://localhost:3000`.
+Change `GRAFANA_ADMIN_PASSWORD` before enabling the profile. The bundled scraper is for a private
+development network where `/metrics` has no configured diagnostics key. In production,
+`DIAGNOSTICS_API_KEY` remains mandatory: place Prometheus behind the monitoring-network proxy that
+injects `X-Diagnostics-Key`, or use an equivalent secret-backed scrape configuration. Do not put
+the diagnostics key in alert rules, dashboard JSON, a Docker image, or source control.
+
+The alert set covers an unreachable API target, sustained 5xx ratio, Agent failure ratio, p95 Agent
+latency, Provider retries, Provider Guard rejections, output normalization spikes, and structured
+output repair spikes. All alert expressions aggregate existing low-cardinality labels and never
+carry a request, session, case, evidence, or Trace identifier.
+
+## Token-aware context and Provider resilience
+
+Agent prompts use `LLM_MAX_INPUT_TOKENS` (default `24000`) as an input budget. The estimator is
+provider-neutral and deliberately conservative because OpenAI-compatible endpoints may use
+different tokenizers. When a context is over budget, the builder records a budget report and
+removes the oldest events first, then non-task evidence, unconnected facts, and low-relevance
+participant statements. Explicitly selected evidence and at least one participant statement are
+kept verbatim for citation validation. If mandatory material alone cannot fit, the call fails with
+`agent_context_too_large` instead of silently truncating source text.
+
+Provider instances share resilience state by endpoint and model inside one process. Configure
+`LLM_MAX_CONCURRENCY`, `LLM_REQUESTS_PER_SECOND` (`0` disables the local rate limiter),
+`LLM_QUEUE_TIMEOUT_SECONDS`, `LLM_CIRCUIT_FAILURE_THRESHOLD`, and
+`LLM_CIRCUIT_RECOVERY_SECONDS`. The breaker counts timeout, connection, 408, 429, and 5xx
+failures; it transitions from open to a single half-open probe after recovery. Local overload and
+an open breaker return stable error codes without calling the upstream model.
+
+For multiple API replicas, set `REDIS_URL` to an externally managed Redis 6+ endpoint. Concurrency
+leases, per-attempt rate slots, failure counters, circuit-open deadlines, and the single half-open
+probe are then coordinated with atomic Lua scripts. Redis is included in `/ready` only when
+configured. New Agent calls fail closed with `agent_provider_guard_unavailable` when the configured
+store cannot be reached; current single-node development does not require a Redis image. Shutdown
+sets a process-wide drain gate, rejects new model calls, waits up to
+`SHUTDOWN_DRAIN_TIMEOUT_SECONDS`, and releases distributed concurrency leases before clients close.
+
+Run the Redis-backed Provider guard load test without calling the upstream model. The report never
+contains the Redis URL and fails when observed concurrency exceeds the configured limit, overload is
+not rejected, an unexpected error occurs, or a second replica cannot observe the shared circuit:
+
+```powershell
+$env:TEST_REDIS_URL="redis://localhost:6379/15"
+..\.venv\Scripts\python.exe -m mootcourt.cli.load_provider_guard `
+  --replicas 4 --requests 64 --max-concurrency 4 --hold-ms 100 `
+  --output ..\evals\provider_guard\results\redis_multi_instance_acceptance.json
+```
+
+The real Qwen Agent Eval also records `estimated_input_tokens`, actual `input_tokens`, upstream
+request count, weighted estimate-to-actual ratio, MAPE, and underestimation rate. Fake providers do
+not produce calibration samples. Any real sample whose local estimate is lower than provider usage
+fails the token-calibration admission gate, while overestimation remains visible for later tuning.
+
+Prompt-injection checks scan the complete structured model output, including refusal reasons and
+citations, instead of only the user-visible speech. The current admission baseline is
+`agent-grounding-v5-full-output-injection-scan`; older reports must not be used for release decisions.
+
+## Idempotency and data maintenance
+
+Idempotent Agent responses are stored as versioned Fernet envelopes when
+`IDEMPOTENCY_ENCRYPTION_KEY` is configured. Historical plaintext JSON remains readable for
+backward compatibility. In production, the API falls back to `DIAGNOSTICS_API_KEY` when the
+dedicated key is absent, so new responses are not written in plaintext; configure a separate
+random key to allow independent key rotation.
+
+Run the maintenance commands from the backend virtual environment. They never print payload
+content:
+
+```powershell
+..\.venv\Scripts\mootcourt-maintain-agent-data.exe redact
+..\.venv\Scripts\mootcourt-maintain-agent-data.exe purge
+..\.venv\Scripts\mootcourt-maintain-agent-data.exe purge `
+  --trace-older-than-days 30 `
+  --invocation-older-than-days 7
+```
+
+The purge command keeps session events that reference a Trace ID and removes only completed or
+abandoned invocations after the idempotency replay window. Active leases are never removed.
 
 ## Quality gates
 
