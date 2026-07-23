@@ -761,9 +761,25 @@ a { color: inherit; }
 .auth-switch, .auth-signout { border: 0; background: transparent; color: #7b2f2a; cursor: pointer; }
 .auth-switch { margin-top: 16px; padding: 4px 0; }
 .auth-success { color: #2d6a4f; }
-.authenticated-shell { min-height: 100vh; }
-.auth-toolbar { display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding: 8px 20px; color: #6f625b; font-size: 12px; }
-.auth-signout { display: inline-flex; gap: 5px; align-items: center; }
+.authenticated-shell { position: relative; min-height: 100vh; }
+/* 账户操作属于全局 header，不再单独占用一整行。 */
+.auth-toolbar { position: absolute; z-index: 30; top: 0; right: 0; min-height: 54px; display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding: 0 18px; color: #d5e1db; font-size: 12px; }
+.auth-toolbar > span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.auth-signout { display: inline-flex; gap: 5px; align-items: center; border: 0; background: transparent; color: #e4b1b0; cursor: pointer; }
+.auth-signout:hover { color: #fff; }
+.lobby-header-actions { margin-right: 220px; }
+.case-admin-header > .admin-refresh-button { margin-right: 220px; }
+.review-header .environment-tag { margin-right: 220px; }
+.court-bench .bench-tools { margin-right: 220px; }
+
+@media (max-width: 680px) {
+  .auth-toolbar { min-height: 52px; padding-inline: 10px; gap: 7px; }
+  .auth-toolbar > span { display: none; }
+  .lobby-header-actions { margin-right: 122px; }
+  .case-admin-header > .admin-refresh-button { margin-right: 122px; }
+  .review-header .environment-tag { margin-right: 122px; }
+  .court-bench .bench-tools { margin-right: 122px; }
+}
 
 /* 开始页与管理页使用同一套“卷宗纸张 + 审判席”视觉语汇，减少模板卡片感。 */
 .lobby-shell { background: #f0ede7; color: #1d2925; }
