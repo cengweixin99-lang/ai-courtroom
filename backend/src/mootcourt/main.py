@@ -43,6 +43,10 @@ openapi_tags = [
         "name": "case-admin",
         "description": "安全导入、校验、发布案件版本，并限定组织访问范围。",
     },
+    {
+        "name": "organization-admin",
+        "description": "管理组织成员及其学习者、指导教师和管理员角色。",
+    },
     {"name": "system", "description": "服务运行状态检查。"},
     {
         "name": "cases",

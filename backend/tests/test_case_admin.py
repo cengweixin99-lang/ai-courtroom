@@ -346,6 +346,83 @@ async def test_publish_rejects_organization_outside_admin_scope(
     assert response.json()["detail"]["code"] == "case_publish_organization_forbidden"
 
 
+async def test_organization_admin_can_manage_members_without_removing_last_admin(
+    case_admin_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    async with session_factory() as session:
+        admin_id = await session.scalar(
+            select(PlatformUserModel.id).where(PlatformUserModel.auth_subject == ADMIN_SUBJECT)
+        )
+        session.add(
+            PlatformUserModel(
+                auth_subject="managed-member",
+                email="member@example.test",
+                display_name="测试成员",
+            )
+        )
+        await session.commit()
+        member_id = await session.scalar(
+            select(PlatformUserModel.id).where(PlatformUserModel.auth_subject == "managed-member")
+        )
+
+    listed = await case_admin_client.get(
+        f"/api/v1/admin/organizations/{PUBLIC_TRAINING_ORGANIZATION_ID}/members"
+    )
+    added = await case_admin_client.put(
+        f"/api/v1/admin/organizations/{PUBLIC_TRAINING_ORGANIZATION_ID}/members/{member_id}",
+        json={"role": "learner"},
+    )
+    blocked_demotion = await case_admin_client.put(
+        f"/api/v1/admin/organizations/{PUBLIC_TRAINING_ORGANIZATION_ID}/members/{admin_id}",
+        json={"role": "learner"},
+    )
+    promoted = await case_admin_client.put(
+        f"/api/v1/admin/organizations/{PUBLIC_TRAINING_ORGANIZATION_ID}/members/{member_id}",
+        json={"role": "admin"},
+    )
+    removed_admin = await case_admin_client.delete(
+        f"/api/v1/admin/organizations/{PUBLIC_TRAINING_ORGANIZATION_ID}/members/{admin_id}"
+    )
+    blocked_last_removal = await case_admin_client.delete(
+        f"/api/v1/admin/organizations/{PUBLIC_TRAINING_ORGANIZATION_ID}/members/{member_id}"
+    )
+
+    assert listed.status_code == 200
+    assert any(
+        item["user_id"] == admin_id and item["role"] == "admin" for item in listed.json()["members"]
+    )
+    assert added.status_code == 200
+    assert any(
+        item["user_id"] == member_id and item["role"] == "learner"
+        for item in added.json()["members"]
+    )
+    assert blocked_demotion.status_code == 409
+    assert blocked_demotion.json()["detail"]["code"] == "organization_self_role_change_forbidden"
+    assert promoted.status_code == 200
+    assert removed_admin.status_code == 409
+    assert removed_admin.json()["detail"]["code"] == "organization_self_removal_forbidden"
+    assert blocked_last_removal.status_code == 200
+
+
+async def test_non_admin_cannot_manage_organization_members(
+    case_admin_client: AsyncClient,
+) -> None:
+    app.dependency_overrides[require_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        subject="member-manager-denied",
+        email="denied@example.test",
+        provider_role="authenticated",
+        claims={"sub": "member-manager-denied"},
+    )
+
+    response = await case_admin_client.get(
+        f"/api/v1/admin/organizations/{PUBLIC_TRAINING_ORGANIZATION_ID}/members"
+    )
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "organization_admin_required"
+
+
 @pytest.mark.parametrize(
     ("entries", "expected_code"),
     [

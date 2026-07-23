@@ -13,6 +13,18 @@ EXPECTED_OPERATIONS = {
         "/api/v1/admin/case-packages/{database_id}/publish",
         "post",
     ): "publish_case_package",
+    (
+        "/api/v1/admin/organizations/{organization_id}/members",
+        "get",
+    ): "list_organization_members",
+    (
+        "/api/v1/admin/organizations/{organization_id}/members/{user_id}",
+        "put",
+    ): "set_organization_member",
+    (
+        "/api/v1/admin/organizations/{organization_id}/members/{user_id}",
+        "delete",
+    ): "remove_organization_member",
     ("/api/v1/health", "get"): "health_check",
     ("/api/v1/ready", "get"): "readiness_check",
     ("/api/v1/cases", "get"): "list_case_packages",
@@ -146,6 +158,7 @@ def test_openapi_tags_have_descriptions() -> None:
 
     assert {tag["name"] for tag in tags} == {
         "case-admin",
+        "organization-admin",
         "system",
         "cases",
         "sessions",

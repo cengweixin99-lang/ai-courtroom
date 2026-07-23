@@ -7,6 +7,8 @@ import type {
   CaseImportAttempt,
   ManagedCasePackage,
   ManagedOrganization,
+  OrganizationMemberRole,
+  OrganizationMembers,
   CaseView,
   CourtReview,
   TurnQualityEvaluationReport,
@@ -158,6 +160,17 @@ async function streamAutoStep(
 export const api = {
   listAdminOrganizations: () =>
     request<ManagedOrganization[]>('/admin/case-packages/organizations'),
+  listOrganizationMembers: (organizationId: string) =>
+    request<OrganizationMembers>(`/admin/organizations/${organizationId}/members`),
+  setOrganizationMember: (organizationId: string, userId: number, role: OrganizationMemberRole) =>
+    request<OrganizationMembers>(`/admin/organizations/${organizationId}/members/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ role }),
+    }),
+  removeOrganizationMember: (organizationId: string, userId: number) =>
+    request<OrganizationMembers>(`/admin/organizations/${organizationId}/members/${userId}`, {
+      method: 'DELETE',
+    }),
   listManagedCases: () => request<ManagedCasePackage[]>('/admin/case-packages'),
   uploadCaseArchive,
   publishManagedCase: (databaseId: number, organizationIds: string[]) =>

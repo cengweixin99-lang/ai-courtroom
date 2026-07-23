@@ -51,3 +51,30 @@ class ManagedOrganizationView(BaseModel):
     id: str
     slug: str
     name: str
+
+
+OrganizationMemberRole = Literal["learner", "instructor", "admin"]
+
+
+class OrganizationMemberView(BaseModel):
+    user_id: int
+    email: str | None
+    display_name: str | None
+    role: OrganizationMemberRole
+    created_at: datetime
+
+
+class OrganizationDirectoryUserView(BaseModel):
+    user_id: int
+    email: str | None
+    display_name: str | None
+
+
+class OrganizationMembersView(BaseModel):
+    organization_id: str
+    members: list[OrganizationMemberView]
+    available_users: list[OrganizationDirectoryUserView]
+
+
+class SetOrganizationMemberRequest(BaseModel):
+    role: OrganizationMemberRole

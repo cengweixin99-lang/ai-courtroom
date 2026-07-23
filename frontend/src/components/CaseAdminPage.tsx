@@ -1,8 +1,14 @@
 import { useEffect, useState } from 'react'
-import { ArrowLeft, CheckCircle2, FileArchive, RefreshCw, ShieldAlert, Upload } from 'lucide-react'
+import { ArrowLeft, CheckCircle2, FileArchive, RefreshCw, ShieldAlert, Trash2, Upload, UserPlus } from 'lucide-react'
 
 import { api, ApiError } from '../api'
-import type { CaseImportAttempt, ManagedCasePackage, ManagedOrganization } from '../types'
+import type {
+  CaseImportAttempt,
+  ManagedCasePackage,
+  ManagedOrganization,
+  OrganizationMemberRole,
+  OrganizationMembers,
+} from '../types'
 
 interface Props {
   organizations: ManagedOrganization[]
@@ -18,6 +24,11 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
     organizations.map((item) => item.id),
   )
   const [busy, setBusy] = useState(false)
+  const [selectedOrganizationId, setSelectedOrganizationId] = useState(organizations[0]?.id ?? '')
+  const [members, setMembers] = useState<OrganizationMembers | null>(null)
+  const [selectedUserId, setSelectedUserId] = useState<number | ''>('')
+  const [selectedRole, setSelectedRole] = useState<OrganizationMemberRole>('learner')
+  const [memberBusy, setMemberBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = async () => {
@@ -40,6 +51,17 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
     })
     return () => { active = false }
   }, [])
+
+  useEffect(() => {
+    if (!selectedOrganizationId) return
+    let active = true
+    void api.listOrganizationMembers(selectedOrganizationId).then((items) => {
+      if (active) setMembers(items)
+    }).catch((caught: unknown) => {
+      if (active) setError(caught instanceof ApiError ? `${caught.code}: ${caught.message}` : '无法读取组织成员')
+    })
+    return () => { active = false }
+  }, [selectedOrganizationId])
 
   const upload = async () => {
     if (!file) return
@@ -67,6 +89,31 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
       setError(caught instanceof ApiError ? `${caught.code}: ${caught.message}` : '案件发布失败')
     } finally {
       setBusy(false)
+    }
+  }
+
+  const saveMember = async (userId: number, role: OrganizationMemberRole) => {
+    setMemberBusy(true)
+    setError(null)
+    try {
+      setMembers(await api.setOrganizationMember(selectedOrganizationId, userId, role))
+      setSelectedUserId('')
+    } catch (caught) {
+      setError(caught instanceof ApiError ? `${caught.code}: ${caught.message}` : '保存组织权限失败')
+    } finally {
+      setMemberBusy(false)
+    }
+  }
+
+  const removeMember = async (userId: number) => {
+    setMemberBusy(true)
+    setError(null)
+    try {
+      setMembers(await api.removeOrganizationMember(selectedOrganizationId, userId))
+    } catch (caught) {
+      setError(caught instanceof ApiError ? `${caught.code}: ${caught.message}` : '移除组织成员失败')
+    } finally {
+      setMemberBusy(false)
     }
   }
 
@@ -133,6 +180,45 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
           ))}
           {packages.length === 0 && <p className="managed-case-empty">暂无可管理的案件版本。</p>}
         </section>
+      </section>
+
+      <section className="organization-admin-panel" aria-labelledby="organization-admin-title">
+        <div className="managed-case-heading">
+          <div><p className="eyebrow">ACCESS CONTROL</p><h2 id="organization-admin-title">组织权限</h2></div>
+          <select value={selectedOrganizationId} onChange={(event) => setSelectedOrganizationId(event.target.value)}>
+            {organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
+          </select>
+        </div>
+        <p className="admin-help">只显示已经登录过的用户。修改角色会立即影响案件可见范围和庭审管理权限。</p>
+        {members && (
+          <>
+            <div className="member-add-row">
+              <select aria-label="选择用户" value={selectedUserId} onChange={(event) => setSelectedUserId(event.target.value ? Number(event.target.value) : '')}>
+                <option value="">选择已登录用户</option>
+                {members.available_users.map((user) => <option key={user.user_id} value={user.user_id}>{user.email ?? `用户 ${user.user_id}`}</option>)}
+              </select>
+              <select aria-label="新成员角色" value={selectedRole} onChange={(event) => setSelectedRole(event.target.value as OrganizationMemberRole)}>
+                <option value="learner">学习者</option>
+                <option value="instructor">指导教师</option>
+                <option value="admin">管理员</option>
+              </select>
+              <button className="secondary-action" disabled={selectedUserId === '' || memberBusy} onClick={() => void saveMember(selectedUserId as number, selectedRole)}>
+                <UserPlus size={16} />添加成员
+              </button>
+            </div>
+            <div className="member-list">
+              {members.members.map((member) => (
+                <div className="member-row" key={member.user_id}>
+                  <div><strong>{member.display_name ?? member.email ?? `用户 ${member.user_id}`}</strong><small>{member.email ?? '未提供邮箱'}</small></div>
+                  <select aria-label={`${member.email ?? member.user_id}角色`} value={member.role} disabled={memberBusy} onChange={(event) => void saveMember(member.user_id, event.target.value as OrganizationMemberRole)}>
+                    <option value="learner">学习者</option><option value="instructor">指导教师</option><option value="admin">管理员</option>
+                  </select>
+                  <button className="icon-action" title="移除成员" aria-label={`移除 ${member.email ?? member.user_id}`} disabled={memberBusy} onClick={() => void removeMember(member.user_id)}><Trash2 size={16} /></button>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
       </section>
     </main>
   )

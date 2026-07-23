@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import cast
 
-from sqlalchemy import exists, select
+from sqlalchemy import exists, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from mootcourt.db.models import (
     CaseAccessGrantModel,
@@ -92,6 +93,72 @@ class SqlAlchemyIdentityRepository:
             )
         )
         return set(organization_ids)
+
+    async def list_organization_members(
+        self, organization_id: str
+    ) -> list[OrganizationMembershipModel]:
+        return list(
+            await self._session.scalars(
+                select(OrganizationMembershipModel)
+                .where(OrganizationMembershipModel.organization_id == organization_id)
+                .options(selectinload(OrganizationMembershipModel.user))
+                .order_by(OrganizationMembershipModel.role, OrganizationMembershipModel.user_id)
+            )
+        )
+
+    async def list_platform_users(self) -> list[PlatformUserModel]:
+        return list(
+            await self._session.scalars(select(PlatformUserModel).order_by(PlatformUserModel.id))
+        )
+
+    async def get_platform_user(self, user_id: int) -> PlatformUserModel | None:
+        return await self._session.get(PlatformUserModel, user_id)
+
+    async def get_membership(
+        self, organization_id: str, user_id: int
+    ) -> OrganizationMembershipModel | None:
+        return cast(
+            OrganizationMembershipModel | None,
+            await self._session.scalar(
+                select(OrganizationMembershipModel).where(
+                    OrganizationMembershipModel.organization_id == organization_id,
+                    OrganizationMembershipModel.user_id == user_id,
+                )
+            ),
+        )
+
+    async def count_organization_admins(self, organization_id: str) -> int:
+        count = await self._session.scalar(
+            select(func.count())
+            .select_from(OrganizationMembershipModel)
+            .where(
+                OrganizationMembershipModel.organization_id == organization_id,
+                OrganizationMembershipModel.role == "admin",
+            )
+        )
+        return int(count or 0)
+
+    async def set_membership_role(
+        self, organization_id: str, user_id: int, role: str
+    ) -> OrganizationMembershipModel:
+        membership = await self.get_membership(organization_id, user_id)
+        if membership is None:
+            membership = OrganizationMembershipModel(
+                organization_id=organization_id,
+                user_id=user_id,
+                role=role,
+            )
+            self._session.add(membership)
+        else:
+            membership.role = role
+        await self._session.flush()
+        return membership
+
+    async def remove_membership(self, organization_id: str, user_id: int) -> None:
+        membership = await self.get_membership(organization_id, user_id)
+        if membership is not None:
+            await self._session.delete(membership)
+            await self._session.flush()
 
     async def list_administrated_organizations(self, user_id: int) -> list[OrganizationModel]:
         return list(

@@ -42,6 +42,28 @@ export interface ManagedOrganization {
   name: string
 }
 
+export type OrganizationMemberRole = 'learner' | 'instructor' | 'admin'
+
+export interface OrganizationMember {
+  user_id: number
+  email: string | null
+  display_name: string | null
+  role: OrganizationMemberRole
+  created_at: string
+}
+
+export interface OrganizationDirectoryUser {
+  user_id: number
+  email: string | null
+  display_name: string | null
+}
+
+export interface OrganizationMembers {
+  organization_id: string
+  members: OrganizationMember[]
+  available_users: OrganizationDirectoryUser[]
+}
+
 export interface CaseImportIssue {
   code: string
   message: string
