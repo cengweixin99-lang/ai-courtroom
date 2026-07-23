@@ -30,9 +30,6 @@ export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, o
           <span className="brand-divider" aria-hidden="true" />
           <span className="brand-context">刑事庭审训练工作台</span>
         </div>
-        <div className="lobby-header-actions">
-          <span className="environment-tag"><span className="status-dot" />训练环境</span>
-        </div>
       </header>
 
       <div className="lobby-layout">

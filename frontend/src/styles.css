@@ -767,7 +767,6 @@ a { color: inherit; }
 .auth-toolbar > span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .auth-signout { display: inline-flex; gap: 5px; align-items: center; border: 0; background: transparent; color: #e4b1b0; cursor: pointer; }
 .auth-signout:hover { color: #fff; }
-.lobby-header-actions { margin-right: 220px; }
 .case-admin-header > .admin-refresh-button { margin-right: 220px; }
 .review-header .environment-tag { margin-right: 220px; }
 .court-bench .bench-tools { margin-right: 220px; }
@@ -959,8 +958,6 @@ a { color: inherit; }
 .lobby-shell .brand svg { color: #d7a13f; }
 .lobby-shell .brand-divider { background: #587068; }
 .lobby-shell .brand-context { color: #b9c8c1; }
-.lobby-shell .environment-tag { border-color: #426357; background: #27483d; color: #d2dfd8; }
-.lobby-shell .status-dot { background: #71c5a3; }
 .lobby-layout { width: 100%; max-width: none; min-height: calc(100vh - 54px); grid-template-columns: minmax(236px, 18vw) minmax(0, 1fr); background: #d7ddda; gap: 1px; }
 .lobby-sidebar { border-right: 0; background: #f7f8f7; }
 .lobby-sidebar-title { min-height: 53px; padding: 0 15px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #dfe4e1; background: #f8f9f8; }
