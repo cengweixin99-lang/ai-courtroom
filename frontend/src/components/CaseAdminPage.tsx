@@ -30,6 +30,8 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
   const [selectedRole, setSelectedRole] = useState<OrganizationMemberRole>('learner')
   const [memberBusy, setMemberBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const draftCount = packages.filter((item) => item.lifecycle_status === 'draft').length
+  const publishedCount = packages.filter((item) => item.lifecycle_status === 'published').length
 
   const load = async () => {
     setError(null)
@@ -120,15 +122,22 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
   return (
     <main className="case-admin-shell">
       <header className="case-admin-header">
-        <button className="ghost-action" onClick={onBack}><ArrowLeft size={17} />返回庭审大厅</button>
-        <div><p className="eyebrow">CASE OPERATIONS</p><h1>案件导入与发布</h1></div>
-        <button className="ghost-action" onClick={() => void load()}><RefreshCw size={16} />刷新</button>
+        <button className="admin-back-button" onClick={onBack}><ArrowLeft size={17} />返回庭审大厅</button>
+        <div className="admin-title-lockup"><p className="eyebrow">CASE OPERATIONS / ADMIN</p><h1>案件管理</h1><p>导入案卷、发布训练版本、维护组织成员权限</p></div>
+        <button className="admin-refresh-button" onClick={() => void load()}><RefreshCw size={16} />刷新数据</button>
       </header>
+
+      <section className="admin-overview" aria-label="管理概览">
+        <div className="admin-overview-intro"><p className="eyebrow">WORKSPACE OVERVIEW</p><h2>组织训练内容</h2><p>所有案件先进入草稿，明确发布范围后才会对学习者开放。</p></div>
+        <div className="admin-metric"><span>案件版本</span><strong>{packages.length}</strong><small>全部版本</small></div>
+        <div className="admin-metric"><span>待发布</span><strong className={draftCount > 0 ? 'accent' : ''}>{draftCount}</strong><small>需要处理</small></div>
+        <div className="admin-metric"><span>已发布</span><strong>{publishedCount}</strong><small>{organizations.length} 个可管理组织</small></div>
+      </section>
 
       <section className="case-admin-grid">
         <article className="case-import-card">
-          <FileArchive size={28} />
-          <h2>上传案件 ZIP</h2>
+          <div className="tool-kicker"><FileArchive size={17} /><span>CONTENT INGESTION</span></div>
+          <h2>导入新案卷</h2>
           <p>系统会校验目录穿越、压缩炸弹、文件清单、案卷 Schema、证据引用和角色材料边界。通过后先进入草稿，不会立即向学习者开放。</p>
           <label className="case-file-picker">
             <span>{file?.name ?? '选择 .zip 案件包'}</span>
@@ -167,7 +176,7 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
         </article>
 
         <section className="managed-case-list" aria-labelledby="managed-cases-title">
-          <div className="managed-case-heading"><div><p className="eyebrow">VERSIONS</p><h2 id="managed-cases-title">案件版本</h2></div><span>{packages.length} 个版本</span></div>
+          <div className="managed-case-heading"><div><p className="eyebrow">CONTENT LIBRARY</p><h2 id="managed-cases-title">案件版本</h2></div><span>{packages.length} 个版本</span></div>
           {packages.map((item) => (
             <article className="managed-case-row" key={item.database_id}>
               <div><strong>{item.title}</strong><p>{item.case_id} · {item.package_version}</p></div>
@@ -184,7 +193,7 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
 
       <section className="organization-admin-panel" aria-labelledby="organization-admin-title">
         <div className="managed-case-heading">
-          <div><p className="eyebrow">ACCESS CONTROL</p><h2 id="organization-admin-title">组织权限</h2></div>
+          <div><p className="eyebrow">ACCESS CONTROL</p><h2 id="organization-admin-title">组织权限</h2><p className="panel-subtitle">谁可以进入本组织，以及他们能做什么</p></div>
           <select value={selectedOrganizationId} onChange={(event) => setSelectedOrganizationId(event.target.value)}>
             {organizations.map((organization) => <option key={organization.id} value={organization.id}>{organization.name}</option>)}
           </select>

@@ -25,16 +25,20 @@ export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, o
   return (
     <main className="lobby-shell">
       <header className="brand-bar">
-        <div className="brand"><Scale aria-hidden="true" size={22} /><span>MootCourt Lab</span></div>
+        <div className="brand-lockup">
+          <div className="brand"><Scale aria-hidden="true" size={22} /><span>MootCourt Lab</span></div>
+          <span className="brand-divider" aria-hidden="true" />
+          <span className="brand-context">刑事庭审训练工作台</span>
+        </div>
         <div className="lobby-header-actions">
           {canManageCases && <button className="ghost-action" onClick={onManageCases}><FileCog size={16} />案件管理</button>}
-          <span className="environment-tag">TECH DEMO</span>
+          <span className="environment-tag"><span className="status-dot" />训练环境</span>
         </div>
       </header>
 
       <section className="case-intro" aria-labelledby="case-title">
         <div className="case-heading">
-          <p className="eyebrow">虚构刑事案件训练</p>
+          <div className="case-heading-topline"><p className="eyebrow">虚构刑事案件训练</p><span className="case-number">CASE / {selected?.case_id ?? '--'}</span></div>
           <h1 id="case-title">{selected?.title ?? '正在读取案件'}</h1>
           <p className="case-summary">
             围绕证据、事实和构成要件完成一次简化刑事一审训练。庭审程序由状态机控制，法律引用来自可核验法源。
@@ -66,9 +70,12 @@ export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, o
 
       {sessions.length > 0 && (
         <section className="session-history" aria-labelledby="session-history-title">
-          <div className="session-history-heading">
-            <History size={18} aria-hidden="true" />
-            <h2 id="session-history-title">最近庭审</h2>
+          <div className="section-heading-row">
+            <div className="session-history-heading">
+              <History size={18} aria-hidden="true" />
+              <div><p className="eyebrow">CONTINUE</p><h2 id="session-history-title">最近庭审</h2></div>
+            </div>
+            <span className="section-note">从上次中断处继续</span>
           </div>
           <div className="session-history-list">
             {sessions.map((item) => (
@@ -94,9 +101,11 @@ export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, o
 
       <section className="role-band" aria-labelledby="role-title">
         <div className="role-copy">
-          <p className="eyebrow">选择庭审席位</p>
+          <div className="role-index">01</div>
+          <div><p className="eyebrow">选择庭审席位</p>
           <h2 id="role-title">你将在本庭承担哪一方？</h2>
           <p>系统只展示该角色有权查阅的材料，另一方、被告人和证人由 AI 按案卷边界补齐。</p>
+          </div>
         </div>
         <div className="role-controls">
           <div className="segmented" role="radiogroup" aria-label="庭审角色">

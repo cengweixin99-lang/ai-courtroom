@@ -764,3 +764,113 @@ a { color: inherit; }
 .authenticated-shell { min-height: 100vh; }
 .auth-toolbar { display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding: 8px 20px; color: #6f625b; font-size: 12px; }
 .auth-signout { display: inline-flex; gap: 5px; align-items: center; }
+
+/* 开始页与管理页使用同一套“卷宗纸张 + 审判席”视觉语汇，减少模板卡片感。 */
+.lobby-shell { background: #f0ede7; color: #1d2925; }
+.brand-bar { min-height: 74px; padding-inline: clamp(24px, 6vw, 92px); background: #fffaf3; border-bottom: 1px solid #d8d0c6; }
+.brand-lockup { display: flex; align-items: center; gap: 14px; }
+.brand-divider { width: 1px; height: 21px; background: #c9beb3; }
+.brand-context { color: #746b63; font-size: 12px; letter-spacing: .04em; }
+.environment-tag { display: inline-flex; align-items: center; gap: 7px; border-color: #c9bda7; border-radius: 999px; padding: 6px 10px; background: #f7f1e7; color: #6d5c42; }
+.status-dot { width: 6px; height: 6px; border-radius: 50%; background: #2e765e; }
+.case-intro { max-width: none; padding: 72px max(24px, 8vw) 66px; grid-template-columns: minmax(0, 1.35fr) minmax(300px, .65fr); gap: clamp(36px, 8vw, 140px); background: #18332d; color: #f6f0e7; }
+.case-heading { max-width: 760px; }
+.case-heading-topline { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.case-heading .eyebrow { color: #d7a0a0; margin-bottom: 0; }
+.case-number { color: #a9bdb4; font-size: 11px; font-weight: 750; letter-spacing: .08em; }
+.case-heading h1 { color: #fffaf3; font-size: clamp(42px, 5vw, 64px); letter-spacing: 0; }
+.case-summary { max-width: 700px; color: #d2ddd7; font-size: 17px; line-height: 1.8; }
+.case-meta { color: #b9c9c1; }
+.case-meta svg { color: #e0b04f; }
+.case-facts { align-self: stretch; border: 0; border-left: 4px solid #b33a43; background: #f7f1e7; padding: 18px 26px; box-shadow: 10px 10px 0 rgba(10, 28, 24, .18); }
+.case-facts div { padding: 15px 0; border-color: #dcd2c7; }
+.case-facts strong { color: #29453b; }
+.case-facts span { color: #716860; }
+.case-switcher { max-width: 1320px; margin: 22px auto 28px; padding: 0 max(24px, 4vw); gap: 10px; background: transparent; }
+.case-row { min-height: 66px; border: 1px solid #d6cdc1; background: #fffaf3; padding: 12px 16px; }
+.case-row:hover { border-color: #a68066; background: #fffdf9; }
+.case-row.active { background: #e7eee9; color: #174a3c; box-shadow: inset 4px 0 #a5242f; border-color: #b9c9bf; }
+.session-history { max-width: 1320px; padding: 0 max(24px, 4vw) 42px; }
+.section-heading-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+.session-history-heading { gap: 12px; }
+.session-history-heading .eyebrow { margin-bottom: 3px; font-size: 10px; }
+.session-history-heading h2 { font-size: 20px; }
+.section-note { color: #897f75; font-size: 12px; }
+.session-history-list { margin-top: 14px; border-top: 2px solid #c9beb3; }
+.session-history-item { min-height: 68px; border-color: #d8d0c6; }
+.session-resume { color: #263e34; }
+.session-resume svg { color: #a5242f; }
+.role-band { max-width: 1320px; margin: 0 auto 36px; padding: 28px max(24px, 4vw); border: 1px solid #d6cdc1; border-top: 4px solid #a5242f; background: #fffaf3; align-items: center; }
+.role-copy { display: flex; align-items: flex-start; gap: 16px; }
+.role-index { color: #a5242f; font: 700 33px/1 Georgia, "Songti SC", serif; }
+.role-copy .eyebrow { margin-bottom: 7px; }
+.role-copy h2 { font-size: 22px; }
+.role-controls { gap: 12px; }
+.segmented { border-color: #c9beb3; background: #eee9e1; }
+.segment { height: 42px; min-width: 116px; }
+.segment.active { background: #1c5144; }
+.primary-action { min-height: 48px; border-color: #92252e; background: #a5242f; }
+.primary-action:hover:not(:disabled) { background: #7f2028; }
+.disclaimer { max-width: 1320px; margin: 0 auto; padding: 0 max(24px, 4vw) 34px; }
+
+.case-admin-shell { background: #ede8df; color: #263b32; }
+.case-admin-header { min-height: 132px; padding: 22px max(24px, 6vw); background: #18332d; border-bottom: 4px solid #a5242f; }
+.admin-title-lockup { text-align: center; }
+.admin-title-lockup .eyebrow { margin-bottom: 6px; color: #d7a0a0; }
+.admin-title-lockup h1 { color: #fffaf3; font-size: 34px; }
+.admin-title-lockup p:last-child { margin: 7px 0 0; color: #b9c9c1; font-size: 12px; }
+.admin-back-button, .admin-refresh-button { min-height: 38px; display: inline-flex; align-items: center; gap: 8px; padding: 0 12px; border: 1px solid rgba(255,255,255,.22); background: rgba(255,255,255,.06); color: #f8f2e9; font-size: 12px; }
+.admin-back-button:hover, .admin-refresh-button:hover { background: rgba(255,255,255,.13); }
+.admin-refresh-button { justify-self: end; }
+.admin-overview { width: min(1320px, calc(100% - 48px)); margin: 28px auto 0; display: grid; grid-template-columns: minmax(260px, 1.7fr) repeat(3, minmax(130px, .7fr)); border: 1px solid #d4c8bb; background: #fffaf3; }
+.admin-overview-intro { padding: 22px 26px; }
+.admin-overview-intro .eyebrow { margin-bottom: 7px; font-size: 10px; }
+.admin-overview-intro h2 { margin: 0; color: #253b32; font: 650 22px/1.25 Georgia, "Songti SC", serif; }
+.admin-overview-intro p:last-child { margin: 7px 0 0; color: #776e65; font-size: 12px; line-height: 1.55; }
+.admin-metric { padding: 22px 20px; border-left: 1px solid #ded5cb; }
+.admin-metric span, .admin-metric small { display: block; color: #81776e; font-size: 11px; }
+.admin-metric strong { display: block; margin: 8px 0 3px; color: #1b4d3f; font: 700 30px/1 Georgia, "Songti SC", serif; }
+.admin-metric strong.accent { color: #a5242f; }
+.case-admin-grid { width: min(1320px, calc(100% - 48px)); margin: 20px auto 0; grid-template-columns: minmax(320px, .72fr) minmax(560px, 1.48fr); gap: 18px; }
+.case-import-card, .managed-case-list, .organization-admin-panel { border: 1px solid #d4c8bb; border-radius: 2px; box-shadow: 0 12px 30px rgba(63, 43, 27, .06); }
+.case-import-card { padding: 28px; border-top: 5px solid #a5242f; }
+.tool-kicker { display: flex; align-items: center; gap: 8px; color: #a5242f; font-size: 10px; font-weight: 800; letter-spacing: .09em; }
+.tool-kicker svg { color: #a5242f; }
+.case-import-card h2 { margin-top: 14px; font: 650 24px/1.25 Georgia, "Songti SC", serif; }
+.case-import-card > p { line-height: 1.7; }
+.case-file-picker { min-height: 94px; border-color: #bbaea1; background: #f5f0e9; }
+.managed-case-list { border-top: 5px solid #1c5144; }
+.managed-case-heading { min-height: 82px; padding-inline: 24px; background: #fffdf9; }
+.managed-case-heading h2 { font: 650 23px/1.25 Georgia, "Songti SC", serif; }
+.managed-case-row { min-height: 108px; padding-inline: 24px; border-color: #e2dad1; }
+.managed-case-row:hover { background: #fcf8f2; }
+.organization-admin-panel { width: min(1320px, calc(100% - 48px)); margin: 18px auto 52px; border-top: 5px solid #a5242f; }
+.organization-admin-panel .managed-case-heading { min-height: 92px; }
+.panel-subtitle { margin: 6px 0 0; color: #847a71; font-size: 12px; }
+.member-add-row { background: #f5f0e9; }
+
+@media (max-width: 900px) {
+  .admin-overview { grid-template-columns: 1fr 1fr; }
+  .admin-overview-intro { grid-column: 1 / -1; }
+  .admin-metric:nth-child(3) { border-left: 0; }
+}
+@media (max-width: 760px) {
+  .brand-context, .brand-divider { display: none; }
+  .brand-bar { min-height: 62px; padding-inline: 16px; }
+  .case-intro { padding: 48px 20px 42px; grid-template-columns: 1fr; gap: 30px; }
+  .case-heading-topline { align-items: flex-start; flex-direction: column; gap: 8px; }
+  .case-heading h1 { font-size: 42px; }
+  .case-summary { font-size: 16px; }
+  .case-facts { box-shadow: 7px 7px 0 rgba(10, 28, 24, .16); }
+  .section-heading-row { align-items: flex-start; flex-direction: column; gap: 6px; }
+  .role-band { margin-inline: 16px; padding: 24px 18px; }
+  .role-copy { gap: 12px; }
+  .role-controls { width: 100%; }
+  .segmented { width: 100%; }
+  .segment { min-width: 0; }
+  .admin-overview, .case-admin-grid, .organization-admin-panel { width: calc(100% - 28px); }
+  .admin-overview { margin-top: 18px; }
+  .case-admin-header { min-height: 150px; padding: 18px 14px; }
+  .admin-title-lockup h1 { font-size: 28px; }
+  .admin-title-lockup p:last-child { max-width: 260px; margin-inline: auto; line-height: 1.5; }
+}
