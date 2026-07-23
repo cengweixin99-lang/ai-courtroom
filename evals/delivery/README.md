@@ -20,5 +20,9 @@ Qwen 庭审，因此会产生 Token 和费用。
 会话审计起点。完整模式额外检查 SSE、幂等回放、自动编排、用户合法动作、复盘和 Qwen
 逐发言点评。报告同时生成 JSON 与同名 Markdown 文件；任一检查失败时命令返回非零退出码。
 
+默认 smoke 报告固定写入 `results/smoke.json`。完整模式会生成带 UTC 时间戳的
+`results/full_*.json`，避免覆盖已完成的真实模型验收记录；需要指定审计归档路径时可传入
+`--output` 和 `--markdown-output`。
+
 脚本不会拉取镜像、重建容器、停止服务或删除 MySQL/Elasticsearch 数据卷。每次运行会
 创建独立验收会话，并保留 session ID 和法律检索 trace ID 以便审计。

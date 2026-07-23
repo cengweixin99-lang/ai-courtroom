@@ -1,63 +1,70 @@
 {
   "suite": "mootcourt_delivery_acceptance",
-  "mode": "smoke",
-  "generated_at": "2026-07-23T03:33:51.706757Z",
+  "mode": "full",
+  "generated_at": "2026-07-23T03:30:45.518360Z",
   "api_base_url": "http://localhost:8000/api/v1",
   "web_url": "http://localhost:5173",
   "elasticsearch_url": "http://localhost:9200",
   "case_id": "CASE-001",
   "package_version": "0.2.0-dev",
-  "session_id": "9ac68a43-22ea-4722-a021-7c3ea7695a13",
-  "final_phase": "COURT_OPENING",
+  "session_id": "ab071960-23d8-408d-b32d-9f978e61f9b1",
+  "final_phase": "COMPLETED",
   "checks": [
     {
       "key": "api_health",
       "label": "API 健康",
       "passed": true,
       "detail": "mootcourt-api is healthy",
-      "latency_ms": 37.16690000055678
+      "latency_ms": 29.406099999505386
     },
     {
       "key": "web_health",
       "label": "Web 健康",
       "passed": true,
       "detail": "HTTP 200",
-      "latency_ms": 9.233199999471253
+      "latency_ms": 6.498600000668375
     },
     {
       "key": "elasticsearch_health",
       "label": "Elasticsearch 健康",
       "passed": true,
       "detail": "cluster status green",
-      "latency_ms": 11.867900000652298
+      "latency_ms": 7.841399999961141
     },
     {
       "key": "database_revision",
       "label": "数据库迁移",
       "passed": true,
       "detail": "database revision 20260721_0010",
-      "latency_ms": 31.999599999835482
+      "latency_ms": 16.753800000515184
     },
     {
       "key": "case_role_isolation",
       "label": "案卷与角色隔离",
       "passed": true,
       "detail": "CASE-001@0.2.0-dev; role materials are isolated",
-      "latency_ms": 71.96419999945647
+      "latency_ms": 90.74229999987438
     },
     {
       "key": "legal_index",
       "label": "法律索引",
       "passed": true,
-      "detail": "2 hits; trace e9ddc984-eaa7-4256-b55c-8edb49326b6d",
-      "latency_ms": 100.21239999969112
+      "detail": "2 hits; trace 0351e4f1-8805-4687-b2a6-709d03fefec8",
+      "latency_ms": 118.07870000029652
     },
     {
       "key": "session_creation",
       "label": "庭审会话创建",
       "passed": true,
-      "detail": "session 9ac68a43-22ea-4722-a021-7c3ea7695a13; initial phase COURT_OPENING",
-      "latency_ms": 68.66219999938039
+      "detail": "session ab071960-23d8-408d-b32d-9f978e61f9b1; initial phase COURT_OPENING",
+      "latency_ms": 89.66270000018994
+    },
+    {
+      "key": "full_courtroom",
+      "label": "真实模型完整庭审",
+      "passed": true,
+      "detail": "completed with 67 events",
+      "latency_ms": 178830.86079999976
     }
   ],
   "failures": [],
@@ -66,7 +73,19 @@
       "prosecution": 1,
       "defense": 1
     },
-    "smoke_legal_trace_id": "e9ddc984-eaa7-4256-b55c-8edb49326b6d"
+    "smoke_legal_trace_id": "0351e4f1-8805-4687-b2a6-709d03fefec8",
+    "final_phase": "COMPLETED",
+    "event_count": 67,
+    "agent_trace_count": 17,
+    "legal_trace_ids": [
+      "df9cefa4-a954-42c3-95d8-eed8173df80f",
+      "ab2cb8aa-e247-4799-8494-b27ff52267cc",
+      "ed6f11df-2f46-42e5-8c6b-30be91d7ab73",
+      "0bd6ac1f-53b7-42ee-a74c-0b9185fb0a4a",
+      "e003677f-1090-45a3-b60c-73ebe91751fb",
+      "5164bd82-6d70-4833-b1bc-6ef418646249"
+    ],
+    "sse_idempotency_replay_verified": true
   },
   "passed": true
 }

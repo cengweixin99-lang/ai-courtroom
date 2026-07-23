@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+from datetime import UTC, datetime
 from pathlib import Path
 
 import httpx
@@ -17,6 +18,16 @@ from mootcourt.services.delivery_acceptance import (
     delivery_report_markdown,
     run_delivery_acceptance,
 )
+
+
+def _default_output_path(*, full: bool, generated_at: datetime | None = None) -> Path:
+    """Keep the rolling smoke report stable while preserving each paid full-run report."""
+
+    output_directory = Path("../evals/delivery/results")
+    if not full:
+        return output_directory / "smoke.json"
+    timestamp = (generated_at or datetime.now(UTC)).strftime("%Y%m%dT%H%M%SZ")
+    return output_directory / f"full_{timestamp}.json"
 
 
 async def _run(args: argparse.Namespace) -> bool:
@@ -57,11 +68,11 @@ def main() -> None:
     parser.add_argument("--case-id", default="CASE-001")
     parser.add_argument("--timeout", type=float, default=180)
     parser.add_argument("--full", action="store_true", help="invoke real LLM and finish a trial")
-    parser.add_argument(
-        "--output", type=Path, default=Path("../evals/delivery/results/smoke.json")
-    )
+    parser.add_argument("--output", type=Path)
     parser.add_argument("--markdown-output", type=Path)
     args = parser.parse_args()
+    if args.output is None:
+        args.output = _default_output_path(full=args.full)
 
     # 迁移期望值与 Alembic 唯一 head 必须同步，避免脚本自身成为过期真相源。
     head = ScriptDirectory.from_config(Config("alembic.ini")).get_current_head()

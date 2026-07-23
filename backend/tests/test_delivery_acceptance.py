@@ -479,6 +479,17 @@ async def test_delivery_cli_writes_json_and_markdown_reports(
     assert runner.await_args.kwargs["api_base_url"] == "http://api.test/api/v1"
 
 
+def test_delivery_cli_uses_a_unique_report_name_for_full_acceptance() -> None:
+    generated_at = datetime(2026, 7, 23, 3, 30, 45, tzinfo=UTC)
+
+    assert delivery_cli._default_output_path(full=False) == Path(
+        "../evals/delivery/results/smoke.json"
+    )
+    assert delivery_cli._default_output_path(full=True, generated_at=generated_at) == Path(
+        "../evals/delivery/results/full_20260723T033045Z.json"
+    )
+
+
 def test_delivery_cli_rejects_stale_expected_revision(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
