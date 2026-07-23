@@ -10,7 +10,7 @@ def test_release_summary_removes_model_content_and_correlatable_identifiers() ->
         "dataset": "qwen_agent_quality",
         "dataset_version": "1.0.3",
         "provider": "openai-compatible",
-        "model": "qwen3.7-plus",
+        "model": "qwen3.7-max",
         "prompt_protocol_version": "agent-grounding-v5-full-output-injection-scan",
         "runtime_config": {"temperature": 0},
         "generated_at": "2026-07-23T00:00:00Z",

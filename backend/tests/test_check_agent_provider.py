@@ -40,3 +40,21 @@ async def test_provider_preflight_exposes_only_safe_failure_diagnostics(
         "http_status": 403,
         "provider_request_count": 1,
     }
+
+
+async def test_provider_preflight_can_include_a_parsed_provider_error_for_local_diagnosis(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    async def dispose() -> None:
+        return None
+
+    monkeypatch.setattr(
+        "mootcourt.cli.check_agent_provider.build_agent_provider",
+        lambda _settings, *, allow_fake: FailingStructuredProvider(),
+    )
+    monkeypatch.setattr("mootcourt.cli.check_agent_provider.dispose_redis", dispose)
+
+    assert await _run(show_safe_detail=True) is False
+
+    output = json.loads(capsys.readouterr().out)
+    assert output["safe_detail"] == "model endpoint returned HTTP 403: private upstream detail"

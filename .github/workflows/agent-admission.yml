@@ -6,7 +6,7 @@ on:
       model:
         description: OpenAI-compatible Qwen model to evaluate
         required: false
-        default: qwen3.7-plus
+        default: qwen3.7-max
         type: string
 
 permissions:
@@ -41,7 +41,7 @@ jobs:
       APP_ENV: development
       DATABASE_URL: mysql+aiomysql://mootcourt:change-me@127.0.0.1:3306/mootcourt
       LLM_PROVIDER: openai-compatible
-      LLM_MODEL: ${{ inputs.model || vars.QWEN_MODEL || 'qwen3.7-plus' }}
+      LLM_MODEL: ${{ inputs.model || vars.QWEN_MODEL || 'qwen3.7-max' }}
       LLM_API_KEY: ${{ secrets.QWEN_API_KEY }}
       LLM_BASE_URL: ${{ vars.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1' }}
       LLM_TIMEOUT_SECONDS: "60"

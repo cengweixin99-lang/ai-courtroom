@@ -19,7 +19,7 @@ _PREFLIGHT_SCHEMA = {
 }
 
 
-async def _run() -> bool:
+async def _run(*, show_safe_detail: bool = False) -> bool:
     settings = get_settings()
     try:
         try:
@@ -46,16 +46,16 @@ async def _run() -> bool:
                 )
             )
         except AgentProviderError as exc:
-            print(
-                json.dumps(
-                    {
-                        "passed": False,
-                        "code": exc.code,
-                        "http_status": exc.http_status,
-                        "provider_request_count": exc.provider_request_count,
-                    }
-                )
-            )
+            diagnostics: dict[str, object] = {
+                "passed": False,
+                "code": exc.code,
+                "http_status": exc.http_status,
+                "provider_request_count": exc.provider_request_count,
+            }
+            if show_safe_detail:
+                # The provider error is already parsed and length-limited before it reaches here.
+                diagnostics["safe_detail"] = exc.message
+            print(json.dumps(diagnostics))
             return False
         passed = result.output.get("status") == "ok"
         print(
@@ -75,8 +75,13 @@ async def _run() -> bool:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Check OpenAI-compatible provider access safely")
-    parser.parse_args()
-    if not asyncio.run(_run()):
+    parser.add_argument(
+        "--show-safe-detail",
+        action="store_true",
+        help="include the provider's parsed, length-limited error message; avoid this in CI logs",
+    )
+    args = parser.parse_args()
+    if not asyncio.run(_run(show_safe_detail=args.show_safe_detail)):
         raise SystemExit(1)
 
 

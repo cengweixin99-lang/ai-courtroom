@@ -107,12 +107,12 @@ Run the separate real-model Agent admission suite with:
 ```powershell
 ..\.venv\Scripts\python.exe -m mootcourt.cli.eval_qwen_agent `
   ..\evals\qwen_agent\cases.json `
-  --output ..\evals\qwen_agent\results\qwen3.7-plus_admission_report.json
+  --output ..\evals\qwen_agent\results\qwen3.7-max_admission_report.json
 ```
 
 The command rejects Fake Provider configuration and records model output, grounding anchors,
 session/trace IDs, token usage, latency, repairs, prompt protocol, and non-secret runtime settings.
-The checked-in `qwen3.7-plus` admission report covers 16 scenarios, including controlled citation
+The checked-in admission reports cover 16 scenarios, including controlled citation
 anchors for the former multi-note quotation failure. Regenerate the report after prompt or model
 changes; grounding, refusal, and injection checks remain blocking release gates.
 

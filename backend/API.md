@@ -132,7 +132,7 @@ Trace 查询接口只返回调用状态、Provider、模型、Token、延迟、�
 
 ```env
 LLM_PROVIDER=openai-compatible
-LLM_MODEL=qwen-plus
+LLM_MODEL=qwen3.7-max
 LLM_API_KEY=仅保存在本地环境变量或密钥服务中
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_TIMEOUT_SECONDS=60

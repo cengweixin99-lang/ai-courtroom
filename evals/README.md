@@ -48,14 +48,14 @@ Runner 使用真实 MySQL、Elasticsearch 和完整 Service 编排。法律子�
 cd backend
 ..\.venv\Scripts\python.exe -m mootcourt.cli.eval_qwen_agent `
   ..\evals\qwen_agent\cases.json `
-  --output ..\evals\qwen_agent\results\qwen3.7-plus_admission_report.json
+  --output ..\evals\qwen_agent\results\qwen3.7-max_admission_report.json
 ```
 
 命令拒绝 Fake Provider，只读取本地环境中的 OpenAI-compatible 配置，且报告不保存 API Key。
 单条调试可重复使用 `--case-id QWEN-ADV-003`。报告冻结模型名、提示协议版本、thinking、
 temperature、响应格式、输出上限与重试配置，并记录逐案正式庭审 Trace。
 
-当前 `qwen3.7-plus` admission 数据集包含 16 条业务场景，证据引用、拒答和注入防护硬
+当前 `qwen3.7-max` admission 数据集包含 16 条业务场景，证据引用、拒答和注入防护硬
 门禁均为 100%，但首次校验通过率为 73.33%，低于 90% 准入线，因此报告结论为未准入。
 不得通过重复抽样挑选偶然通过的报告替换该结论。
 # Qwen 逐发言质量 Eval

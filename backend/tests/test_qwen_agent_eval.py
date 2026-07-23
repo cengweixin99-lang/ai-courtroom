@@ -136,7 +136,7 @@ def test_qwen_factory_uses_deterministic_non_thinking_defaults() -> None:
     provider = build_agent_provider(
         Settings(
             llm_provider="openai-compatible",
-            llm_model="qwen3.7-plus",
+            llm_model="qwen3.7-max",
             llm_api_key=SecretStr("test-key"),
         )
     )

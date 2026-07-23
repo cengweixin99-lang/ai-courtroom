@@ -803,7 +803,7 @@ async def test_qwen_provider_disables_thinking_for_structured_agent_output() -> 
 
     provider = OpenAICompatibleProvider(
         api_key="test-key",
-        model="qwen3.7-plus",
+        model="qwen3.7-max",
         enable_thinking=False,
         transport=httpx.MockTransport(handler),
     )

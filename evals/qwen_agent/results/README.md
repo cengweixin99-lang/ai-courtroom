@@ -2,7 +2,7 @@
 
 当前发布准入基线是：
 
-- 报告：`qwen3.7-plus_v5_full_admission.json`
+- 历史报告：`qwen3.7-plus_v5_full_admission.json`（使用旧模型，仅供对照）
 - Prompt 协议：`agent-grounding-v5-full-output-injection-scan`
 - 样例：16/16 通过
 - Schema 首轮通过率：100%
