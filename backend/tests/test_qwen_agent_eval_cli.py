@@ -24,7 +24,11 @@ def test_release_summary_removes_model_content_and_correlatable_identifiers() ->
                 "id": "QWEN-ADV-001",
                 "description": "包含案卷语义的场景说明",
                 "expected": {"required_cited_evidence_ids": ["E01"]},
-                "actual": {"output": {"speech": "不得上传的模型回答"}},
+                "actual": {
+                    "status": "failed",
+                    "code": "agent_provider_http_error",
+                    "output": {"speech": "不得上传的模型回答"},
+                },
                 "passed": True,
                 "failures": [],
                 "session_id": "session-private-id",
@@ -39,6 +43,7 @@ def test_release_summary_removes_model_content_and_correlatable_identifiers() ->
                 "latency_ms": 345,
                 "repair_count": 0,
                 "output_normalized": False,
+                "provider_http_status": 403,
             }
         ],
     }
@@ -52,6 +57,9 @@ def test_release_summary_removes_model_content_and_correlatable_identifiers() ->
     assert "expected" not in report["cases"][0]
     assert "session_id" not in report["cases"][0]
     assert "trace_id" not in report["cases"][0]
+    assert report["cases"][0]["actual_status"] == "failed"
+    assert report["cases"][0]["actual_code"] == "agent_provider_http_error"
+    assert report["cases"][0]["provider_http_status"] == 403
     assert "不得上传的模型回答" not in rendered
     assert "包含案卷语义的场景说明" not in rendered
 

@@ -79,6 +79,9 @@ jobs:
         run: |
           alembic upgrade head
           mootcourt-import-case ../data/authoring/CASE-001
+      - name: Preflight Qwen provider access
+        working-directory: backend
+        run: mootcourt-check-agent-provider
       - name: Run Qwen v5 admission gate
         working-directory: backend
         run: |
@@ -92,5 +95,5 @@ jobs:
         with:
           name: qwen-v5-admission-${{ github.run_id }}
           path: artifacts/qwen-agent-admission-summary.json
-          if-no-files-found: warn
+          if-no-files-found: ignore
           retention-days: 90

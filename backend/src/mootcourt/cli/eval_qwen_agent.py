@@ -99,6 +99,9 @@ def _render_report(payload: dict[str, Any], *, redact_output: bool) -> str:
             "latency_ms": item["latency_ms"],
             "repair_count": item["repair_count"],
             "output_normalized": item["output_normalized"],
+            "actual_status": item["actual"]["status"],
+            "actual_code": item["actual"]["code"],
+            "provider_http_status": item["provider_http_status"],
         }
         for item in payload["cases"]
     ]

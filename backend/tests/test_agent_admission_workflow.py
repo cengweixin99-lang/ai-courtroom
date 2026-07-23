@@ -14,6 +14,8 @@ def test_real_model_admission_workflow_requires_secret_and_redacts_artifact() ->
     assert "${{ secrets.QWEN_API_KEY }}" in workflow
     assert "Verify release secret" in workflow
     assert "--redact-output" in workflow
+    assert "Preflight Qwen provider access" in workflow
+    assert "mootcourt-check-agent-provider" in workflow
     assert "artifacts/qwen-agent-admission-summary.json" in workflow
     assert "actions/upload-artifact@v4" in workflow
     assert "pull_request:" not in workflow

@@ -266,7 +266,7 @@ async def test_provider_sends_strict_schema_and_records_usage() -> None:
 
 async def test_provider_maps_upstream_http_error_without_request_data() -> None:
     async def handler(_: httpx.Request) -> httpx.Response:
-        return httpx.Response(429, json={"error": {"message": "rate limit reached"}})
+        return httpx.Response(403, json={"error": {"message": "access denied"}})
 
     provider = OpenAICompatibleProvider(
         api_key="must-not-leak",
@@ -279,7 +279,10 @@ async def test_provider_maps_upstream_http_error_without_request_data() -> None:
         await provider.generate(AgentProviderRequest(context=_context(), instruction=None))
 
     assert error.value.code == "agent_provider_http_error"
-    assert "rate limit reached" in error.value.message
+    assert error.value.http_status == 403
+    assert error.value.estimated_input_tokens > 0
+    assert error.value.provider_request_count == 1
+    assert "access denied" in error.value.message
     assert "must-not-leak" not in error.value.message
 
 

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from time import perf_counter
 from typing import Any
@@ -26,6 +27,7 @@ from mootcourt.services.agent_turns import AgentTurnServiceError, execute_agent_
 from mootcourt.services.court_sessions import apply_session_action, create_court_session
 
 _PROMPT_PROTOCOL_VERSION = "agent-grounding-v5-full-output-injection-scan"
+_HTTP_STATUS_PATTERN = re.compile(r"\bHTTP ([1-5]\d{2})\b")
 
 
 class _TokenCalibrationProvider:
@@ -147,6 +149,7 @@ async def _evaluate_case(
     trace_id: str | None = None
     input_tokens = output_tokens = repair_count = 0
     output_normalized = False
+    provider_http_status: int | None = None
     cost = 0.0
     actual_status = "rejected"
     actual_code: str | None = None
@@ -216,6 +219,9 @@ async def _evaluate_case(
             )
             actual_status = result.status.value
             actual_code = result.error.code if result.error is not None else None
+            provider_http_status = (
+                _provider_http_status(result.error.message) if result.error is not None else None
+            )
             trace_id = result.trace.trace_id
             input_tokens = result.trace.input_tokens
             output_tokens = result.trace.output_tokens
@@ -303,6 +309,7 @@ async def _evaluate_case(
         latency_ms=_elapsed_ms(started),
         repair_count=repair_count,
         output_normalized=output_normalized,
+        provider_http_status=provider_http_status,
     )
 
 
@@ -480,3 +487,10 @@ def _token_calibration(
 
 def _elapsed_ms(started: float) -> float:
     return max(0, (perf_counter() - started) * 1_000)
+
+
+def _provider_http_status(message: str) -> int | None:
+    """只提取状态码供发布门禁诊断，禁止把上游错误正文带入报告。"""
+
+    match = _HTTP_STATUS_PATTERN.search(message)
+    return int(match.group(1)) if match is not None else None

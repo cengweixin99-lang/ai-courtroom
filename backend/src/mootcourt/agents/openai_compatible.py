@@ -47,6 +47,7 @@ class AgentProviderError(Exception):
         estimated_input_tokens: int = 0,
         provider_request_count: int = 0,
         estimated_cost_cny: float = 0,
+        http_status: int | None = None,
     ) -> None:
         super().__init__(message)
         self.code = code
@@ -56,6 +57,7 @@ class AgentProviderError(Exception):
         self.estimated_input_tokens = estimated_input_tokens
         self.provider_request_count = provider_request_count
         self.estimated_cost_cny = estimated_cost_cny
+        self.http_status = http_status
 
 
 class OpenAICompatibleProvider:
@@ -295,6 +297,7 @@ class OpenAICompatibleProvider:
                 ),
                 provider_request_count=(exc.provider_request_count + generated.request_count),
                 estimated_cost_cny=exc.estimated_cost_cny + estimated_cost,
+                http_status=exc.http_status,
             ) from exc
         return AgentProviderResult(
             output=output,
@@ -330,18 +333,33 @@ class OpenAICompatibleProvider:
             # 每次拿到模型 usage 的请求都单独计入估算，避免截断重生成被误判为 tokenizer 偏差。
             total_estimated_input_tokens += _estimate_payload_input_tokens(attempt_payload)
             request_count += 1
-            if on_text_update is not None:
-                if visible_field is None:
-                    raise RuntimeError("streamed structured request is missing a visible field")
-                body = await self._stream_with_retry(
-                    client,
-                    headers,
-                    attempt_payload,
-                    visible_field,
-                    on_text_update,
-                )
-            else:
-                body = await self._request_non_stream_body(client, headers, attempt_payload)
+            try:
+                if on_text_update is not None:
+                    if visible_field is None:
+                        raise RuntimeError("streamed structured request is missing a visible field")
+                    body = await self._stream_with_retry(
+                        client,
+                        headers,
+                        attempt_payload,
+                        visible_field,
+                        on_text_update,
+                    )
+                else:
+                    body = await self._request_non_stream_body(client, headers, attempt_payload)
+            except AgentProviderError as exc:
+                # HTTP 拒绝同样是一次已发送的调用；保留计数以区分鉴权失败与未发起请求。
+                raise AgentProviderError(
+                    exc.code,
+                    exc.message,
+                    input_tokens=total_input_tokens + exc.input_tokens,
+                    output_tokens=total_output_tokens + exc.output_tokens,
+                    estimated_input_tokens=(
+                        total_estimated_input_tokens + exc.estimated_input_tokens
+                    ),
+                    provider_request_count=request_count + exc.provider_request_count,
+                    estimated_cost_cny=exc.estimated_cost_cny,
+                    http_status=exc.http_status,
+                ) from exc
 
             usage = body.get("usage")
             usage_object = usage if isinstance(usage, dict) else {}
@@ -394,6 +412,7 @@ class OpenAICompatibleProvider:
             raise AgentProviderError(
                 "agent_provider_http_error",
                 f"model endpoint returned HTTP {response.status_code}: {error_message}",
+                http_status=response.status_code,
             )
         return _response_object(response)
 
@@ -475,6 +494,7 @@ class OpenAICompatibleProvider:
                         raise AgentProviderError(
                             "agent_provider_http_error",
                             f"model endpoint returned HTTP {response.status_code}: {error_message}",
+                            http_status=response.status_code,
                         )
                     async for line in response.aiter_lines():
                         if not line.startswith("data:"):

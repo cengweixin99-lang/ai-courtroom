@@ -62,6 +62,7 @@ class QwenAgentEvalCaseResult(StrictAgentModel):
     latency_ms: float = Field(ge=0)
     repair_count: int = 0
     output_normalized: bool = False
+    provider_http_status: int | None = Field(default=None, ge=100, le=599)
 
 
 class QwenAgentEvalCheck(StrictAgentModel):

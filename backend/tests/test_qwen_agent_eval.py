@@ -12,7 +12,11 @@ from mootcourt.core.config import Settings
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.schemas.qwen_agent_eval import load_qwen_agent_eval_dataset
 from mootcourt.services.case_importer import import_case_package
-from mootcourt.services.qwen_agent_eval import _case_failures, evaluate_qwen_agent_suite
+from mootcourt.services.qwen_agent_eval import (
+    _case_failures,
+    _provider_http_status,
+    evaluate_qwen_agent_suite,
+)
 
 ROOT = Path(__file__).parents[2]
 DATASET = ROOT / "evals" / "qwen_agent" / "cases.json"
@@ -46,6 +50,11 @@ def test_qwen_agent_dataset_covers_real_model_scenarios() -> None:
     assert any(item.required_cited_evidence_ids for item in dataset.cases)
     assert any(item.expected_refusal is True for item in dataset.cases)
     assert any(item.forbidden_output_tokens for item in dataset.cases)
+
+
+def test_provider_http_status_only_extracts_a_valid_status_code() -> None:
+    assert _provider_http_status("model endpoint returned HTTP 403: denied") == 403
+    assert _provider_http_status("unavailable without a response") is None
 
 
 def test_qwen_agent_dataset_loader_reports_missing_and_invalid_json(tmp_path: Path) -> None:
