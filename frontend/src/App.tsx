@@ -247,23 +247,26 @@ export function AuthGate({ children, authClient = supabase, configured = isSupab
   useEffect(() => {
     if (!authClient) return
     let active = true
+    let restoring = true
     const { data } = authClient.auth.onAuthStateChange((event, nextSession) => {
       if (active) {
         // 空会话事件可能先于 storage 恢复事件到达，不能在这里提前显示登录页。
         if (nextSession) setSession(nextSession)
         if (event === 'SIGNED_OUT') {
           setSession(null)
-          setLoading(false)
+          if (!restoring) setLoading(false)
         }
       }
     })
     void authClient.auth.getSession().then(({ data, error }) => {
       if (!active) return
+      restoring = false
       if (error) setAuthError(error.message)
       setSession(data.session)
       setLoading(false)
     }).catch((caught: unknown) => {
       if (!active) return
+      restoring = false
       setAuthError(caught instanceof Error ? caught.message : '无法恢复登录状态')
       setSession(null)
       setLoading(false)

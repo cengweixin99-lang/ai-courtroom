@@ -126,7 +126,7 @@ describe('App', () => {
     const authClient = {
       auth: {
         onAuthStateChange: vi.fn((callback) => {
-          callback('INITIAL_SESSION', null)
+          callback('SIGNED_OUT', null)
           return { data: { subscription: { unsubscribe: vi.fn() } } }
         }),
         getSession: vi.fn(() => new Promise((resolve) => { resolveSession = resolve })),
