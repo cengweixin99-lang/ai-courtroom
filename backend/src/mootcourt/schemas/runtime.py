@@ -293,6 +293,7 @@ class SessionEventView(BaseModel):
             "procedural_request_resolved",
             "new_statement_reviewed",
             "court_review_generated",
+            "session_archived",
         ]
     )
     payload: SessionEventPayload

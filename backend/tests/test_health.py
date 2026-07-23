@@ -84,6 +84,8 @@ async def test_metrics_requires_diagnostics_key_in_production(monkeypatch: Any) 
         app_env="production",
         diagnostics_api_key=SecretStr("d" * 32),
         trace_redaction_hmac_key=SecretStr("h" * 32),
+        supabase_url="https://example.supabase.co",
+        supabase_jwt_issuer="https://example.supabase.co/auth/v1",
     )
     monkeypatch.setattr("mootcourt.core.observability.get_settings", lambda: settings)
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:

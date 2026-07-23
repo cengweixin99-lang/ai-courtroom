@@ -1,12 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path
 
 from mootcourt.api.dependencies import (
+    RuntimeCurrentUser,
     RuntimeDiagnosticsAccess,
     RuntimeLegalEmbeddingProvider,
     RuntimeLegalSearchRepository,
     RuntimeUnitOfWork,
+    require_authenticated_principal,
 )
 from mootcourt.schemas.legal_search import (
     LegalCitationValidationRequest,
@@ -18,7 +20,11 @@ from mootcourt.schemas.legal_search import (
 from mootcourt.services.legal_citations import get_legal_search_trace, validate_legal_citations
 from mootcourt.services.legal_search import search_case_law
 
-router = APIRouter(prefix="/legal", tags=["legal-search"])
+router = APIRouter(
+    prefix="/legal",
+    tags=["legal-search"],
+    dependencies=[Depends(require_authenticated_principal)],
+)
 
 
 @router.post(
@@ -37,6 +43,7 @@ async def search_legal_authority(
     unit_of_work: RuntimeUnitOfWork,
     search_repository: RuntimeLegalSearchRepository,
     embedding_provider: RuntimeLegalEmbeddingProvider,
+    current_user: RuntimeCurrentUser,
 ) -> LegalSearchResponse:
     """基于案件锁定的 LegalProfile 执行 BM25 或 BM25 + 向量混合检索。
 
@@ -44,6 +51,11 @@ async def search_legal_authority(
     向量检索仅在服务端显式配置并完成同版本索引后启用。本接口只返回候选依据，不执行
     构成要件判断，也不生成法律结论。
     """
+    package = await unit_of_work.case_packages.get_runtime_package(request.case_id)
+    if package is None or not await unit_of_work.identity.can_access_case(
+        current_user.id, package.id
+    ):
+        raise HTTPException(status_code=404, detail={"code": "case_not_found"})
     try:
         result = await search_case_law(unit_of_work, search_repository, request, embedding_provider)
     except Exception as exc:

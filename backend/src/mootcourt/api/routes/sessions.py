@@ -1,8 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Path, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 
-from mootcourt.api.dependencies import RuntimeStructuredAgentProvider, RuntimeUnitOfWork
+from mootcourt.api.dependencies import (
+    RuntimeCurrentUser,
+    RuntimeStructuredAgentProvider,
+    RuntimeUnitOfWork,
+    require_authenticated_principal,
+    require_session_access,
+)
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.schemas.reviews import (
     CourtReviewGenerateRequest,
@@ -36,6 +42,7 @@ from mootcourt.services.court_reviews import (
 from mootcourt.services.court_sessions import (
     SessionServiceError,
     apply_session_action,
+    archive_court_session,
     create_court_session,
     get_evidence_fact_summary,
     get_session_view,
@@ -43,11 +50,40 @@ from mootcourt.services.court_sessions import (
     list_evidence_statuses,
     list_procedural_requests,
     list_session_events,
+    list_session_views,
     resolve_procedural_request,
 )
 
-router = APIRouter(prefix="/sessions", tags=["sessions"])
+router = APIRouter(
+    prefix="/sessions",
+    tags=["sessions"],
+    dependencies=[Depends(require_authenticated_principal), Depends(require_session_access)],
+)
 AppSettings = Annotated[Settings, Depends(get_settings)]
+
+
+@router.get(
+    "",
+    response_model=list[SessionView],
+    operation_id="list_court_sessions",
+    summary="列出当前用户的庭审会话",
+    response_description="按最近更新时间倒序返回可恢复的庭审会话，不删除任何审计记录",
+)
+async def list_sessions(
+    unit_of_work: RuntimeUnitOfWork,
+    current_user: RuntimeCurrentUser,
+    include_archived: Annotated[bool, Query(description="是否包含已归档会话")] = False,
+) -> list[SessionView]:
+    """仅返回当前用户拥有的会话；教师和管理员可查看组织内全部会话。"""
+    managed_organization_ids = await unit_of_work.identity.managed_session_organization_ids(
+        current_user.id
+    )
+    return await list_session_views(
+        unit_of_work,
+        current_user.id,
+        managed_organization_ids=managed_organization_ids,
+        include_archived=include_archived,
+    )
 
 
 @router.post(
@@ -59,13 +95,26 @@ AppSettings = Annotated[Settings, Depends(get_settings)]
     response_description="已创建并锁定案件包版本的庭审会话",
     responses={404: {"description": "案件或指定版本不存在"}},
 )
-async def create_session(request: SessionCreate, unit_of_work: RuntimeUnitOfWork) -> SessionView:
+async def create_session(
+    request: SessionCreate,
+    unit_of_work: RuntimeUnitOfWork,
+    current_user: RuntimeCurrentUser,
+) -> SessionView:
     """创建绑定案件版本和用户角色的庭审会话。
 
     会话和首条事件由同一个 Unit of Work 原子提交，避免出现缺少审计起点的会话。
     """
     try:
-        session_id = await create_court_session(unit_of_work, request)
+        package = await unit_of_work.case_packages.get_runtime_package(
+            request.case_id, request.package_version
+        )
+        if package is None or not await unit_of_work.identity.can_access_case(
+            current_user.id, package.id
+        ):
+            raise SessionServiceError("case_not_found", "case package not found", 404)
+        session_id = await create_court_session(
+            unit_of_work, request, owner_user_id=current_user.id
+        )
     except SessionServiceError as exc:
         raise HTTPException(
             status_code=exc.status_code, detail={"code": exc.code, "message": exc.message}
@@ -94,6 +143,27 @@ async def get_session(
     if view is None:
         raise HTTPException(status_code=404, detail={"code": "session_not_found"})
     return view
+
+
+@router.post(
+    "/{session_id}/archive",
+    response_model=SessionView,
+    operation_id="archive_court_session",
+    summary="归档庭审会话",
+    response_description="软归档会话并保留完整庭审事件和 Agent Trace",
+    responses={404: {"description": "庭审会话不存在"}, 409: {"description": "Agent 正在生成"}},
+)
+async def archive_session(
+    session_id: Annotated[str, Path(description="庭审会话唯一标识")],
+    unit_of_work: RuntimeUnitOfWork,
+) -> SessionView:
+    """归档只改变可恢复列表状态，不删除会话数据，便于教学复盘和审计。"""
+    try:
+        return await archive_court_session(unit_of_work, session_id)
+    except SessionServiceError as exc:
+        raise HTTPException(
+            status_code=exc.status_code, detail={"code": exc.code, "message": exc.message}
+        ) from exc
 
 
 @router.get(

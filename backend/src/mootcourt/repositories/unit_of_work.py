@@ -6,6 +6,7 @@ from mootcourt.repositories.agent_invocations import SqlAlchemyAgentInvocationRe
 from mootcourt.repositories.agent_traces import SqlAlchemyAgentTraceRepository
 from mootcourt.repositories.case_packages import SqlAlchemyCasePackageRepository
 from mootcourt.repositories.court_sessions import SqlAlchemyCourtSessionRepository
+from mootcourt.repositories.identity import SqlAlchemyIdentityRepository
 from mootcourt.repositories.legal_search_traces import SqlAlchemyLegalSearchTraceRepository
 
 
@@ -16,6 +17,7 @@ class SqlAlchemyUnitOfWork:
         self.agent_invocations = SqlAlchemyAgentInvocationRepository(session)
         self.case_packages = SqlAlchemyCasePackageRepository(session)
         self.court_sessions = SqlAlchemyCourtSessionRepository(session)
+        self.identity = SqlAlchemyIdentityRepository(session)
         self.legal_search_traces = SqlAlchemyLegalSearchTraceRepository(session)
         self._session = session
 

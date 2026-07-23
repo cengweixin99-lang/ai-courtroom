@@ -1,18 +1,23 @@
 import { useState } from 'react'
-import { ArrowRight, Clock3, FileText, Gavel, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react'
+import { Archive, ArrowRight, Clock3, FileCog, FileText, Gavel, History, Play, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react'
 
 import { roleLabels } from '../config'
-import type { CaseSummary, UserRole } from '../types'
+import type { CaseSummary, SessionView, UserRole } from '../types'
 
 interface Props {
   cases: CaseSummary[]
+  sessions: SessionView[]
   loading: boolean
   error: string | null
   onRetry: () => void
   onStart: (item: CaseSummary, role: UserRole) => Promise<void>
+  onResume: (session: SessionView) => Promise<void>
+  onArchive: (session: SessionView) => Promise<void>
+  canManageCases: boolean
+  onManageCases: () => void
 }
 
-export function CaseLobby({ cases, loading, error, onRetry, onStart }: Props) {
+export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, onResume, onArchive, canManageCases, onManageCases }: Props) {
   const [role, setRole] = useState<UserRole>('prosecution')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = cases.find((item) => item.case_id === selectedId) ?? cases[0]
@@ -21,7 +26,10 @@ export function CaseLobby({ cases, loading, error, onRetry, onStart }: Props) {
     <main className="lobby-shell">
       <header className="brand-bar">
         <div className="brand"><Scale aria-hidden="true" size={22} /><span>MootCourt Lab</span></div>
-        <span className="environment-tag">TECH DEMO</span>
+        <div className="lobby-header-actions">
+          {canManageCases && <button className="ghost-action" onClick={onManageCases}><FileCog size={16} />案件管理</button>}
+          <span className="environment-tag">TECH DEMO</span>
+        </div>
       </header>
 
       <section className="case-intro" aria-labelledby="case-title">
@@ -53,6 +61,34 @@ export function CaseLobby({ cases, loading, error, onRetry, onStart }: Props) {
               <span>{item.title}</span><small>{item.package_version}</small>
             </button>
           ))}
+        </section>
+      )}
+
+      {sessions.length > 0 && (
+        <section className="session-history" aria-labelledby="session-history-title">
+          <div className="session-history-heading">
+            <History size={18} aria-hidden="true" />
+            <h2 id="session-history-title">最近庭审</h2>
+          </div>
+          <div className="session-history-list">
+            {sessions.map((item) => (
+              <article className="session-history-item" key={item.session_id}>
+                <button
+                  className="session-resume"
+                  aria-label={`继续庭审 ${item.case_id}`}
+                  disabled={loading}
+                  onClick={() => void onResume(item)}
+                >
+                  <Play size={16} aria-hidden="true" />
+                  <span><strong>{item.case_id}</strong><small>{roleLabels[item.user_role]} · {item.phase}</small></span>
+                </button>
+                <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString('zh-CN')}</time>
+                <button className="session-archive" title="归档庭审" aria-label={`归档 ${item.case_id}`} disabled={loading} onClick={() => void onArchive(item)}>
+                  <Archive size={16} aria-hidden="true" />
+                </button>
+              </article>
+            ))}
+          </div>
         </section>
       )}
 

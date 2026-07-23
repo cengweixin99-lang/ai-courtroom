@@ -11,7 +11,12 @@ import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from mootcourt.api.dependencies import get_legal_search_repository, get_unit_of_work
+from mootcourt.api.dependencies import (
+    get_legal_search_repository,
+    get_unit_of_work,
+    require_authenticated_principal,
+)
+from mootcourt.core.auth import AuthenticatedPrincipal
 from mootcourt.main import app
 from mootcourt.repositories.legal_search import (
     LEGAL_INDEX_MAPPINGS,
@@ -105,6 +110,12 @@ async def legal_api_client(
                 raise
 
     app.dependency_overrides[get_unit_of_work] = override_unit_of_work
+    app.dependency_overrides[require_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        subject="test-legal-user",
+        email="legal@example.test",
+        provider_role="authenticated",
+        claims={"sub": "test-legal-user"},
+    )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
     app.dependency_overrides.clear()

@@ -1,10 +1,26 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import { LogOut } from 'lucide-react'
 
 import { api, ApiError } from './api'
+import {
+  isSupabaseConfigured,
+  signInWithPassword,
+  signOut,
+  signUpWithPassword,
+  supabase,
+} from './auth'
 import { CaseLobby } from './components/CaseLobby'
+import { CaseAdminPage } from './components/CaseAdminPage'
 import { CourtroomPage } from './components/CourtroomPage'
 import { ReviewPage } from './components/ReviewPage'
-import type { CaseSummary, CaseView, CourtReview, SessionView, UserRole } from './types'
+import type {
+  CaseSummary,
+  CaseView,
+  CourtReview,
+  ManagedOrganization,
+  SessionView,
+  UserRole,
+} from './types'
 
 const SESSION_STORAGE_KEY = 'mootcourt.active-session-id'
 const SESSION_VIEW_STORAGE_KEY = 'mootcourt.active-session-view'
@@ -15,8 +31,11 @@ function errorMessage(caught: unknown): string {
   return '无法连接庭审服务，请确认后端已经启动。'
 }
 
-export default function App() {
+function CourtroomApp() {
   const [cases, setCases] = useState<CaseSummary[]>([])
+  const [sessions, setSessions] = useState<SessionView[]>([])
+  const [adminOrganizations, setAdminOrganizations] = useState<ManagedOrganization[]>([])
+  const [showCaseAdmin, setShowCaseAdmin] = useState(false)
   const [caseView, setCaseView] = useState<CaseView | null>(null)
   const [session, setSession] = useState<SessionView | null>(null)
   const [review, setReview] = useState<CourtReview | null>(null)
@@ -32,9 +51,15 @@ export default function App() {
 
     const bootstrap = async () => {
       try {
-        const availableCases = await api.listCases()
+        const [availableCases, availableSessions, organizations] = await Promise.all([
+          api.listCases(),
+          api.listSessions(),
+          api.listAdminOrganizations().catch(() => []),
+        ])
         if (!active) return
         setCases(availableCases)
+        setSessions(availableSessions)
+        setAdminOrganizations(organizations)
 
         const storedSessionId = sessionStorage.getItem(SESSION_STORAGE_KEY)
         if (!storedSessionId) return
@@ -91,6 +116,7 @@ export default function App() {
       setSessionViewMode('courtroom')
       setCaseView(nextCase)
       setSession(nextSession)
+      setSessions((current) => [nextSession, ...current])
     } catch (caught) {
       setError(errorMessage(caught))
     } finally {
@@ -108,6 +134,47 @@ export default function App() {
     setSession(null)
     setCaseView(null)
     setError(null)
+    void api.listSessions().then(setSessions).catch(() => undefined)
+  }
+
+  const resumeSession = async (selectedSession: SessionView) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [restoredSession, restoredCase] = await Promise.all([
+        api.getSession(selectedSession.session_id),
+        api.getCase(
+          selectedSession.case_id,
+          selectedSession.user_role,
+          selectedSession.package_version,
+        ),
+      ])
+      sessionStorage.setItem(SESSION_STORAGE_KEY, restoredSession.session_id)
+      sessionStorage.setItem(SESSION_VIEW_STORAGE_KEY, 'courtroom')
+      setAutoStartCourtroom(false)
+      setSessionViewMode('courtroom')
+      setFocusedEventSequence(null)
+      setReview(null)
+      setCaseView(restoredCase)
+      setSession(restoredSession)
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const archiveSession = async (selectedSession: SessionView) => {
+    setLoading(true)
+    setError(null)
+    try {
+      await api.archiveSession(selectedSession.session_id)
+      setSessions((current) => current.filter((item) => item.session_id !== selectedSession.session_id))
+    } catch (caught) {
+      setError(errorMessage(caught))
+    } finally {
+      setLoading(false)
+    }
   }
 
   const openReview = (nextReview: CourtReview) => {
@@ -141,8 +208,16 @@ export default function App() {
       }}
     />
   }
+  if (showCaseAdmin && adminOrganizations.length > 0) {
+    return <CaseAdminPage
+      organizations={adminOrganizations}
+      onBack={() => setShowCaseAdmin(false)}
+      onPublished={() => { void api.listCases().then(setCases).catch(() => undefined) }}
+    />
+  }
   return <CaseLobby
     cases={cases}
+    sessions={sessions}
     loading={loading}
     error={error}
     onRetry={() => {
@@ -151,5 +226,105 @@ export default function App() {
       setBootstrapAttempt((attempt) => attempt + 1)
     }}
     onStart={startSession}
+    onResume={resumeSession}
+    onArchive={archiveSession}
+    canManageCases={adminOrganizations.length > 0}
+    onManageCases={() => setShowCaseAdmin(true)}
   />
+}
+
+function AuthGate({ children }: { children: ReactNode }) {
+  const [session, setSession] = useState<import('@supabase/supabase-js').Session | null>(null)
+  const [loading, setLoading] = useState(isSupabaseConfigured)
+  const [authError, setAuthError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!supabase) return
+    let active = true
+    void supabase.auth.getSession().then(({ data, error }) => {
+      if (!active) return
+      if (error) setAuthError(error.message)
+      setSession(data.session)
+      setLoading(false)
+    })
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (active) setSession(nextSession)
+    })
+    return () => {
+      active = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
+
+  if (!isSupabaseConfigured) return <>{children}</>
+  if (loading) return <main className="auth-shell"><p>正在验证登录状态...</p></main>
+  if (!session) return <AuthPage error={authError} onAuthenticated={setSession} />
+  return (
+    <div className="authenticated-shell">
+      <div className="auth-toolbar">
+        <span>{session.user.email}</span>
+        <button className="auth-signout" onClick={() => void signOut()}>
+          <LogOut size={15} />退出登录
+        </button>
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function AuthPage({
+  error,
+  onAuthenticated,
+}: {
+  error: string | null
+  onAuthenticated: (session: import('@supabase/supabase-js').Session) => void
+}) {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [registering, setRegistering] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState<string | null>(null)
+  const [localError, setLocalError] = useState<string | null>(error)
+
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
+    setLocalError(null)
+    setMessage(null)
+    try {
+      if (registering) {
+        await signUpWithPassword(email, password)
+        setMessage('注册请求已提交，请按 Supabase 配置完成邮箱确认。')
+      } else {
+        onAuthenticated(await signInWithPassword(email, password))
+      }
+    } catch (caught) {
+      setLocalError(caught instanceof Error ? caught.message : '认证请求失败')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <main className="auth-shell">
+      <section className="auth-panel">
+        <p className="eyebrow">MootCourt Lab</p>
+        <h1>{registering ? '创建训练账户' : '登录庭审训练'}</h1>
+        <p className="auth-note">使用 Supabase 身份登录，案件权限由庭审服务校验。</p>
+        <form onSubmit={(event) => void submit(event)}>
+          <label>邮箱<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+          <label>密码<input type="password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+          {(localError || message) && <p className={localError ? 'page-error' : 'auth-success'} role="alert">{localError ?? message}</p>}
+          <button className="primary-action" disabled={busy}>{busy ? '处理中...' : registering ? '注册账户' : '登录'}</button>
+        </form>
+        <button className="auth-switch" onClick={() => setRegistering((value) => !value)}>
+          {registering ? '已有账户，返回登录' : '首次使用，创建账户'}
+        </button>
+      </section>
+    </main>
+  )
+}
+
+export default function App() {
+  return <AuthGate><CourtroomApp /></AuthGate>
 }

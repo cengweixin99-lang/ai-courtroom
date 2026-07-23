@@ -1,5 +1,5 @@
 # 本地镜像源不可用时，复用已验证的 API 运行时，仅更新当前应用代码。
-ARG API_LOCAL_RUNTIME_IMAGE=mootcourt-lab-api:local-runtime
+ARG API_LOCAL_RUNTIME_IMAGE=mootcourt-lab-api:local-runtime-deps
 FROM ${API_LOCAL_RUNTIME_IMAGE}
 
 WORKDIR /app
@@ -8,8 +8,8 @@ COPY src ./src
 COPY alembic.ini ./
 COPY migrations ./migrations
 
-# 本地运行时镜像可能是旧版本，显式补齐 Redis 与指标依赖，保证源码升级后仍可启动。
-RUN python -m pip install --no-cache-dir "redis>=5,<6" "prometheus-client>=0.21,<1"
+# 离线运行时必须预装共享依赖；这里只验证，不允许构建阶段访问包仓库。
+RUN python -c "import redis, prometheus_client"
 
 # 基础镜像已经包含全部运行依赖，直接加载当前源码以彻底避免访问包仓库。
 ENV PYTHONPATH=/app/src

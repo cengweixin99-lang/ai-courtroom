@@ -18,7 +18,12 @@ from mootcourt.agents.providers import (
     AgentProviderResult,
     FakeAgentProvider,
 )
-from mootcourt.api.dependencies import get_agent_provider, get_unit_of_work
+from mootcourt.api.dependencies import (
+    get_agent_provider,
+    get_unit_of_work,
+    require_authenticated_principal,
+)
+from mootcourt.core.auth import AuthenticatedPrincipal
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.main import app
 from mootcourt.repositories.agent_traces import SessionAgentUsage
@@ -570,6 +575,12 @@ async def agent_api_client(
                 raise
 
     app.dependency_overrides[get_unit_of_work] = override_unit_of_work
+    app.dependency_overrides[require_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        subject="test-agent-user",
+        email="agent@example.test",
+        provider_role="authenticated",
+        claims={"sub": "test-agent-user"},
+    )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
     app.dependency_overrides.clear()
@@ -1533,6 +1544,8 @@ async def test_production_diagnostics_trace_endpoint_requires_key(
         app_env="production",
         diagnostics_api_key=SecretStr("d" * 32),
         trace_redaction_hmac_key=SecretStr("h" * 32),
+        supabase_url="https://example.supabase.co",
+        supabase_jwt_issuer="https://example.supabase.co/auth/v1",
     )
     app.dependency_overrides[get_settings] = lambda: settings
     try:

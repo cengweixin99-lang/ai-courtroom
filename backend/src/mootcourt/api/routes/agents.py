@@ -13,6 +13,8 @@ from mootcourt.api.dependencies import (
     RuntimeDiagnosticsAccess,
     RuntimeUnitOfWork,
     StreamingUnitOfWork,
+    require_authenticated_principal,
+    require_session_access,
 )
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
@@ -43,7 +45,11 @@ from mootcourt.services.agent_turns import (
 )
 from mootcourt.services.court_orchestrator import CourtOrchestratorError, run_automatic_step
 
-router = APIRouter(prefix="/sessions", tags=["agents"])
+router = APIRouter(
+    prefix="/sessions",
+    tags=["agents"],
+    dependencies=[Depends(require_authenticated_principal), Depends(require_session_access)],
+)
 AppSettings = Annotated[Settings, Depends(get_settings)]
 IdempotencyKey = Annotated[
     str | None,

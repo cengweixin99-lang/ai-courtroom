@@ -69,6 +69,8 @@ def test_production_settings_require_diagnostic_and_redaction_secrets() -> None:
         app_env="production",
         diagnostics_api_key=SecretStr("d" * 32),
         trace_redaction_hmac_key=SecretStr("h" * 32),
+        supabase_url="https://example.supabase.co",
+        supabase_jwt_issuer="https://example.supabase.co/auth/v1",
     )
     assert diagnostics_access_allowed("d" * 32, settings) is True
     assert diagnostics_access_allowed("wrong", settings) is False

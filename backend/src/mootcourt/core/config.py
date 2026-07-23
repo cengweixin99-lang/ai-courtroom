@@ -28,6 +28,18 @@ class Settings(BaseSettings):
     trace_redaction_hmac_key: SecretStr = SecretStr("")
     idempotency_encryption_key: SecretStr = SecretStr("")
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
+    supabase_url: str = ""
+    supabase_jwt_issuer: str = ""
+    supabase_jwt_audience: str = "authenticated"
+    auth_jwks_cache_seconds: int = Field(default=300, ge=30, le=3_600)
+    auth_dev_bypass_enabled: bool = False
+    auth_dev_subject: str = "dev-local-user"
+    auth_dev_email: str = "dev@example.test"
+    auth_bootstrap_admin_subjects: list[str] = Field(default_factory=list)
+    case_import_max_archive_bytes: int = Field(default=20 * 1024 * 1024, ge=1024)
+    case_import_max_uncompressed_bytes: int = Field(default=100 * 1024 * 1024, ge=1024)
+    case_import_max_files: int = Field(default=200, ge=1, le=10_000)
+    case_import_max_compression_ratio: int = Field(default=100, ge=1, le=10_000)
     redis_url: str = ""
     redis_key_prefix: str = Field(default="mootcourt:provider", pattern=r"^[A-Za-z0-9:_-]{1,64}$")
 
@@ -87,6 +99,16 @@ class Settings(BaseSettings):
             raise ValueError("REDIS_URL must use redis:// or rediss://")
         if self.app_env.lower() != "production":
             return self
+        if self.auth_dev_bypass_enabled:
+            raise ValueError("AUTH_DEV_BYPASS_ENABLED is forbidden in production")
+        if not self.supabase_url or not self.supabase_jwt_issuer:
+            raise ValueError(
+                "SUPABASE_URL and SUPABASE_JWT_ISSUER must be configured in production"
+            )
+        if not self.supabase_url.startswith("https://") or not self.supabase_jwt_issuer.startswith(
+            "https://"
+        ):
+            raise ValueError("Supabase authentication endpoints must use HTTPS in production")
         diagnostics_key = self.diagnostics_api_key.get_secret_value()
         if len(diagnostics_key) < 32:
             raise ValueError(

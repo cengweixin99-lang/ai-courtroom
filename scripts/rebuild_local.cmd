@@ -9,9 +9,9 @@ popd
 
 pushd "%ROOT%"
 
-rem Pin the verified runtime once so later rebuilds do not layer on old app images.
-docker image inspect mootcourt-lab-api:local-runtime >nul 2>&1
-if errorlevel 1 docker tag mootcourt-lab-api:latest mootcourt-lab-api:local-runtime
+rem Pin a dependency-complete runtime once; later rebuilds never contact package registries.
+docker image inspect mootcourt-lab-api:local-runtime-deps >nul 2>&1
+if errorlevel 1 docker tag mootcourt-lab-api:latest mootcourt-lab-api:local-runtime-deps
 if errorlevel 1 goto :failed
 
 docker image inspect mootcourt-lab-web:local-runtime >nul 2>&1

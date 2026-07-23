@@ -23,6 +23,27 @@ npm run infra:up
 npm run dev
 ```
 
+## Supabase authentication
+
+The API requires an authenticated Supabase user for cases, courtroom sessions, Agent
+calls, and legal search. Create a Supabase project and set these values in `.env` before
+starting the Compose stack:
+
+```dotenv
+SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+SUPABASE_JWT_ISSUER=https://YOUR_PROJECT.supabase.co/auth/v1
+SUPABASE_JWT_AUDIENCE=authenticated
+VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
+VITE_SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_ANON_KEY
+```
+
+Never put a Supabase `service_role` key in the frontend. For isolated local development
+before creating a Supabase project, explicitly set `AUTH_DEV_BYPASS_ENABLED=true` and keep
+`APP_ENV=development`; production rejects this bypass and also fails closed without issuer
+configuration. The first authenticated subject is provisioned in MySQL and receives the
+shared training-case grant; session ownership is enforced independently from the courtroom
+prosecution/defense seat.
+
 前端默认访问 `http://localhost:5173`。API 可通过容器启动：
 
 ```powershell
@@ -103,6 +124,22 @@ compose.yaml             MySQL、Elasticsearch、Kibana、API、Web 编排
 ```powershell
 python scripts/validate_case_package.py data/authoring/CASE-001
 ```
+
+## 案件导入与发布
+
+组织管理员登录后，可从庭审大厅进入“案件管理”。上传 ZIP 后，系统先执行压缩包安全检查、
+`manifest.files` 文件清单校验、Pydantic Schema 校验、跨文件证据引用和角色材料边界校验。
+通过的版本只会创建为草稿；管理员勾选目标组织并发布后，学习者才能看到并创建庭审。相同
+`case_id + package_version` 的内容哈希不允许变化，已有庭审继续锁定原数据库版本。
+
+管理员不由前端或邮箱判断。将 Supabase 用户不可变的 `sub` 配置到服务端环境变量：
+
+```dotenv
+AUTH_BOOTSTRAP_ADMIN_SUBJECTS=["你的-supabase-user-sub"]
+```
+
+默认值为 `[]`，普通用户不会看到案件管理入口。ZIP 默认限制为 20 MiB、200 个文件、解压后
+100 MiB、单文件最大压缩比 100；可通过 `.env.example` 中的 `CASE_IMPORT_*` 参数调整。
 
 创建数据库结构并导入首案：
 

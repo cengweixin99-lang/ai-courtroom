@@ -4,6 +4,8 @@ import react from '@vitejs/plugin-react'
 import { defineConfig } from 'vite'
 
 export default defineConfig({
+  // Keep browser-safe VITE_* settings beside the backend settings in the repository root.
+  envDir: '..',
   plugins: [react()],
   server: {
     port: 5173,

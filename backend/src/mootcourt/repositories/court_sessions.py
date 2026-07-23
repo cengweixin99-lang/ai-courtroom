@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any, cast
 
-from sqlalchemy import func, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from mootcourt.db.models import (
@@ -14,6 +14,7 @@ from mootcourt.db.models import (
     EvidenceModel,
     EvidenceSubmissionModel,
     FactModel,
+    OrganizationMembershipModel,
     ParticipantModel,
     ParticipantStatementTraceModel,
     ProceduralRequestModel,
@@ -40,9 +41,11 @@ class SqlAlchemyCourtSessionRepository:
         user_role: str,
         phase: str,
         initial_event_payload: dict[str, Any],
+        owner_user_id: int | None = None,
     ) -> CourtSessionModel:
         model = CourtSessionModel(
             package_id=package_id,
+            owner_user_id=owner_user_id,
             user_role=user_role,
             phase=phase,
             status="active",
@@ -68,6 +71,28 @@ class SqlAlchemyCourtSessionRepository:
         return cast(
             CourtSessionModel | None, await self._session.get(CourtSessionModel, session_id)
         )
+
+    async def list_for_user(
+        self,
+        user_id: int,
+        *,
+        managed_organization_ids: set[str] | None = None,
+        include_archived: bool = False,
+    ) -> list[CourtSessionModel]:
+        """List resumable sessions without exposing another learner's private sessions."""
+        query = select(CourtSessionModel).order_by(CourtSessionModel.updated_at.desc())
+        access_filter = CourtSessionModel.owner_user_id == user_id
+        if managed_organization_ids:
+            # 教师和管理员只能查看与自己管理组织重叠的会话所有者。
+            managed_owner = exists().where(
+                OrganizationMembershipModel.user_id == CourtSessionModel.owner_user_id,
+                OrganizationMembershipModel.organization_id.in_(managed_organization_ids),
+            )
+            access_filter = or_(access_filter, managed_owner)
+        query = query.where(access_filter)
+        if not include_archived:
+            query = query.where(CourtSessionModel.status != "archived")
+        return list(await self._session.scalars(query))
 
     # 获取会话（加锁，用于更新）
     async def get_for_update(self, session_id: str) -> CourtSessionModel | None:

@@ -50,7 +50,12 @@ class SessionServiceError(Exception):
         self.status_code = status_code
 
 
-async def create_court_session(unit_of_work: SqlAlchemyUnitOfWork, request: SessionCreate) -> str:
+async def create_court_session(
+    unit_of_work: SqlAlchemyUnitOfWork,
+    request: SessionCreate,
+    *,
+    owner_user_id: int | None = None,
+) -> str:
     # 1.1 验证案件包是否存在
     package = await get_case_package_model(
         unit_of_work, request.case_id, package_version=request.package_version
@@ -66,6 +71,7 @@ async def create_court_session(unit_of_work: SqlAlchemyUnitOfWork, request: Sess
             "case_id": package.case_id,
             "package_version": package.package_version,
         },
+        owner_user_id=owner_user_id,
     )
     return model.id
 
@@ -83,7 +89,7 @@ async def get_session_view(
 
     phase = CourtPhase(model.phase)
     role = Role(model.user_role)
-    legal_actions = list(allowed_actions(phase, role))
+    legal_actions = list(allowed_actions(phase, role)) if model.status == "active" else []
 
     return SessionView(
         session_id=model.id,
@@ -98,6 +104,58 @@ async def get_session_view(
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
+
+
+async def list_session_views(
+    unit_of_work: SqlAlchemyUnitOfWork,
+    user_id: int,
+    *,
+    managed_organization_ids: set[str] | None = None,
+    include_archived: bool = False,
+) -> list[SessionView]:
+    """Build the authenticated user's session index from the persisted session records."""
+    models = await unit_of_work.court_sessions.list_for_user(
+        user_id,
+        managed_organization_ids=managed_organization_ids,
+        include_archived=include_archived,
+    )
+    views: list[SessionView] = []
+    for model in models:
+        view = await get_session_view(unit_of_work, model.id)
+        if view is not None:
+            views.append(view)
+    return views
+
+
+async def archive_court_session(unit_of_work: SqlAlchemyUnitOfWork, session_id: str) -> SessionView:
+    """Soft archive a session while retaining its immutable audit history."""
+    model = await unit_of_work.court_sessions.get_for_update(session_id)
+    if model is None:
+        raise SessionServiceError("session_not_found", "court session not found", 404)
+    if model.status == "archived":
+        view = await get_session_view(unit_of_work, session_id)
+        if view is None:
+            raise SessionServiceError("session_not_found", "court session not found", 404)
+        return view
+    if model.active_agent_invocation_id is not None:
+        raise SessionServiceError(
+            "session_agent_in_progress", "wait for the active Agent invocation before archiving"
+        )
+    model.status = "archived"
+    sequence_number = await unit_of_work.court_sessions.next_event_sequence(session_id)
+    await unit_of_work.court_sessions.add_event(
+        session_id=session_id,
+        sequence_number=sequence_number,
+        phase=model.phase,
+        actor_role="controller",
+        action="session_archived",
+        payload={},
+    )
+    await unit_of_work.court_sessions.flush_session(model)
+    view = await get_session_view(unit_of_work, session_id)
+    if view is None:
+        raise SessionServiceError("session_not_found", "court session not found", 404)
+    return view
 
 
 async def list_session_events(
@@ -667,6 +725,7 @@ def _event_view(event: SessionEventRecord) -> SessionEventView:
             "procedural_request_resolved",
             "new_statement_reviewed",
             "court_review_generated",
+            "session_archived",
         ]
     )
     if event.action == "session_created":
@@ -677,6 +736,8 @@ def _event_view(event: SessionEventRecord) -> SessionEventView:
         action = "new_statement_reviewed"
     elif event.action == "court_review_generated":
         action = "court_review_generated"
+    elif event.action == "session_archived":
+        action = "session_archived"
     else:
         action = CourtAction(event.action)
     return SessionEventView(

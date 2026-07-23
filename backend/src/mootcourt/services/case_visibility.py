@@ -21,8 +21,13 @@ from mootcourt.schemas.runtime import (
 )
 
 
-async def list_case_packages(unit_of_work: SqlAlchemyUnitOfWork) -> list[CaseSummary]:
+async def list_case_packages(
+    unit_of_work: SqlAlchemyUnitOfWork, *, accessible_package_ids: set[int] | None = None
+) -> list[CaseSummary]:
     rows = await unit_of_work.case_packages.list_all()
+    if accessible_package_ids is not None:
+        rows = [row for row in rows if row.id in accessible_package_ids]
+    rows = [row for row in rows if row.lifecycle_status == "published"]
     return [
         CaseSummary(
             case_id=row.case_id,

@@ -36,6 +36,49 @@ export interface CaseSummary {
   law_as_of_date: string
 }
 
+export interface ManagedOrganization {
+  id: string
+  slug: string
+  name: string
+}
+
+export interface CaseImportIssue {
+  code: string
+  message: string
+  path: string | null
+}
+
+export interface CaseImportAttempt {
+  import_id: string
+  status: 'accepted' | 'rejected' | 'duplicate'
+  source_filename: string
+  source_sha256: string | null
+  archive_size_bytes: number
+  errors: CaseImportIssue[]
+  case_id: string | null
+  package_version: string | null
+  database_id: number | null
+  lifecycle_status: 'draft' | 'published' | null
+  created_at: string | null
+}
+
+export interface ManagedCasePackage {
+  database_id: number
+  case_id: string
+  package_version: string
+  title: string
+  content_status: string
+  lifecycle_status: 'draft' | 'published'
+  jurisdiction: string
+  law_as_of_date: string
+  source_filename: string | null
+  source_sha256: string | null
+  uploaded_by_user_id: number | null
+  created_at: string
+  published_at: string | null
+  organization_ids: string[]
+}
+
 export interface DisputedIssue {
   id: string
   title: string
@@ -117,7 +160,7 @@ export interface SessionEvent {
   sequence_number: number
   phase: CourtPhase
   actor_role: 'controller' | AgentRole
-  action: CourtAction | 'session_created' | 'procedural_request_resolved' | 'new_statement_reviewed' | 'court_review_generated'
+    action: CourtAction | 'session_created' | 'procedural_request_resolved' | 'new_statement_reviewed' | 'court_review_generated' | 'session_archived'
   payload: {
     content?: string | null
     evidence_ids?: string[]

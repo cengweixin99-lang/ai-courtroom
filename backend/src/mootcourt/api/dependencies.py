@@ -2,12 +2,19 @@ from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import Depends, Header, HTTPException, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from mootcourt.agents.factory import AgentProviderConfigurationError, build_agent_provider
 from mootcourt.agents.providers import AgentProvider, StructuredAgentProvider
+from mootcourt.core.auth import (
+    AuthenticatedPrincipal,
+    AuthenticationError,
+    authenticate_bearer_token,
+)
 from mootcourt.core.config import Settings, get_settings
 from mootcourt.core.redis import get_redis_client
 from mootcourt.core.security import DIAGNOSTICS_KEY_HEADER, diagnostics_access_allowed
+from mootcourt.db.models import PlatformUserModel
 from mootcourt.db.session import get_engine, get_session_factory
 from mootcourt.repositories.health import (
     DatabaseHealthRepository,
@@ -119,6 +126,65 @@ def require_diagnostics_access(
 
 
 RuntimeDiagnosticsAccess = Annotated[None, Depends(require_diagnostics_access)]
+
+_bearer_scheme = HTTPBearer(auto_error=False)
+
+
+async def require_authenticated_principal(
+    settings: Annotated[Settings, Depends(get_settings)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
+) -> AuthenticatedPrincipal:
+    """Resolve the verified Supabase subject; authorization remains database-backed."""
+    token = credentials.credentials if credentials is not None else None
+    try:
+        return await authenticate_bearer_token(token, settings)
+    except AuthenticationError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "authentication_required", "message": str(exc)},
+            headers={"WWW-Authenticate": "Bearer"},
+        ) from exc
+
+
+async def get_current_user(
+    principal: Annotated[AuthenticatedPrincipal, Depends(require_authenticated_principal)],
+    unit_of_work: RuntimeUnitOfWork,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> PlatformUserModel:
+    """Provision a local profile once and keep all product authorization in MySQL."""
+    user = await unit_of_work.identity.get_or_create_user(principal.subject, principal.email)
+    if principal.subject in settings.auth_bootstrap_admin_subjects:
+        # 只接受服务端环境白名单，不能信任 JWT 中的任意自定义管理员声明。
+        await unit_of_work.identity.ensure_public_admin(user.id)
+    return user
+
+
+async def require_session_access(
+    unit_of_work: RuntimeUnitOfWork,
+    current_user: Annotated[PlatformUserModel, Depends(get_current_user)],
+    session_id: str | None = None,
+) -> None:
+    """Allow the owner or an instructor/admin to access a known court session."""
+    if session_id is None:
+        return
+    session = await unit_of_work.court_sessions.get(session_id)
+    if session is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail={"code": "session_not_found"}
+        )
+    if session.owner_user_id == current_user.id:
+        return
+    if await unit_of_work.identity.can_manage_user_sessions(current_user.id, session.owner_user_id):
+        return
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN, detail={"code": "session_access_denied"}
+    )
+
+
+RuntimeAuthenticatedPrincipal = Annotated[
+    AuthenticatedPrincipal, Depends(require_authenticated_principal)
+]
+RuntimeCurrentUser = Annotated[PlatformUserModel, Depends(get_current_user)]
 
 
 def get_legal_search_repository(

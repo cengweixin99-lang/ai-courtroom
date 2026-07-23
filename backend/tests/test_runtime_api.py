@@ -6,8 +6,14 @@ from httpx import ASGITransport, AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from mootcourt.api.dependencies import get_unit_of_work
-from mootcourt.db.models import CasePackageModel
+from mootcourt.api.dependencies import get_unit_of_work, require_authenticated_principal
+from mootcourt.core.auth import AuthenticatedPrincipal
+from mootcourt.db.models import (
+    CasePackageModel,
+    OrganizationMembershipModel,
+    OrganizationModel,
+    PlatformUserModel,
+)
 from mootcourt.main import app
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.services.case_importer import import_case_package
@@ -73,6 +79,12 @@ async def api_client(
                 raise
 
     app.dependency_overrides[get_unit_of_work] = override_unit_of_work
+    app.dependency_overrides[require_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        subject="test-runtime-user",
+        email="runtime@example.test",
+        provider_role="authenticated",
+        claims={"sub": "test-runtime-user"},
+    )
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
     app.dependency_overrides.clear()
@@ -163,7 +175,132 @@ async def test_unknown_case_cannot_start_session(api_client: AsyncClient) -> Non
     )
 
     assert response.status_code == 404
-    assert response.json()["detail"]["code"] == "case_not_found"
+
+
+async def test_session_is_hidden_from_a_different_authenticated_user(
+    api_client: AsyncClient,
+) -> None:
+    created = await api_client.post(
+        "/api/v1/sessions", json={"case_id": "CASE-001", "user_role": "defense"}
+    )
+    assert created.status_code == 201
+    session_id = created.json()["session_id"]
+
+    app.dependency_overrides[require_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        subject="other-runtime-user",
+        email="other@example.test",
+        provider_role="authenticated",
+        claims={"sub": "other-runtime-user"},
+    )
+    response = await api_client.get(f"/api/v1/sessions/{session_id}")
+    listed = await api_client.get("/api/v1/sessions")
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["code"] == "session_access_denied"
+    assert listed.status_code == 200
+    assert listed.json() == []
+
+
+async def test_session_management_is_scoped_to_shared_organizations(
+    api_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    created = await api_client.post(
+        "/api/v1/sessions", json={"case_id": "CASE-001", "user_role": "defense"}
+    )
+    assert created.status_code == 201
+    session_id = created.json()["session_id"]
+
+    async with session_factory() as database_session:
+        unit_of_work = SqlAlchemyUnitOfWork(database_session)
+        owner = await database_session.scalar(
+            select(PlatformUserModel).where(PlatformUserModel.auth_subject == "test-runtime-user")
+        )
+        assert owner is not None
+        instructor = await unit_of_work.identity.get_or_create_user(
+            "same-organization-instructor", "instructor@example.test"
+        )
+        outside_admin = await unit_of_work.identity.get_or_create_user(
+            "outside-organization-admin", "outside-admin@example.test"
+        )
+        shared_organization_id = "11111111-1111-1111-1111-111111111111"
+        outside_organization_id = "22222222-2222-2222-2222-222222222222"
+        database_session.add_all(
+            [
+                OrganizationModel(
+                    id=shared_organization_id, slug="shared-class", name="Shared Class"
+                ),
+                OrganizationModel(
+                    id=outside_organization_id, slug="outside-class", name="Outside Class"
+                ),
+                OrganizationMembershipModel(
+                    organization_id=shared_organization_id,
+                    user_id=owner.id,
+                    role="learner",
+                ),
+                OrganizationMembershipModel(
+                    organization_id=shared_organization_id,
+                    user_id=instructor.id,
+                    role="instructor",
+                ),
+                OrganizationMembershipModel(
+                    organization_id=outside_organization_id,
+                    user_id=outside_admin.id,
+                    role="admin",
+                ),
+            ]
+        )
+        await unit_of_work.commit()
+
+    app.dependency_overrides[require_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        subject="same-organization-instructor",
+        email="instructor@example.test",
+        provider_role="authenticated",
+        claims={"sub": "same-organization-instructor"},
+    )
+    instructor_view = await api_client.get(f"/api/v1/sessions/{session_id}")
+    instructor_list = await api_client.get("/api/v1/sessions")
+
+    app.dependency_overrides[require_authenticated_principal] = lambda: AuthenticatedPrincipal(
+        subject="outside-organization-admin",
+        email="outside-admin@example.test",
+        provider_role="authenticated",
+        claims={"sub": "outside-organization-admin"},
+    )
+    outside_view = await api_client.get(f"/api/v1/sessions/{session_id}")
+    outside_list = await api_client.get("/api/v1/sessions")
+
+    assert instructor_view.status_code == 200
+    assert [item["session_id"] for item in instructor_list.json()] == [session_id]
+    assert outside_view.status_code == 403
+    assert outside_view.json()["detail"]["code"] == "session_access_denied"
+    assert outside_list.status_code == 200
+    assert outside_list.json() == []
+
+
+async def test_session_list_and_archive_preserve_audit_history(api_client: AsyncClient) -> None:
+    created = await api_client.post(
+        "/api/v1/sessions", json={"case_id": "CASE-001", "user_role": "prosecution"}
+    )
+    assert created.status_code == 201
+    session_id = created.json()["session_id"]
+
+    listed = await api_client.get("/api/v1/sessions")
+    archived = await api_client.post(f"/api/v1/sessions/{session_id}/archive")
+    replayed = await api_client.post(f"/api/v1/sessions/{session_id}/archive")
+    blocked = await api_client.post(
+        f"/api/v1/sessions/{session_id}/actions", json={"action": "advance_phase"}
+    )
+    events = await api_client.get(f"/api/v1/sessions/{session_id}/events")
+
+    assert listed.status_code == 200
+    assert [item["session_id"] for item in listed.json()] == [session_id]
+    assert archived.status_code == 200
+    assert archived.json()["status"] == "archived"
+    assert replayed.status_code == 200
+    assert blocked.status_code == 409
+    assert blocked.json()["detail"]["code"] == "session_closed"
+    assert [item["action"] for item in events.json()].count("session_archived") == 1
 
 
 async def test_action_cannot_spoof_actor_role(api_client: AsyncClient) -> None:

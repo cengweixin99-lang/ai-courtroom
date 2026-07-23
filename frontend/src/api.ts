@@ -4,6 +4,9 @@ import type {
   AgentTurnResponse,
   AutoStepResponse,
   CaseSummary,
+  CaseImportAttempt,
+  ManagedCasePackage,
+  ManagedOrganization,
   CaseView,
   CourtReview,
   TurnQualityEvaluationReport,
@@ -16,6 +19,7 @@ import type {
   StatementTrace,
   UserRole,
 } from './types'
+import { currentAccessToken } from './auth'
 
 // 开发环境默认走 Vite 同源代理，避免访问主机名变化导致浏览器 CORS 拦截。
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
@@ -31,9 +35,14 @@ export class ApiError extends Error {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const accessToken = await currentAccessToken()
   const response = await fetch(`${API_BASE}${path}`, {
     ...init,
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+      ...init?.headers,
+    },
   })
   if (!response.ok) {
     const body = (await response.json().catch(() => null)) as
@@ -43,6 +52,26 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
     throw new ApiError(detail?.code ?? `http_${response.status}`, detail?.message ?? '请求失败', response.status)
   }
   return response.json() as Promise<T>
+}
+
+async function uploadCaseArchive(file: File): Promise<CaseImportAttempt> {
+  const accessToken = await currentAccessToken()
+  const response = await fetch(`${API_BASE}/admin/case-packages/imports`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/zip',
+      'X-Filename': encodeURIComponent(file.name),
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+    },
+    body: file,
+  })
+  const body = (await response.json().catch(() => null)) as CaseImportAttempt | null
+  // 422/413 仍包含可展示并已审计的导入报告，不应丢弃为普通网络错误。
+  if (body?.status === 'rejected') return body
+  if (!response.ok || !body) {
+    throw new ApiError(`http_${response.status}`, '案件上传失败', response.status)
+  }
+  return body
 }
 
 export interface AutoStepStreamHandlers {
@@ -57,10 +86,12 @@ async function streamAutoStep(
   signal?: AbortSignal,
   idempotencyKey?: string,
 ): Promise<AutoStepResponse> {
+  const accessToken = await currentAccessToken()
   const response = await fetch(`${API_BASE}/sessions/${sessionId}/auto-step/stream`, {
     method: 'POST',
     headers: {
       Accept: 'text/event-stream',
+      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
       ...(idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}),
     },
     signal,
@@ -125,7 +156,18 @@ async function streamAutoStep(
 }
 
 export const api = {
+  listAdminOrganizations: () =>
+    request<ManagedOrganization[]>('/admin/case-packages/organizations'),
+  listManagedCases: () => request<ManagedCasePackage[]>('/admin/case-packages'),
+  uploadCaseArchive,
+  publishManagedCase: (databaseId: number, organizationIds: string[]) =>
+    request<ManagedCasePackage>(`/admin/case-packages/${databaseId}/publish`, {
+      method: 'POST',
+      body: JSON.stringify({ organization_ids: organizationIds }),
+    }),
   listCases: () => request<CaseSummary[]>('/cases'),
+  listSessions: (includeArchived = false) =>
+    request<SessionView[]>(`/sessions?include_archived=${includeArchived}`),
   getCase: (caseId: string, role: UserRole, version?: string) =>
     request<CaseView>(`/cases/${caseId}?role=${role}${version ? `&package_version=${version}` : ''}`),
   createSession: (caseId: string, role: UserRole, packageVersion: string) =>
@@ -134,6 +176,8 @@ export const api = {
       body: JSON.stringify({ case_id: caseId, user_role: role, package_version: packageVersion }),
     }),
   getSession: (sessionId: string) => request<SessionView>(`/sessions/${sessionId}`),
+  archiveSession: (sessionId: string) =>
+    request<SessionView>(`/sessions/${sessionId}/archive`, { method: 'POST' }),
   getEvents: (sessionId: string) => request<SessionEvent[]>(`/sessions/${sessionId}/events`),
   getEvidenceStatuses: (sessionId: string) => request<EvidenceStatus[]>(`/sessions/${sessionId}/evidence-statuses`),
   getEvidenceAgenda: (sessionId: string) => request<EvidenceAgendaItem[]>(`/sessions/${sessionId}/evidence-agenda`),

@@ -30,6 +30,7 @@ class CasePackageModel(Base):
     case_id: Mapped[str] = mapped_column(String(64), index=True)
     package_version: Mapped[str] = mapped_column(String(32))
     status: Mapped[str] = mapped_column(String(48), index=True)
+    lifecycle_status: Mapped[str] = mapped_column(String(32), default="published", index=True)
     title: Mapped[str] = mapped_column(String(255))
     jurisdiction: Mapped[str] = mapped_column(String(64))
     law_as_of_date: Mapped[date] = mapped_column(Date)
@@ -39,6 +40,12 @@ class CasePackageModel(Base):
     legal_issues: Mapped[dict[str, Any]] = mapped_column(JSON)
     procedure_profile: Mapped[dict[str, Any]] = mapped_column(JSON)
     review_manifest: Mapped[dict[str, Any]] = mapped_column(JSON)
+    source_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    source_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    uploaded_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )
@@ -55,6 +62,112 @@ class CasePackageModel(Base):
     legal_search_traces: Mapped[list[LegalSearchTraceModel]] = relationship(
         cascade="all, delete-orphan"
     )
+    access_grants: Mapped[list[CaseAccessGrantModel]] = relationship(cascade="all, delete-orphan")
+    import_attempts: Mapped[list[CaseImportAttemptModel]] = relationship(back_populates="package")
+
+
+class OrganizationModel(Base):
+    """Platform authorization boundary; it is independent from courtroom seats."""
+
+    __tablename__ = "organizations"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    slug: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    memberships: Mapped[list[OrganizationMembershipModel]] = relationship(
+        cascade="all, delete-orphan"
+    )
+    case_access_grants: Mapped[list[CaseAccessGrantModel]] = relationship(
+        cascade="all, delete-orphan"
+    )
+
+
+class PlatformUserModel(Base):
+    """Local user profile keyed by the immutable Supabase JWT subject."""
+
+    __tablename__ = "platform_users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    auth_subject: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    display_name: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    memberships: Mapped[list[OrganizationMembershipModel]] = relationship(
+        cascade="all, delete-orphan"
+    )
+    owned_sessions: Mapped[list[CourtSessionModel]] = relationship()
+    case_import_attempts: Mapped[list[CaseImportAttemptModel]] = relationship(
+        back_populates="actor"
+    )
+
+
+class OrganizationMembershipModel(Base):
+    __tablename__ = "organization_memberships"
+    __table_args__ = (UniqueConstraint("organization_id", "user_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("platform_users.id", ondelete="CASCADE"), index=True
+    )
+    role: Mapped[str] = mapped_column(String(32), default="learner")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CaseAccessGrantModel(Base):
+    __tablename__ = "case_access_grants"
+    __table_args__ = (UniqueConstraint("package_id", "organization_id"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    package_id: Mapped[int] = mapped_column(
+        ForeignKey("case_packages.id", ondelete="CASCADE"), index=True
+    )
+    organization_id: Mapped[str] = mapped_column(
+        ForeignKey("organizations.id", ondelete="CASCADE"), index=True
+    )
+    access_level: Mapped[str] = mapped_column(String(32), default="use")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
+class CaseImportAttemptModel(Base):
+    """Immutable audit record for successful and rejected package uploads."""
+
+    __tablename__ = "case_import_attempts"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    actor_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    package_id: Mapped[int | None] = mapped_column(
+        ForeignKey("case_packages.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    source_filename: Mapped[str] = mapped_column(String(255))
+    source_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    archive_size_bytes: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    errors: Mapped[list[dict[str, Any]]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+    actor: Mapped[PlatformUserModel | None] = relationship(back_populates="case_import_attempts")
+    package: Mapped[CasePackageModel | None] = relationship(back_populates="import_attempts")
 
 
 class FactModel(Base):
@@ -126,6 +239,9 @@ class CourtSessionModel(Base):
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
     package_id: Mapped[int] = mapped_column(ForeignKey("case_packages.id", ondelete="RESTRICT"))
+    owner_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("platform_users.id", ondelete="SET NULL"), index=True, nullable=True
+    )
     user_role: Mapped[str] = mapped_column(String(32))
     phase: Mapped[str] = mapped_column(String(64))
     status: Mapped[str] = mapped_column(String(32), default="active")

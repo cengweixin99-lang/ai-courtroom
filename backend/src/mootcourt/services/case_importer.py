@@ -11,20 +11,14 @@ async def import_case_package(
     unit_of_work: SqlAlchemyUnitOfWork, package_path: Path
 ) -> ImportResult:
     package = load_case_package(package_path)
-    existing = await find_imported_package(
-        unit_of_work,
-        package.manifest.package_id,
-        package.manifest.package_version,
-    )
-    if existing is not None:
-        return existing
-
-    model = await unit_of_work.case_packages.add(package)
+    # 初始化导入和管理端上传共用数据库级幂等写入，避免多实例启动时相互冲突。
+    model, created = await unit_of_work.case_packages.add_if_absent(package)
+    await unit_of_work.identity.grant_public_case_access(model.id)
     return ImportResult(
         case_id=model.case_id,
         package_version=model.package_version,
         database_id=model.id,
-        created=True,
+        created=created,
     )
 
 

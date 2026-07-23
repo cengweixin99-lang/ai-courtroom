@@ -8,6 +8,18 @@ The backend uses four explicit layers:
 api -> services -> repositories -> SQLAlchemy models/database
 ```
 
+## Authentication and authorization
+
+Supabase issues the access token; this service verifies its signature against the configured
+JWKS endpoint and never accepts a `service_role` secret. Set `SUPABASE_URL`,
+`SUPABASE_JWT_ISSUER`, and `SUPABASE_JWT_AUDIENCE=authenticated` in production. The
+`20260723_0011` migration adds local platform users, organization memberships, case grants,
+and session owners. Case and session permissions are evaluated from those MySQL records, while
+`user_role` remains only the locked courtroom seat for one session.
+
+For local work without a Supabase project, `AUTH_DEV_BYPASS_ENABLED=true` is an explicit
+development-only test identity. It is rejected by production settings validation.
+
 `services` contains application rules and never imports SQLAlchemy or accepts an
 `AsyncSession`. `repositories` owns queries, row locks, ORM mapping, event sequencing, and
 the Unit of Work. API and CLI boundaries own commit/rollback.
@@ -423,3 +435,24 @@ abandoned invocations after the idempotency replay window. Active leases are nev
 
 Pytest enforces branch coverage with an 80 percent minimum. CI additionally starts MySQL 8.4,
 applies the Alembic migration, and imports CASE-001 twice to verify sequential idempotency.
+
+## Case package administration
+
+Case operations use a separate draft/published lifecycle. The package manifest's `status` remains
+the content-review status and is not reused as a visibility flag. Uploading a valid ZIP creates a
+draft; only an explicit publish operation grants selected organizations access. Existing court
+sessions remain pinned to their original database package ID.
+
+Set `AUTH_BOOTSTRAP_ADMIN_SUBJECTS` to a JSON array containing the immutable Supabase `sub` values
+that may bootstrap as administrators of the public training organization. It defaults to `[]`. The
+API never trusts an email address or a client-supplied/JWT custom role for this promotion. After the
+membership has been written to MySQL, organization roles remain the authorization source.
+
+The upload endpoint is `POST /api/v1/admin/case-packages/imports`, with the ZIP as the raw
+`application/zip` request body and an encoded `X-Filename` header. It streams to a temporary file and
+checks traversal paths, links, encryption, Unicode/case path collisions, file types, entry count,
+uncompressed size, compression ratio, the exact `manifest.files` inventory, schema validation, and
+cross-file evidence/role references. Rejected semantic uploads are persisted in
+`case_import_attempts`; temporary paths and input payloads are not included in the report. Configure
+limits with `CASE_IMPORT_MAX_ARCHIVE_BYTES`, `CASE_IMPORT_MAX_UNCOMPRESSED_BYTES`,
+`CASE_IMPORT_MAX_FILES`, and `CASE_IMPORT_MAX_COMPRESSION_RATIO`.

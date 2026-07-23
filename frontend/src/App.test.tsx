@@ -13,7 +13,8 @@ vi.mock('./api', async (importOriginal) => {
   return {
     ...original,
     api: {
-      listCases: vi.fn(), getCase: vi.fn(), createSession: vi.fn(), getSession: vi.fn(),
+      listAdminOrganizations: vi.fn(), listManagedCases: vi.fn(), uploadCaseArchive: vi.fn(), publishManagedCase: vi.fn(),
+      listCases: vi.fn(), listSessions: vi.fn(), getCase: vi.fn(), createSession: vi.fn(), getSession: vi.fn(), archiveSession: vi.fn(),
       getEvents: vi.fn(), getEvidenceStatuses: vi.fn(), getEvidenceAgenda: vi.fn(), getProceduralRequests: vi.fn(),
       getStatementTraces: vi.fn(), getAgentUsage: vi.fn(), applyAction: vi.fn(), runAgent: vi.fn(), resolveRequest: vi.fn(),
       resolveStatement: vi.fn(), searchLegal: vi.fn(), createReview: vi.fn(), getReview: vi.fn(),
@@ -22,6 +23,15 @@ vi.mock('./api', async (importOriginal) => {
     },
   }
 })
+
+vi.mock('./auth', () => ({
+  isSupabaseConfigured: false,
+  supabase: null,
+  currentAccessToken: vi.fn().mockResolvedValue(null),
+  signInWithPassword: vi.fn(),
+  signUpWithPassword: vi.fn(),
+  signOut: vi.fn(),
+}))
 
 const caseSummary: CaseSummary = {
   case_id: 'CASE-001', package_version: '1.0.0', title: '青禾影像器材失窃案', status: 'ready',
@@ -83,9 +93,12 @@ beforeEach(() => {
   vi.clearAllMocks()
   sessionStorage.clear()
   mockedApi.listCases.mockResolvedValue([caseSummary])
+  mockedApi.listAdminOrganizations.mockResolvedValue([])
+  mockedApi.listSessions.mockResolvedValue([])
   mockedApi.getCase.mockResolvedValue(caseView)
   mockedApi.createSession.mockResolvedValue(session)
   mockedApi.getSession.mockResolvedValue(session)
+  mockedApi.archiveSession.mockResolvedValue({ ...session, status: 'archived', allowed_actions: [] })
   mockedApi.getEvents.mockResolvedValue([])
   mockedApi.getEvidenceStatuses.mockResolvedValue([])
   mockedApi.getEvidenceAgenda.mockResolvedValue([])
@@ -106,6 +119,52 @@ describe('App', () => {
     render(<App />)
     expect(await screen.findByRole('heading', { name: caseSummary.title })).toBeInTheDocument()
     expect(screen.getByText('中华人民共和国')).toBeInTheDocument()
+  })
+
+  it('lets an organization admin open case management and publish a draft', async () => {
+    const user = userEvent.setup()
+    mockedApi.listAdminOrganizations.mockResolvedValue([{
+      id: 'org-001', slug: 'class-one', name: '一班',
+    }])
+    mockedApi.listManagedCases.mockResolvedValue([{
+      database_id: 2, case_id: 'CASE-002', package_version: '1.0.0', title: '测试案件',
+      content_status: 'DEVELOPMENT_READY', lifecycle_status: 'draft', jurisdiction: '中华人民共和国',
+      law_as_of_date: '2026-07-01', source_filename: 'case-002.zip', source_sha256: 'a'.repeat(64),
+      uploaded_by_user_id: 1, created_at: '2026-07-23T00:00:00Z', published_at: null, organization_ids: [],
+    }])
+    mockedApi.publishManagedCase.mockResolvedValue({
+      ...(await mockedApi.listManagedCases())[0], lifecycle_status: 'published', organization_ids: ['org-001'],
+    })
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '案件管理' }))
+    expect(await screen.findByRole('heading', { name: '案件导入与发布' })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: /发布到 1 个组织/ }))
+
+    await waitFor(() => expect(mockedApi.publishManagedCase).toHaveBeenCalledWith(2, ['org-001']))
+  })
+
+  it('resumes an owned session from the lobby', async () => {
+    const user = userEvent.setup()
+    mockedApi.listSessions.mockResolvedValue([session])
+    render(<App />)
+
+    await user.click(await screen.findByRole('button', { name: '继续庭审 CASE-001' }))
+
+    await waitFor(() => expect(mockedApi.getSession).toHaveBeenCalledWith(session.session_id))
+    expect(mockedApi.getCase).toHaveBeenCalledWith('CASE-001', 'defense', '1.0.0')
+  })
+
+  it('archives a session without deleting its history', async () => {
+    const user = userEvent.setup()
+    mockedApi.listSessions.mockResolvedValue([session])
+    render(<App />)
+
+    const archive = await screen.findByRole('button', { name: '归档 CASE-001' })
+    await user.click(archive)
+
+    await waitFor(() => expect(mockedApi.archiveSession).toHaveBeenCalledWith(session.session_id))
+    expect(screen.queryByRole('button', { name: '归档 CASE-001' })).not.toBeInTheDocument()
   })
 
   it('creates a courtroom with the selected defense role', async () => {

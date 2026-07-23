@@ -3,12 +3,24 @@ from typing import Any
 from mootcourt.main import app
 
 EXPECTED_OPERATIONS = {
+    ("/api/v1/admin/case-packages", "get"): "list_managed_case_packages",
+    (
+        "/api/v1/admin/case-packages/organizations",
+        "get",
+    ): "list_case_admin_organizations",
+    ("/api/v1/admin/case-packages/imports", "post"): "import_case_package_archive",
+    (
+        "/api/v1/admin/case-packages/{database_id}/publish",
+        "post",
+    ): "publish_case_package",
     ("/api/v1/health", "get"): "health_check",
     ("/api/v1/ready", "get"): "readiness_check",
     ("/api/v1/cases", "get"): "list_case_packages",
     ("/api/v1/cases/{case_id}", "get"): "get_role_scoped_case",
+    ("/api/v1/sessions", "get"): "list_court_sessions",
     ("/api/v1/sessions", "post"): "create_court_session",
     ("/api/v1/sessions/{session_id}", "get"): "get_court_session",
+    ("/api/v1/sessions/{session_id}/archive", "post"): "archive_court_session",
     ("/api/v1/sessions/{session_id}/events", "get"): "list_court_session_events",
     (
         "/api/v1/sessions/{session_id}/evidence-statuses",
@@ -133,6 +145,7 @@ def test_openapi_tags_have_descriptions() -> None:
     tags = app.openapi()["tags"]
 
     assert {tag["name"] for tag in tags} == {
+        "case-admin",
         "system",
         "cases",
         "sessions",
