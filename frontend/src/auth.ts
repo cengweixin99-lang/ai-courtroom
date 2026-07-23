@@ -6,6 +6,14 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 const authStorageKey = 'mootcourt.supabase.auth'
 
+function clearAuthUrlFragment(): void {
+  if (typeof window === 'undefined') return
+  const hash = window.location.hash
+  if (!hash.includes('access_token=') && !hash.includes('refresh_token=')) return
+  // 密码登录不依赖 URL Token；及时移除旧 fragment，避免刷新时反复覆盖持久化会话。
+  window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`)
+}
+
 function migrateAuthSession(): void {
   if (!isSupabaseConfigured || typeof window === 'undefined') return
   try {
@@ -21,6 +29,7 @@ function migrateAuthSession(): void {
   }
 }
 
+clearAuthUrlFragment()
 migrateAuthSession()
 
 // The browser deliberately receives only Supabase's publishable anonymous key.
@@ -33,7 +42,7 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
         storage: typeof window !== 'undefined' ? window.localStorage : undefined,
         persistSession: true,
         autoRefreshToken: true,
-        detectSessionInUrl: true,
+        detectSessionInUrl: false,
       },
     })
   : null
