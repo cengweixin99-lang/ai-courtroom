@@ -241,14 +241,17 @@ function AuthGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase) return
     let active = true
+    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (active) {
+        setSession(nextSession)
+        setLoading(false)
+      }
+    })
     void supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return
       if (error) setAuthError(error.message)
       setSession(data.session)
       setLoading(false)
-    })
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
-      if (active) setSession(nextSession)
     })
     return () => {
       active = false

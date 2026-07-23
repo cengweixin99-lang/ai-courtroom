@@ -9,7 +9,14 @@ export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey)
 // Business authorization is always evaluated again by the API against MySQL ACLs.
 export const supabase: SupabaseClient | null = isSupabaseConfigured
   ? createClient(supabaseUrl, supabaseAnonKey, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+      auth: {
+        // 显式固定 storage key，避免构建配置或域名变化后找不到原有会话。
+        storageKey: 'mootcourt.supabase.auth',
+        storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+        persistSession: true,
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+      },
     })
   : null
 

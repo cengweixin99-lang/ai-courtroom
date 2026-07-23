@@ -14,6 +14,7 @@ vi.mock('./api', async (importOriginal) => {
     ...original,
     api: {
       listAdminOrganizations: vi.fn(), listManagedCases: vi.fn(), uploadCaseArchive: vi.fn(), publishManagedCase: vi.fn(),
+      listOrganizationMembers: vi.fn(), setOrganizationMember: vi.fn(), removeOrganizationMember: vi.fn(),
       listCases: vi.fn(), listSessions: vi.fn(), getCase: vi.fn(), createSession: vi.fn(), getSession: vi.fn(), archiveSession: vi.fn(),
       getEvents: vi.fn(), getEvidenceStatuses: vi.fn(), getEvidenceAgenda: vi.fn(), getProceduralRequests: vi.fn(),
       getStatementTraces: vi.fn(), getAgentUsage: vi.fn(), applyAction: vi.fn(), runAgent: vi.fn(), resolveRequest: vi.fn(),
@@ -94,6 +95,9 @@ beforeEach(() => {
   sessionStorage.clear()
   mockedApi.listCases.mockResolvedValue([caseSummary])
   mockedApi.listAdminOrganizations.mockResolvedValue([])
+  mockedApi.listOrganizationMembers.mockResolvedValue({ organization_id: 'org-001', members: [], available_users: [] })
+  mockedApi.setOrganizationMember.mockResolvedValue({ organization_id: 'org-001', members: [], available_users: [] })
+  mockedApi.removeOrganizationMember.mockResolvedValue({ organization_id: 'org-001', members: [], available_users: [] })
   mockedApi.listSessions.mockResolvedValue([])
   mockedApi.getCase.mockResolvedValue(caseView)
   mockedApi.createSession.mockResolvedValue(session)
@@ -138,7 +142,7 @@ describe('App', () => {
     render(<App />)
 
     await user.click(await screen.findByRole('button', { name: '案件管理' }))
-    expect(await screen.findByRole('heading', { name: '案件导入与发布' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '案件管理' })).toBeInTheDocument()
     await user.click(await screen.findByRole('button', { name: /发布到 1 个组织/ }))
 
     await waitFor(() => expect(mockedApi.publishManagedCase).toHaveBeenCalledWith(2, ['org-001']))
