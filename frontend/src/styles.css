@@ -351,7 +351,7 @@ a { color: inherit; }
 .court-bench {
   min-width: 0;
   display: grid;
-  grid-template-columns: minmax(190px, auto) minmax(420px, 1fr) auto;
+  grid-template-columns: minmax(190px, auto) minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 20px;
   padding: 0 20px;
@@ -419,6 +419,7 @@ a { color: inherit; }
   justify-content: flex-end;
   gap: 10px;
 }
+.court-bench > .account-controls { min-width: 0; padding-left: 14px; border-left: 1px solid rgba(255,255,255,.15); }
 .bench-review-action {
   height: 30px;
   padding: 0 10px;
@@ -642,7 +643,7 @@ a { color: inherit; }
   .workspace.status-collapsed { grid-template-columns: 220px minmax(420px, 1fr) 58px; }
   .workspace.case-collapsed.status-collapsed { grid-template-columns: 58px minmax(420px, 1fr) 58px; }
   .transcript { grid-template-rows: 104px minmax(0, 1fr) auto; }
-  .court-bench { grid-template-columns: minmax(180px, auto) 1fr auto; gap: 16px; padding-inline: 18px; }
+  .court-bench { grid-template-columns: minmax(180px, auto) minmax(0, 1fr) auto auto; gap: 12px; padding-inline: 18px; }
   .bench-status { height: 76px; grid-template-columns: 1fr 1fr; }
   .bench-status div { padding: 6px 10px; }
   .action-form { align-items: stretch; flex-direction: column; }
@@ -679,6 +680,7 @@ a { color: inherit; }
     gap: 10px;
     padding: 14px;
   }
+  .court-bench > .account-controls { grid-column: 1 / -1; grid-row: 3; justify-self: end; padding: 8px 0 0; border-left: 0; border-top: 1px solid rgba(255,255,255,.15); width: 100%; justify-content: flex-end; }
   .bench-identity { grid-column: 1; }
   .bench-status {
     grid-column: 1 / -1;
@@ -758,45 +760,29 @@ a { color: inherit; }
 .auth-panel form { display: grid; gap: 16px; margin-top: 24px; }
 .auth-panel label { display: grid; gap: 6px; font-size: 14px; }
 .auth-panel input { padding: 11px 12px; border: 1px solid #cdbfb5; font: inherit; }
-.auth-switch, .auth-signout { border: 0; background: transparent; color: #7b2f2a; cursor: pointer; }
+.auth-switch { border: 0; background: transparent; color: #7b2f2a; cursor: pointer; }
 .auth-switch { margin-top: 16px; padding: 4px 0; }
 .auth-success { color: #2d6a4f; }
 .authenticated-shell { position: relative; min-height: 100vh; }
-/* 账户操作属于全局 header，不再单独占用一整行。 */
-.auth-toolbar { position: absolute; z-index: 30; top: 0; right: 0; min-height: 54px; display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding: 0 18px; background: rgba(27,51,45,.96); color: #d5e1db; font-size: 12px; }
-.auth-toolbar > span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.auth-signout { min-height: 30px; display: inline-flex; gap: 5px; align-items: center; padding: 0 9px; border: 1px solid rgba(229,159,160,.6); background: rgba(165,36,47,.3); color: #f1b2b2; cursor: pointer; }
-.auth-signout:hover { border-color: #f3c6c6; background: #a5242f; color: #fff; }
-.case-admin-header > .admin-refresh-button { margin-right: 220px; }
-.review-header .environment-tag { margin-right: 220px; }
-.court-bench .bench-tools { margin-right: 220px; }
+/* 账户控件由各页面真实 header 持有，避免绝对定位覆盖庭审内容。 */
+.account-controls { min-width: 0; display: inline-flex; align-items: center; gap: 8px; }
+.account-avatar { width: 28px; height: 28px; flex: 0 0 28px; display: grid; place-items: center; border: 1px solid currentColor; border-radius: 50%; font-size: 11px; font-weight: 800; }
+.account-email { min-width: 0; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; }
+.account-signout { min-height: 30px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; border: 1px solid currentColor; background: transparent; color: inherit; font-size: 11px; white-space: nowrap; }
+.account-signout:hover { background: rgba(165,36,47,.18); color: #f0b5b7; }
+.admin-header-actions, .review-header-actions { min-width: 0; display: flex; align-items: center; justify-content: flex-end; gap: 14px; }
+.admin-header-actions { text-align: right; }
+.review-header-actions { gap: 16px; }
+.case-admin-header .account-controls, .review-header .account-controls { color: #7d2c33; }
+.lobby-shell .account-controls, .court-bench .account-controls, .case-admin-shell .account-controls { color: #dce7e2; }
+.lobby-shell .account-signout, .court-bench .account-signout, .case-admin-shell .account-signout { border-color: rgba(225,190,142,.58); }
+.lobby-shell .account-signout:hover, .court-bench .account-signout:hover, .case-admin-shell .account-signout:hover { background: rgba(165,36,47,.78); color: #fff; }
 
 @media (max-width: 680px) {
-  .auth-toolbar { min-height: 52px; padding-inline: 10px; gap: 7px; }
-  .auth-toolbar > span { display: none; }
-  .lobby-header-actions { margin-right: 122px; }
-  .case-admin-header > .admin-refresh-button { margin-right: 122px; }
-  .review-header .environment-tag { margin-right: 122px; }
-  .court-bench .bench-tools { margin-right: 122px; }
-}
-
-/* 庭审页的账户区必须落在中央审判席，而不是右侧台账面板。 */
-.authenticated-shell:has(.courtroom-shell) .auth-toolbar {
-  top: 14px;
-  right: calc(20vw + 14px);
-  min-height: 50px;
-  padding-inline: 12px;
-  border-left: 1px solid rgba(255,255,255,.15);
-}
-.authenticated-shell:has(.courtroom-shell) .auth-toolbar > span { color: #dce7e2; }
-.authenticated-shell:has(.courtroom-shell) .court-bench .bench-tools { margin-right: 300px; }
-
-@media (max-width: 1050px) {
-  .authenticated-shell:has(.courtroom-shell) .auth-toolbar { right: calc(250px + 14px); }
-}
-@media (max-width: 760px) {
-  .authenticated-shell:has(.courtroom-shell) .auth-toolbar { top: 8px; right: 8px; min-height: 44px; }
-  .authenticated-shell:has(.courtroom-shell) .court-bench .bench-tools { margin-right: 122px; }
+  .account-email { display: none; }
+  .account-signout span { display: none; }
+  .account-signout { width: 30px; padding: 0; justify-content: center; }
+  .admin-header-actions, .review-header-actions { gap: 8px; }
 }
 
 /* 开始页与管理页使用同一套“卷宗纸张 + 审判席”视觉语汇，减少模板卡片感。 */
@@ -942,6 +928,7 @@ a { color: inherit; }
 .case-admin-header { grid-template-columns: auto minmax(0, 1fr) auto; }
 .admin-title-lockup { text-align: left; padding-left: 10px; }
 .admin-title-lockup p:last-child { margin-left: 0; }
+.case-admin-header > .admin-header-actions { justify-self: end; }
 
 @media (max-width: 900px) {
   .lobby-layout { grid-template-columns: 205px minmax(0, 1fr); }
@@ -967,7 +954,7 @@ a { color: inherit; }
   .case-admin-header { grid-template-columns: 1fr auto; }
   .admin-title-lockup { grid-column: 1 / -1; grid-row: 1; padding: 0; }
   .case-admin-header > .admin-back-button { grid-row: 2; }
-  .case-admin-header > .admin-refresh-button { grid-row: 2; }
+  .case-admin-header > .admin-header-actions { grid-column: 2; grid-row: 2; }
 }
 
 /* 首页与庭审页共享工作区的密度、边界和面板层级。 */

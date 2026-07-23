@@ -4,6 +4,8 @@ import { ArrowLeft, BookOpenCheck, CheckCircle2, CircleAlert, ExternalLink, Load
 import { api, ApiError } from '../api'
 import { actionLabels, phaseLabels, roleLabels } from '../config'
 import type { CourtReview, TurnQualityEvaluationReport } from '../types'
+import { AccountControls } from './AccountControls'
+import { useAccount } from '../auth-context'
 
 const statusLabels: Record<string, string> = {
   SUPPORTED: '已支持', DISPUTED: '有争议', INSUFFICIENT: '证据不足',
@@ -13,6 +15,7 @@ const statusLabels: Record<string, string> = {
 const priorityLabels: Record<string, string> = { high: '优先处理', medium: '建议改进', low: '表现良好' }
 
 export function ReviewPage({ review, onBack }: { review: CourtReview; onBack: (eventSequence?: number) => void }) {
+  const account = useAccount()
   const hasLearningScore = review.score_dimensions.length > 0
   const [quality, setQuality] = useState<TurnQualityEvaluationReport | null>(null)
   const [qualityBusy, setQualityBusy] = useState(false)
@@ -36,7 +39,10 @@ export function ReviewPage({ review, onBack }: { review: CourtReview; onBack: (e
       <header className="review-header">
         <button className="icon-text-button" onClick={() => onBack()}><ArrowLeft size={18} />返回庭审</button>
         <div className="brand"><Scale size={20} /><span>MootCourt Lab</span></div>
-        <span className="environment-tag">教学复盘</span>
+        <div className="review-header-actions">
+          <span className="environment-tag">教学复盘</span>
+          {account && <AccountControls email={account.email} onSignOut={account.onSignOut} />}
+        </div>
       </header>
 
       <section className="review-intro">

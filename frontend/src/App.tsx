@@ -1,6 +1,4 @@
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { LogOut } from 'lucide-react'
-
 import { api, ApiError } from './api'
 import {
   isSupabaseConfigured,
@@ -13,6 +11,7 @@ import { CaseLobby } from './components/CaseLobby'
 import { CaseAdminPage } from './components/CaseAdminPage'
 import { CourtroomPage } from './components/CourtroomPage'
 import { ReviewPage } from './components/ReviewPage'
+import { AccountContext } from './auth-context'
 import type {
   CaseSummary,
   CaseView,
@@ -282,13 +281,9 @@ export function AuthGate({ children, authClient = supabase, configured = isSupab
   if (!session) return <AuthPage error={authError} onAuthenticated={setSession} />
   return (
     <div className="authenticated-shell">
-      <div className="auth-toolbar">
-        <span>{session.user.email}</span>
-        <button className="auth-signout" onClick={() => void signOut()}>
-          <LogOut size={15} />退出登录
-        </button>
-      </div>
-      {children}
+      <AccountContext.Provider value={{ email: session.user.email ?? '', onSignOut: () => void signOut() }}>
+        {children}
+      </AccountContext.Provider>
     </div>
   )
 }

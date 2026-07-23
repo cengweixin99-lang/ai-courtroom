@@ -22,6 +22,8 @@ import {
 
 import { api, ApiError } from '../api'
 import { actionLabels, businessErrorLabels, legalQueries, phaseLabels, roleLabels } from '../config'
+import { AccountControls } from './AccountControls'
+import { useAccount } from '../auth-context'
 import type {
   CaseView,
   CourtAction,
@@ -194,6 +196,7 @@ function TranscriptEntry({ actorRole, userRole, content, meta, evidenceIds = [],
 }
 
 export function CourtroomPage({ initialCase, initialSession, autoStart = true, focusedEventSequence = null, onExit, onReview, reviewAvailable = false, onOpenReview }: Props) {
+  const account = useAccount()
   const [session, setSession] = useState(initialSession)
   const [events, setEvents] = useState<SessionEvent[]>([])
   const [evidenceStatuses, setEvidenceStatuses] = useState<EvidenceStatus[]>([])
@@ -540,6 +543,7 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, f
                 </button>
               )}
             </div>
+            {account && <AccountControls email={account.email} onSignOut={account.onSignOut} />}
           </div>
           <div className="transcript-body" ref={transcriptBody} onScroll={handleTranscriptScroll}>
             {events.map((event) => (

@@ -3,6 +3,8 @@ import { Archive, ArrowRight, Clock3, FileCog, FileText, Gavel, History, Play, R
 
 import { roleLabels } from '../config'
 import type { CaseSummary, SessionView, UserRole } from '../types'
+import { AccountControls } from './AccountControls'
+import { useAccount } from '../auth-context'
 
 interface Props {
   cases: CaseSummary[]
@@ -18,6 +20,7 @@ interface Props {
 }
 
 export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, onResume, onArchive, canManageCases, onManageCases }: Props) {
+  const account = useAccount()
   const [role, setRole] = useState<UserRole>('prosecution')
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const selected = cases.find((item) => item.case_id === selectedId) ?? cases[0]
@@ -30,6 +33,7 @@ export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, o
           <span className="brand-divider" aria-hidden="true" />
           <span className="brand-context">刑事庭审训练工作台</span>
         </div>
+        {account && <AccountControls email={account.email} onSignOut={account.onSignOut} />}
       </header>
 
       <div className="lobby-layout">

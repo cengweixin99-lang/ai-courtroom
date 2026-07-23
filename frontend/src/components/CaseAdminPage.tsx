@@ -9,6 +9,8 @@ import type {
   OrganizationMemberRole,
   OrganizationMembers,
 } from '../types'
+import { AccountControls } from './AccountControls'
+import { useAccount } from '../auth-context'
 
 interface Props {
   organizations: ManagedOrganization[]
@@ -17,6 +19,7 @@ interface Props {
 }
 
 export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
+  const account = useAccount()
   const [packages, setPackages] = useState<ManagedCasePackage[]>([])
   const [file, setFile] = useState<File | null>(null)
   const [report, setReport] = useState<CaseImportAttempt | null>(null)
@@ -124,7 +127,10 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
       <header className="case-admin-header">
         <button className="admin-back-button" onClick={onBack}><ArrowLeft size={17} />返回庭审大厅</button>
         <div className="admin-title-lockup"><p className="eyebrow">CASE OPERATIONS / ADMIN</p><h1>案件管理</h1><p>导入案卷、发布训练版本、维护组织成员权限</p></div>
-        <button className="admin-refresh-button" onClick={() => void load()}><RefreshCw size={16} />刷新数据</button>
+        <div className="admin-header-actions">
+          <button className="admin-refresh-button" onClick={() => void load()}><RefreshCw size={16} />刷新数据</button>
+          {account && <AccountControls email={account.email} onSignOut={account.onSignOut} />}
+        </div>
       </header>
 
       <section className="admin-overview" aria-label="管理概览">
