@@ -763,10 +763,10 @@ a { color: inherit; }
 .auth-success { color: #2d6a4f; }
 .authenticated-shell { position: relative; min-height: 100vh; }
 /* 账户操作属于全局 header，不再单独占用一整行。 */
-.auth-toolbar { position: absolute; z-index: 30; top: 0; right: 0; min-height: 54px; display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding: 0 18px; color: #d5e1db; font-size: 12px; }
+.auth-toolbar { position: absolute; z-index: 30; top: 0; right: 0; min-height: 54px; display: flex; justify-content: flex-end; gap: 12px; align-items: center; padding: 0 18px; background: rgba(27,51,45,.96); color: #d5e1db; font-size: 12px; }
 .auth-toolbar > span { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.auth-signout { display: inline-flex; gap: 5px; align-items: center; border: 0; background: transparent; color: #e4b1b0; cursor: pointer; }
-.auth-signout:hover { color: #fff; }
+.auth-signout { min-height: 30px; display: inline-flex; gap: 5px; align-items: center; padding: 0 9px; border: 1px solid rgba(229,159,160,.6); background: rgba(165,36,47,.3); color: #f1b2b2; cursor: pointer; }
+.auth-signout:hover { border-color: #f3c6c6; background: #a5242f; color: #fff; }
 .case-admin-header > .admin-refresh-button { margin-right: 220px; }
 .review-header .environment-tag { margin-right: 220px; }
 .court-bench .bench-tools { margin-right: 220px; }
@@ -778,6 +778,25 @@ a { color: inherit; }
   .case-admin-header > .admin-refresh-button { margin-right: 122px; }
   .review-header .environment-tag { margin-right: 122px; }
   .court-bench .bench-tools { margin-right: 122px; }
+}
+
+/* 庭审页的账户区必须落在中央审判席，而不是右侧台账面板。 */
+.authenticated-shell:has(.courtroom-shell) .auth-toolbar {
+  top: 14px;
+  right: calc(20vw + 14px);
+  min-height: 50px;
+  padding-inline: 12px;
+  border-left: 1px solid rgba(255,255,255,.15);
+}
+.authenticated-shell:has(.courtroom-shell) .auth-toolbar > span { color: #dce7e2; }
+.authenticated-shell:has(.courtroom-shell) .court-bench .bench-tools { margin-right: 300px; }
+
+@media (max-width: 1050px) {
+  .authenticated-shell:has(.courtroom-shell) .auth-toolbar { right: calc(250px + 14px); }
+}
+@media (max-width: 760px) {
+  .authenticated-shell:has(.courtroom-shell) .auth-toolbar { top: 8px; right: 8px; min-height: 44px; }
+  .authenticated-shell:has(.courtroom-shell) .court-bench .bench-tools { margin-right: 122px; }
 }
 
 /* 开始页与管理页使用同一套“卷宗纸张 + 审判席”视觉语汇，减少模板卡片感。 */
