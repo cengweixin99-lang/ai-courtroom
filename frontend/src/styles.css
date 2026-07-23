@@ -964,6 +964,30 @@ a { color: inherit; }
 .lobby-shell .brand svg { color: #d7a13f; }
 .lobby-shell .brand-divider { background: #587068; }
 .lobby-shell .brand-context { color: #b9c8c1; }
+.workspace-shell { min-height: 100vh; display: flex; flex-direction: column; }
+.workspace-shell > .brand-bar { position: sticky; top: 0; z-index: 20; flex: 0 0 54px; }
+.workspace-layout { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(236px, 18vw) minmax(0, 1fr); gap: 1px; background: #d7ddda; }
+.workspace-content { min-width: 0; min-height: calc(100vh - 54px); overflow: auto; background: #edf0ee; }
+.embedded-workspace-content { min-height: 100%; background: transparent; }
+.embedded-workspace-content > .brand-bar, .embedded-workspace-content > .lobby-layout > .workspace-sidebar { display: none; }
+.embedded-workspace-content > .lobby-layout { display: block; min-height: 100%; background: transparent; }
+.embedded-workspace-content .lobby-main { min-height: 100%; padding: 28px clamp(20px, 4vw, 58px) 44px; background: #edf0ee; }
+.embedded-admin-content { min-height: 100%; background: transparent; }
+.embedded-admin-content > .case-admin-header, .embedded-admin-content .workspace-admin-body > .workspace-sidebar { display: none; }
+.embedded-admin-content .workspace-admin-body { display: block; min-height: 100%; background: transparent; }
+.embedded-admin-content .case-admin-main { min-height: 100%; padding: 28px clamp(20px, 4vw, 58px) 44px; }
+.embedded-admin-heading { margin-bottom: 20px; }
+.embedded-admin-heading .eyebrow { margin-bottom: 6px; }
+.embedded-admin-heading h1 { margin: 0; color: #243f35; font: 650 28px/1.15 Georgia, "Songti SC", serif; }
+.recent-courts-entry { width: 100%; min-height: 62px; margin: 18px 0 0; padding: 0 15px; display: flex; align-items: center; gap: 10px; border: 1px solid #cbd6d0; background: #f8faf8; color: #2c5548; text-align: left; }
+.recent-courts-entry:hover { border-color: #a5242f; background: #fffaf3; }
+.recent-courts-entry > span { min-width: 0; flex: 1; display: grid; gap: 4px; }
+.recent-courts-entry strong { font-size: 13px; }
+.recent-courts-entry small { color: #7b8881; font-size: 11px; }
+.recent-courts-entry > svg:first-child { color: #a5242f; }
+.recent-courts-entry > svg:last-child { color: #a5242f; }
+.recent-sessions-page { margin: 0; padding: 0; max-width: none; }
+.recent-empty { margin: 14px 0 0; padding: 42px 20px; border: 1px dashed #cbd4cf; background: #f8faf8; color: #7c8982; text-align: center; }
 .workspace-sidebar {
   min-width: 0;
   display: flex;
@@ -1011,6 +1035,9 @@ a { color: inherit; }
   .workspace-nav { display: flex; overflow-x: auto; padding-top: 8px; }
   .workspace-nav button { min-width: 150px; min-height: 48px; }
   .workspace-sidebar-note { display: none; }
+  .workspace-layout { display: block; }
+  .workspace-content { min-height: auto; overflow: visible; }
+  .embedded-workspace-content .lobby-main, .embedded-admin-content .case-admin-main { padding: 20px 14px 34px; }
   .case-card-grid { grid-template-columns: 1fr; }
   .workspace-admin-body { display: block; min-height: auto; }
   .case-admin-main { padding: 18px 14px 34px; }

@@ -18,9 +18,10 @@ interface Props {
   section: Exclude<WorkspaceSection, 'training'>
   onNavigate: (section: WorkspaceSection) => void
   onPublished: () => void
+  embedded?: boolean
 }
 
-export function CaseAdminPage({ organizations, section, onNavigate, onPublished }: Props) {
+export function CaseAdminPage({ organizations, section, onNavigate, onPublished, embedded = true }: Props) {
   const account = useAccount()
   const [packages, setPackages] = useState<ManagedCasePackage[]>([])
   const [file, setFile] = useState<File | null>(null)
@@ -125,19 +126,20 @@ export function CaseAdminPage({ organizations, section, onNavigate, onPublished 
   }
 
   return (
-    <main className="case-admin-shell">
-      <header className="case-admin-header">
+    <main className={embedded ? 'case-admin-shell embedded-admin-content' : 'case-admin-shell'}>
+      {!embedded && <header className="case-admin-header">
         <button className="admin-back-button" onClick={() => onNavigate('training')}><ArrowLeft size={17} />返回案件训练</button>
         <div className="admin-title-lockup"><p className="eyebrow">WORKSPACE / ADMIN</p><h1>{section === 'organization-access' ? '组织与权限' : '案件管理'}</h1><p>{section === 'organization-access' ? '管理组织成员角色与案件访问范围' : '导入案卷、发布训练版本'}</p></div>
         <div className="admin-header-actions">
           <button className="admin-refresh-button" onClick={() => void load()}><RefreshCw size={16} />刷新数据</button>
           {account && <AccountControls email={account.email} onSignOut={account.onSignOut} />}
         </div>
-      </header>
+      </header>}
 
       <div className="workspace-admin-body">
-        <WorkspaceSidebar activeSection={section} caseCount={packages.length} canManageCases onNavigate={onNavigate} />
+        {!embedded && <WorkspaceSidebar activeSection={section} caseCount={packages.length} canManageCases onNavigate={onNavigate} />}
         <div className="case-admin-main">
+        {embedded && <div className="embedded-admin-heading"><p className="eyebrow">WORKSPACE / ADMIN</p><h1>{section === 'organization-access' ? '组织与权限' : '案件管理'}</h1></div>}
         {section === 'case-management' && <>
       <section className="admin-overview" aria-label="管理概览">
         <div className="admin-overview-intro"><p className="eyebrow">WORKSPACE OVERVIEW</p><h2>组织训练内容</h2><p>所有案件先进入草稿，明确发布范围后才会对学习者开放。</p></div>

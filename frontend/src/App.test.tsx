@@ -177,6 +177,7 @@ describe('App', () => {
     mockedApi.listSessions.mockResolvedValue([session])
     render(<App />)
 
+    await user.click(await screen.findByRole('button', { name: '最近庭审' }))
     await user.click(await screen.findByRole('button', { name: '继续庭审 CASE-001' }))
 
     await waitFor(() => expect(mockedApi.getSession).toHaveBeenCalledWith(session.session_id))
@@ -188,6 +189,7 @@ describe('App', () => {
     mockedApi.listSessions.mockResolvedValue([session])
     render(<App />)
 
+    await user.click(await screen.findByRole('button', { name: '最近庭审' }))
     const archive = await screen.findByRole('button', { name: '归档 CASE-001' })
     await user.click(archive)
 

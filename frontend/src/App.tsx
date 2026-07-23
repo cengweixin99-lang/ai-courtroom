@@ -13,6 +13,7 @@ import { CourtroomPage } from './components/CourtroomPage'
 import { ReviewPage } from './components/ReviewPage'
 import { AccountContext } from './auth-context'
 import type { WorkspaceSection } from './components/WorkspaceSidebar'
+import { WorkspaceFrame } from './components/WorkspaceFrame'
 import type {
   CaseSummary,
   CaseView,
@@ -208,30 +209,40 @@ function CourtroomApp() {
       }}
     />
   }
-  if (workspaceSection !== 'training' && adminOrganizations.length > 0) {
-    return <CaseAdminPage
-      organizations={adminOrganizations}
-      section={workspaceSection}
-      onNavigate={setWorkspaceSection}
-      onPublished={() => { void api.listCases().then(setCases).catch(() => undefined) }}
-    />
-  }
-  return <CaseLobby
-    cases={cases}
-    sessions={sessions}
-    loading={loading}
-    error={error}
-    onRetry={() => {
-      setLoading(true)
-      setError(null)
-      setBootstrapAttempt((attempt) => attempt + 1)
-    }}
-    onStart={startSession}
-    onResume={resumeSession}
-    onArchive={archiveSession}
+  return <WorkspaceFrame
+    activeSection={workspaceSection}
+    caseCount={cases.length}
     canManageCases={adminOrganizations.length > 0}
     onNavigate={setWorkspaceSection}
-  />
+  >
+    {workspaceSection === 'training' || workspaceSection === 'recent-sessions' ? (
+      <CaseLobby
+        cases={cases}
+        sessions={sessions}
+        loading={loading}
+        error={error}
+        view={workspaceSection === 'recent-sessions' ? 'recent' : 'training'}
+        embedded
+        onRetry={() => {
+          setLoading(true)
+          setError(null)
+          setBootstrapAttempt((attempt) => attempt + 1)
+        }}
+        onStart={startSession}
+        onResume={resumeSession}
+        onArchive={archiveSession}
+        canManageCases={adminOrganizations.length > 0}
+        onNavigate={setWorkspaceSection}
+      />
+    ) : (
+      <CaseAdminPage
+        organizations={adminOrganizations}
+        section={workspaceSection}
+        onNavigate={setWorkspaceSection}
+        onPublished={() => { void api.listCases().then(setCases).catch(() => undefined) }}
+      />
+    )}
+  </WorkspaceFrame>
 }
 
 interface AuthGateProps {

@@ -1,6 +1,6 @@
-import { FileCog, LayoutGrid, ShieldCheck, UsersRound } from 'lucide-react'
+import { FileCog, History, LayoutGrid, ShieldCheck, UsersRound } from 'lucide-react'
 
-export type WorkspaceSection = 'training' | 'case-management' | 'organization-access'
+export type WorkspaceSection = 'training' | 'recent-sessions' | 'case-management' | 'organization-access'
 
 interface Props {
   activeSection: WorkspaceSection
@@ -20,6 +20,10 @@ export function WorkspaceSidebar({ activeSection, caseCount, canManageCases, onN
         <button className={activeSection === 'training' ? 'active' : ''} type="button" onClick={() => onNavigate('training')}>
           <LayoutGrid size={17} aria-hidden="true" />
           <span>案件训练<small>{caseCount} 个案件</small></span>
+        </button>
+        <button aria-label="最近庭审" className={activeSection === 'recent-sessions' ? 'active' : ''} type="button" onClick={() => onNavigate('recent-sessions')}>
+          <History size={17} aria-hidden="true" />
+          <span>最近庭审<small>继续未完成训练</small></span>
         </button>
         {canManageCases && (
           <>
