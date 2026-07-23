@@ -12,6 +12,7 @@ import { CaseAdminPage } from './components/CaseAdminPage'
 import { CourtroomPage } from './components/CourtroomPage'
 import { ReviewPage } from './components/ReviewPage'
 import { AccountContext } from './auth-context'
+import type { WorkspaceSection } from './components/WorkspaceSidebar'
 import type {
   CaseSummary,
   CaseView,
@@ -34,7 +35,7 @@ function CourtroomApp() {
   const [cases, setCases] = useState<CaseSummary[]>([])
   const [sessions, setSessions] = useState<SessionView[]>([])
   const [adminOrganizations, setAdminOrganizations] = useState<ManagedOrganization[]>([])
-  const [showCaseAdmin, setShowCaseAdmin] = useState(false)
+  const [workspaceSection, setWorkspaceSection] = useState<WorkspaceSection>('training')
   const [caseView, setCaseView] = useState<CaseView | null>(null)
   const [session, setSession] = useState<SessionView | null>(null)
   const [review, setReview] = useState<CourtReview | null>(null)
@@ -207,10 +208,11 @@ function CourtroomApp() {
       }}
     />
   }
-  if (showCaseAdmin && adminOrganizations.length > 0) {
+  if (workspaceSection !== 'training' && adminOrganizations.length > 0) {
     return <CaseAdminPage
       organizations={adminOrganizations}
-      onBack={() => setShowCaseAdmin(false)}
+      section={workspaceSection}
+      onNavigate={setWorkspaceSection}
       onPublished={() => { void api.listCases().then(setCases).catch(() => undefined) }}
     />
   }
@@ -228,7 +230,7 @@ function CourtroomApp() {
     onResume={resumeSession}
     onArchive={archiveSession}
     canManageCases={adminOrganizations.length > 0}
-    onManageCases={() => setShowCaseAdmin(true)}
+    onNavigate={setWorkspaceSection}
   />
 }
 

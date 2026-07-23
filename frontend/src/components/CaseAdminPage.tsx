@@ -11,14 +11,16 @@ import type {
 } from '../types'
 import { AccountControls } from './AccountControls'
 import { useAccount } from '../auth-context'
+import { WorkspaceSidebar, type WorkspaceSection } from './WorkspaceSidebar'
 
 interface Props {
   organizations: ManagedOrganization[]
-  onBack: () => void
+  section: Exclude<WorkspaceSection, 'training'>
+  onNavigate: (section: WorkspaceSection) => void
   onPublished: () => void
 }
 
-export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
+export function CaseAdminPage({ organizations, section, onNavigate, onPublished }: Props) {
   const account = useAccount()
   const [packages, setPackages] = useState<ManagedCasePackage[]>([])
   const [file, setFile] = useState<File | null>(null)
@@ -125,14 +127,18 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
   return (
     <main className="case-admin-shell">
       <header className="case-admin-header">
-        <button className="admin-back-button" onClick={onBack}><ArrowLeft size={17} />返回庭审大厅</button>
-        <div className="admin-title-lockup"><p className="eyebrow">CASE OPERATIONS / ADMIN</p><h1>案件管理</h1><p>导入案卷、发布训练版本、维护组织成员权限</p></div>
+        <button className="admin-back-button" onClick={() => onNavigate('training')}><ArrowLeft size={17} />返回案件训练</button>
+        <div className="admin-title-lockup"><p className="eyebrow">WORKSPACE / ADMIN</p><h1>{section === 'organization-access' ? '组织与权限' : '案件管理'}</h1><p>{section === 'organization-access' ? '管理组织成员角色与案件访问范围' : '导入案卷、发布训练版本'}</p></div>
         <div className="admin-header-actions">
           <button className="admin-refresh-button" onClick={() => void load()}><RefreshCw size={16} />刷新数据</button>
           {account && <AccountControls email={account.email} onSignOut={account.onSignOut} />}
         </div>
       </header>
 
+      <div className="workspace-admin-body">
+        <WorkspaceSidebar activeSection={section} caseCount={packages.length} canManageCases onNavigate={onNavigate} />
+        <div className="case-admin-main">
+        {section === 'case-management' && <>
       <section className="admin-overview" aria-label="管理概览">
         <div className="admin-overview-intro"><p className="eyebrow">WORKSPACE OVERVIEW</p><h2>组织训练内容</h2><p>所有案件先进入草稿，明确发布范围后才会对学习者开放。</p></div>
         <div className="admin-metric"><span>案件版本</span><strong>{packages.length}</strong><small>全部版本</small></div>
@@ -197,7 +203,9 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
         </section>
       </section>
 
-      <section className="organization-admin-panel" aria-labelledby="organization-admin-title">
+        </>}
+
+        {section === 'organization-access' && <section className="organization-admin-panel" aria-labelledby="organization-admin-title">
         <div className="managed-case-heading">
           <div><p className="eyebrow">ACCESS CONTROL</p><h2 id="organization-admin-title">组织权限</h2><p className="panel-subtitle">谁可以进入本组织，以及他们能做什么</p></div>
           <select value={selectedOrganizationId} onChange={(event) => setSelectedOrganizationId(event.target.value)}>
@@ -234,7 +242,9 @@ export function CaseAdminPage({ organizations, onBack, onPublished }: Props) {
             </div>
           </>
         )}
-      </section>
+      </section>}
+        </div>
+      </div>
     </main>
   )
 }

@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Archive, ArrowRight, Clock3, FileCog, FileText, Gavel, History, Play, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react'
+import { Archive, ArrowRight, Clock3, FileText, Gavel, History, Play, RotateCcw, Scale, ShieldCheck, Users } from 'lucide-react'
 
 import { roleLabels } from '../config'
 import type { CaseSummary, SessionView, UserRole } from '../types'
 import { AccountControls } from './AccountControls'
 import { useAccount } from '../auth-context'
+import { WorkspaceSidebar, type WorkspaceSection } from './WorkspaceSidebar'
 
 interface Props {
   cases: CaseSummary[]
@@ -16,10 +17,10 @@ interface Props {
   onResume: (session: SessionView) => Promise<void>
   onArchive: (session: SessionView) => Promise<void>
   canManageCases: boolean
-  onManageCases: () => void
+  onNavigate: (section: WorkspaceSection) => void
 }
 
-export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, onResume, onArchive, canManageCases, onManageCases }: Props) {
+export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, onResume, onArchive, canManageCases, onNavigate }: Props) {
   const account = useAccount()
   const [role, setRole] = useState<UserRole>('prosecution')
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -37,21 +38,22 @@ export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, o
       </header>
 
       <div className="lobby-layout">
-        <aside className="lobby-sidebar" aria-label="案件目录">
-          <div className="lobby-sidebar-title"><div><p className="eyebrow">CASE DESK</p><h2>案卷工作区</h2></div><span>{cases.length} 个案件</span>{canManageCases && <button className="sidebar-admin-action" onClick={onManageCases}><FileCog size={15} />案件管理</button>}</div>
-          <nav className="lobby-case-list">
-            {cases.map((item) => (
-              <button key={`${item.case_id}-${item.package_version}`} className={selected?.case_id === item.case_id ? 'lobby-case-link active' : 'lobby-case-link'} onClick={() => setSelectedId(item.case_id)}>
-                <span className="case-link-index">{String(cases.indexOf(item) + 1).padStart(2, '0')}</span>
-                <span><strong>{item.title}</strong><small>{item.case_id} · {item.package_version}</small></span>
-              </button>
-            ))}
-          </nav>
-          <div className="lobby-sidebar-note"><ShieldCheck size={17} /><span>仅限虚构案卷训练</span></div>
-        </aside>
+        <WorkspaceSidebar activeSection="training" caseCount={cases.length} canManageCases={canManageCases} onNavigate={onNavigate} />
 
         <section className="lobby-main">
-          <div className="lobby-main-heading"><div><p className="eyebrow">ACTIVE CASE</p><span>当前案件</span></div><span className="case-number">CASE / {selected?.case_id ?? '--'}</span></div>
+          <div className="lobby-main-heading"><div><p className="eyebrow">CASE TRAINING</p><h1>案件训练</h1></div><span className="case-number">{cases.length} 个可训练案件</span></div>
+          <section className="case-card-grid" aria-label="案件训练">
+            {cases.map((item) => (
+              <article className={selected?.case_id === item.case_id ? 'case-training-card active' : 'case-training-card'} key={`${item.case_id}-${item.package_version}`}>
+                <button type="button" className="case-training-card-select" onClick={() => setSelectedId(item.case_id)}>
+                  <span className="case-card-index">{String(cases.indexOf(item) + 1).padStart(2, '0')}</span>
+                  <span className="case-card-copy"><strong>{item.title}</strong><small>{item.case_id} · {item.package_version}</small></span>
+                  <ArrowRight size={17} aria-hidden="true" />
+                </button>
+                <div className="case-card-meta"><span>版本 {item.package_version}</span><span>法律基准 {item.law_as_of_date}</span></div>
+              </article>
+            ))}
+          </section>
           <section className="case-intro" aria-labelledby="case-title">
             <div className="case-heading">
               <p className="eyebrow">虚构刑事案件训练</p>
