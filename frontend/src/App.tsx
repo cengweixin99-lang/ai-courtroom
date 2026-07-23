@@ -241,16 +241,25 @@ function AuthGate({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!supabase) return
     let active = true
-    const { data } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
       if (active) {
-        setSession(nextSession)
-        setLoading(false)
+        // 空会话事件可能先于 storage 恢复事件到达，不能在这里提前显示登录页。
+        if (nextSession) setSession(nextSession)
+        if (event === 'SIGNED_OUT') {
+          setSession(null)
+          setLoading(false)
+        }
       }
     })
     void supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return
       if (error) setAuthError(error.message)
       setSession(data.session)
+      setLoading(false)
+    }).catch((caught: unknown) => {
+      if (!active) return
+      setAuthError(caught instanceof Error ? caught.message : '无法恢复登录状态')
+      setSession(null)
       setLoading(false)
     })
     return () => {
