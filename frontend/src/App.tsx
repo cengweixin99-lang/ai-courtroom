@@ -233,15 +233,21 @@ function CourtroomApp() {
   />
 }
 
-function AuthGate({ children }: { children: ReactNode }) {
+interface AuthGateProps {
+  children: ReactNode
+  authClient?: NonNullable<typeof supabase> | null
+  configured?: boolean
+}
+
+export function AuthGate({ children, authClient = supabase, configured = isSupabaseConfigured }: AuthGateProps) {
   const [session, setSession] = useState<import('@supabase/supabase-js').Session | null>(null)
-  const [loading, setLoading] = useState(isSupabaseConfigured)
+  const [loading, setLoading] = useState(configured)
   const [authError, setAuthError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!supabase) return
+    if (!authClient) return
     let active = true
-    const { data } = supabase.auth.onAuthStateChange((event, nextSession) => {
+    const { data } = authClient.auth.onAuthStateChange((event, nextSession) => {
       if (active) {
         // 空会话事件可能先于 storage 恢复事件到达，不能在这里提前显示登录页。
         if (nextSession) setSession(nextSession)
@@ -251,7 +257,7 @@ function AuthGate({ children }: { children: ReactNode }) {
         }
       }
     })
-    void supabase.auth.getSession().then(({ data, error }) => {
+    void authClient.auth.getSession().then(({ data, error }) => {
       if (!active) return
       if (error) setAuthError(error.message)
       setSession(data.session)
@@ -266,9 +272,9 @@ function AuthGate({ children }: { children: ReactNode }) {
       active = false
       data.subscription.unsubscribe()
     }
-  }, [])
+  }, [authClient])
 
-  if (!isSupabaseConfigured) return <>{children}</>
+  if (!configured) return <>{children}</>
   if (loading) return <main className="auth-shell"><p>正在验证登录状态...</p></main>
   if (!session) return <AuthPage error={authError} onAuthenticated={setSession} />
   return (

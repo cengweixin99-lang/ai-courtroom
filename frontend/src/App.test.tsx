@@ -1,8 +1,9 @@
 import { act, render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { Session, SupabaseClient } from '@supabase/supabase-js'
 
-import App from './App'
+import App, { AuthGate } from './App'
 import { api, ApiError } from './api'
 import { CourtroomPage } from './components/CourtroomPage'
 import { ReviewPage } from './components/ReviewPage'
@@ -119,6 +120,29 @@ beforeEach(() => {
 })
 
 describe('App', () => {
+  it('waits for persisted authentication before deciding that a refresh is signed out', async () => {
+    let resolveSession: ((value: { data: { session: Session }; error: null }) => void) | undefined
+    const restoredSession = { user: { email: 'tester@example.com' } } as Session
+    const authClient = {
+      auth: {
+        onAuthStateChange: vi.fn((callback) => {
+          callback('INITIAL_SESSION', null)
+          return { data: { subscription: { unsubscribe: vi.fn() } } }
+        }),
+        getSession: vi.fn(() => new Promise((resolve) => { resolveSession = resolve })),
+      },
+    } as unknown as SupabaseClient
+
+    render(<AuthGate authClient={authClient} configured><div>受保护内容</div></AuthGate>)
+    expect(screen.getByText('正在验证登录状态...')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '登录庭审训练' })).not.toBeInTheDocument()
+
+    await act(async () => resolveSession?.({ data: { session: restoredSession }, error: null }))
+
+    expect(await screen.findByText('受保护内容')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '登录庭审训练' })).not.toBeInTheDocument()
+  })
+
   it('loads the case lobby from the API', async () => {
     render(<App />)
     expect(await screen.findByRole('heading', { name: caseSummary.title })).toBeInTheDocument()
