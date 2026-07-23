@@ -89,9 +89,7 @@ class SqlAlchemyAgentTraceRepository:
             .where(
                 or_(
                     schema_version.is_(None),
-                    ~schema_version.in_(
-                        ["agent-trace-redacted-v1", "agent-trace-none-v1"]
-                    ),
+                    ~schema_version.in_(["agent-trace-redacted-v1", "agent-trace-none-v1"]),
                 )
             )
             .order_by(AgentTraceModel.created_at, AgentTraceModel.id)

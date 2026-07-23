@@ -29,10 +29,7 @@ async def check_readiness(
         **(optional_probes or {}),
     }
     results = await asyncio.gather(
-        *(
-            _check_component(name, probe, timeout_seconds)
-            for name, probe in probes.items()
-        )
+        *(_check_component(name, probe, timeout_seconds) for name, probe in probes.items())
     )
     components = dict(zip(probes, results, strict=True))
     ready = all(item.status == "ok" for item in components.values())

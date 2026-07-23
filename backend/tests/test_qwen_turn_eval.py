@@ -20,9 +20,7 @@ class SequencedStructuredProvider:
         self._outputs = iter(outputs)
         self.requests: list[StructuredProviderRequest] = []
 
-    async def generate_structured(
-        self, request: StructuredProviderRequest
-    ) -> AgentProviderResult:
+    async def generate_structured(self, request: StructuredProviderRequest) -> AgentProviderResult:
         self.requests.append(request)
         return AgentProviderResult(
             output=next(self._outputs),

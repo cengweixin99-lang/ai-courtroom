@@ -172,9 +172,7 @@ async def test_full_courtroom_generates_review_evaluation_and_completes(
     )
     calls: list[tuple[str, str, dict[str, Any]]] = []
 
-    async def json_request(
-        _client: httpx.AsyncClient, method: str, url: str, **kwargs: Any
-    ) -> Any:
+    async def json_request(_client: httpx.AsyncClient, method: str, url: str, **kwargs: Any) -> Any:
         calls.append((method, url, kwargs))
         if url.endswith("/cases/CASE-001"):
             return {"participants": []}

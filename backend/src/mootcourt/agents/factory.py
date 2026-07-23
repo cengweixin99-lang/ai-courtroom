@@ -21,9 +21,7 @@ def build_agent_provider(settings: Settings, *, allow_fake: bool = False) -> Age
             )
         return FakeAgentProvider()
     if settings.llm_provider not in {"openai", "openai-compatible"}:
-        raise AgentProviderConfigurationError(
-            f"unsupported LLM_PROVIDER: {settings.llm_provider}"
-        )
+        raise AgentProviderConfigurationError(f"unsupported LLM_PROVIDER: {settings.llm_provider}")
     if not settings.llm_model:
         raise AgentProviderConfigurationError("LLM_MODEL is required")
     api_key = settings.llm_api_key.get_secret_value()

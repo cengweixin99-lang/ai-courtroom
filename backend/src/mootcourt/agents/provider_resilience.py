@@ -98,9 +98,7 @@ class ProviderResilience:
 
     async def acquire(self) -> None:
         try:
-            await asyncio.wait_for(
-                self._semaphore.acquire(), timeout=self._queue_timeout_seconds
-            )
+            await asyncio.wait_for(self._semaphore.acquire(), timeout=self._queue_timeout_seconds)
         except TimeoutError as exc:
             raise ProviderResilienceError(
                 "agent_provider_overloaded", "model request concurrency queue is full"
@@ -286,9 +284,7 @@ class RedisProviderResilience(ProviderResilience):
 
     async def acquire(self) -> None:
         try:
-            await asyncio.wait_for(
-                self._semaphore.acquire(), timeout=self._queue_timeout_seconds
-            )
+            await asyncio.wait_for(self._semaphore.acquire(), timeout=self._queue_timeout_seconds)
         except TimeoutError as exc:
             raise ProviderResilienceError(
                 "agent_provider_overloaded", "model request concurrency queue is full"
@@ -366,9 +362,7 @@ class RedisProviderResilience(ProviderResilience):
         try:
             probe = bool(await self._redis.exists(self._key("probe")))
             failures = int(await self._redis.incr(self._key("failures")))
-            await self._redis.pexpire(
-                self._key("failures"), int(self._recovery_seconds * 1000)
-            )
+            await self._redis.pexpire(self._key("failures"), int(self._recovery_seconds * 1000))
             if probe or failures >= self._failure_threshold:
                 await self._redis.set(
                     self._key("open-until"),

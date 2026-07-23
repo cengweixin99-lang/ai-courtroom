@@ -46,9 +46,7 @@ async def run_delivery_acceptance(
     session_id: str | None = None
     final_phase: str | None = None
 
-    async def check(
-        key: str, label: str, operation: Callable[[], Awaitable[str]]
-    ) -> bool:
+    async def check(key: str, label: str, operation: Callable[[], Awaitable[str]]) -> bool:
         started = perf_counter()
         try:
             detail = await operation()
@@ -183,6 +181,7 @@ async def run_delivery_acceptance(
         await check("session_creation", "庭审会话创建", session_creation)
 
     if full and session_id is not None:
+
         async def full_courtroom() -> str:
             nonlocal final_phase
             outcome = await _run_full_courtroom(
@@ -226,7 +225,8 @@ async def _run_full_courtroom(
         params={"role": "defense", "package_version": package_version},
     )
     witnesses = [
-        item["id"] for item in case_view.get("participants", [])
+        item["id"]
+        for item in case_view.get("participants", [])
         if item.get("participant_type") == "witness"
     ]
     acted_phases: set[str] = set()
@@ -350,9 +350,7 @@ async def _run_and_verify_auto_step(
     first = await _stream_auto_step(client, api_base_url, session_id, idempotency_key)
     if first.get("status") == "failed":
         error = first.get("error") or {}
-        raise DeliveryAcceptanceError(
-            f"automatic step failed: {error.get('code', 'unknown')}"
-        )
+        raise DeliveryAcceptanceError(f"automatic step failed: {error.get('code', 'unknown')}")
     if verify_replay:
         before = await _event_count(client, api_base_url, session_id)
         replay = await _stream_auto_step(client, api_base_url, session_id, idempotency_key)
@@ -376,7 +374,8 @@ async def _select_user_action(
             client, "GET", f"{api_base_url}/sessions/{session_id}/evidence-statuses"
         )
         evidence_ids = [
-            item["evidence_id"] for item in statuses
+            item["evidence_id"]
+            for item in statuses
             if item.get("available_to_current_role") and item.get("status") != "submitted"
         ]
         if evidence_ids:
@@ -386,7 +385,8 @@ async def _select_user_action(
             client, "GET", f"{api_base_url}/sessions/{session_id}/evidence-agenda"
         )
         pending = [
-            item for item in agenda
+            item
+            for item in agenda
             if item.get("phase") == phase
             and item.get("responding_role") == "defense"
             and item.get("status") == "pending"
@@ -412,9 +412,7 @@ async def _select_user_action(
             client, "GET", f"{api_base_url}/sessions/{session_id}/evidence-statuses"
         )
         evidence_ids = [
-            item["evidence_id"]
-            for item in submitted
-            if item.get("status") == "submitted"
+            item["evidence_id"] for item in submitted if item.get("status") == "submitted"
         ][:1]
         return {
             "action": "make_statement",
@@ -474,9 +472,7 @@ async def _stream_auto_step(
     return completed
 
 
-async def _json_request(
-    client: httpx.AsyncClient, method: str, url: str, **kwargs: Any
-) -> Any:
+async def _json_request(client: httpx.AsyncClient, method: str, url: str, **kwargs: Any) -> Any:
     response = await client.request(method, url, **kwargs)
     try:
         response.raise_for_status()

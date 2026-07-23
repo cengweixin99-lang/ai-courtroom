@@ -5,6 +5,7 @@ from typing import Any
 
 _CLIENTS: set[Any] = set()
 
+
 @lru_cache
 def get_redis_client(redis_url: str) -> Any:
     """按 URL 缓存 Redis 客户端；空 URL 不会创建外部连接。"""

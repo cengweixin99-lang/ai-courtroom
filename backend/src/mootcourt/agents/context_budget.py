@@ -43,9 +43,7 @@ def fit_agent_context(
     summary_removed = False
 
     if original_tokens <= max_tokens:
-        return working, ContextBudgetReport(
-            original_tokens, original_tokens, 0, (), (), (), False
-        )
+        return working, ContextBudgetReport(original_tokens, original_tokens, 0, (), (), (), False)
 
     # 历史事件可由数据库重建，优先从最旧记录开始移除。
     while working.recent_events and measure(working) > max_tokens:
@@ -58,9 +56,7 @@ def fit_agent_context(
 
     # 本轮明确指定的证据不可裁剪；未指定时至少保留一项，避免失去事实锚点。
     removable_evidence = [
-        item.id
-        for item in reversed(working.evidence)
-        if item.id not in task_evidence_ids
+        item.id for item in reversed(working.evidence) if item.id not in task_evidence_ids
     ]
     minimum_evidence = (
         len(task_evidence_ids) if task_evidence_ids else min(1, len(working.evidence))

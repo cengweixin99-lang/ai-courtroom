@@ -29,9 +29,7 @@ class Settings(BaseSettings):
     idempotency_encryption_key: SecretStr = SecretStr("")
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     redis_url: str = ""
-    redis_key_prefix: str = Field(
-        default="mootcourt:provider", pattern=r"^[A-Za-z0-9:_-]{1,64}$"
-    )
+    redis_key_prefix: str = Field(default="mootcourt:provider", pattern=r"^[A-Za-z0-9:_-]{1,64}$")
 
     database_url: str = "mysql+aiomysql://mootcourt:change-me@localhost:3306/mootcourt"
     elasticsearch_url: str = "http://localhost:9200"
