@@ -36,96 +36,41 @@ export function CaseLobby({ cases, sessions, loading, error, onRetry, onStart, o
         </div>
       </header>
 
-      <section className="case-intro" aria-labelledby="case-title">
-        <div className="case-heading">
-          <div className="case-heading-topline"><p className="eyebrow">虚构刑事案件训练</p><span className="case-number">CASE / {selected?.case_id ?? '--'}</span></div>
-          <h1 id="case-title">{selected?.title ?? '正在读取案件'}</h1>
-          <p className="case-summary">
-            围绕证据、事实和构成要件完成一次简化刑事一审训练。庭审程序由状态机控制，法律引用来自可核验法源。
-          </p>
-          <div className="case-meta" aria-label="案件信息">
-            <span><Clock3 size={17} />预计 20-30 分钟</span>
-            <span><Users size={17} />用户一方 · AI 补齐其他角色</span>
-            <span><FileText size={17} />教学化简化程序</span>
-          </div>
-        </div>
-
-        <div className="case-facts" aria-label="案件版本">
-          <div><strong>案件</strong><span>{selected?.case_id ?? '--'}</span></div>
-          <div><strong>版本</strong><span>{selected?.package_version ?? '--'}</span></div>
-          <div><strong>法域</strong><span>{selected?.jurisdiction ?? '--'}</span></div>
-          <div><strong>基准日</strong><span>{selected?.law_as_of_date ?? '--'}</span></div>
-        </div>
-      </section>
-
-      {cases.length > 1 && (
-        <section className="case-switcher" aria-label="案件列表">
-          {cases.map((item) => (
-            <button key={`${item.case_id}-${item.package_version}`} className={selected?.case_id === item.case_id ? 'case-row active' : 'case-row'} onClick={() => setSelectedId(item.case_id)}>
-              <span>{item.title}</span><small>{item.package_version}</small>
-            </button>
-          ))}
-        </section>
-      )}
-
-      {sessions.length > 0 && (
-        <section className="session-history" aria-labelledby="session-history-title">
-          <div className="section-heading-row">
-            <div className="session-history-heading">
-              <History size={18} aria-hidden="true" />
-              <div><p className="eyebrow">CONTINUE</p><h2 id="session-history-title">最近庭审</h2></div>
-            </div>
-            <span className="section-note">从上次中断处继续</span>
-          </div>
-          <div className="session-history-list">
-            {sessions.map((item) => (
-              <article className="session-history-item" key={item.session_id}>
-                <button
-                  className="session-resume"
-                  aria-label={`继续庭审 ${item.case_id}`}
-                  disabled={loading}
-                  onClick={() => void onResume(item)}
-                >
-                  <Play size={16} aria-hidden="true" />
-                  <span><strong>{item.case_id}</strong><small>{roleLabels[item.user_role]} · {item.phase}</small></span>
-                </button>
-                <time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString('zh-CN')}</time>
-                <button className="session-archive" title="归档庭审" aria-label={`归档 ${item.case_id}`} disabled={loading} onClick={() => void onArchive(item)}>
-                  <Archive size={16} aria-hidden="true" />
-                </button>
-              </article>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="role-band" aria-labelledby="role-title">
-        <div className="role-copy">
-          <div className="role-index">01</div>
-          <div><p className="eyebrow">选择庭审席位</p>
-          <h2 id="role-title">你将在本庭承担哪一方？</h2>
-          <p>系统只展示该角色有权查阅的材料，另一方、被告人和证人由 AI 按案卷边界补齐。</p>
-          </div>
-        </div>
-        <div className="role-controls">
-          <div className="segmented" role="radiogroup" aria-label="庭审角色">
-            {(['prosecution', 'defense'] as const).map((item) => (
-              <button className={role === item ? 'segment active' : 'segment'} key={item} onClick={() => setRole(item)} role="radio" aria-checked={role === item}>
-                {item === 'prosecution' ? <Gavel size={19} /> : <ShieldCheck size={19} />}{roleLabels[item]}
+      <div className="lobby-layout">
+        <aside className="lobby-sidebar" aria-label="案件目录">
+          <div className="lobby-sidebar-title"><p className="eyebrow">CASE INDEX</p><h2>案件目录</h2><span>{cases.length} 个可用案卷</span></div>
+          <nav className="lobby-case-list">
+            {cases.map((item) => (
+              <button key={`${item.case_id}-${item.package_version}`} className={selected?.case_id === item.case_id ? 'lobby-case-link active' : 'lobby-case-link'} onClick={() => setSelectedId(item.case_id)}>
+                <span className="case-link-index">{String(cases.indexOf(item) + 1).padStart(2, '0')}</span>
+                <span><strong>{item.title}</strong><small>{item.case_id} · {item.package_version}</small></span>
               </button>
             ))}
-          </div>
-          <button className="primary-action" disabled={!selected || loading} onClick={() => selected && void onStart(selected, role)}>
-            {loading ? '正在准备' : '开始庭审'} <ArrowRight size={19} />
-          </button>
-        </div>
-      </section>
+          </nav>
+          <div className="lobby-sidebar-note"><ShieldCheck size={17} /><div><strong>训练边界</strong><p>仅使用已发布的虚构案卷，不产生现实法律意见。</p></div></div>
+        </aside>
 
-      {error && <div className="page-error" role="alert"><span>{error}</span><button className="retry-action" disabled={loading} onClick={onRetry}><RotateCcw size={15} />重试加载</button></div>}
-      <aside className="disclaimer">
-        <ShieldCheck size={19} aria-hidden="true" />
-        <p><strong>教学用途声明</strong> 本系统仅处理虚构案卷，用于庭审训练，不构成现实裁判或法律意见。</p>
-      </aside>
+        <section className="lobby-main">
+          <div className="lobby-main-heading"><div><p className="eyebrow">ACTIVE DOSSIER</p><span>选择案件后配置你的庭审席位</span></div><span className="case-number">CASE / {selected?.case_id ?? '--'}</span></div>
+          <section className="case-intro" aria-labelledby="case-title">
+            <div className="case-heading">
+              <p className="eyebrow">虚构刑事案件训练</p>
+              <h1 id="case-title">{selected?.title ?? '正在读取案件'}</h1>
+              <p className="case-summary">围绕证据、事实和构成要件完成一次简化刑事一审训练。庭审程序由状态机控制，法律引用来自可核验法源。</p>
+              <div className="case-meta" aria-label="案件信息"><span><Clock3 size={17} />预计 20-30 分钟</span><span><Users size={17} />用户一方 · AI 补齐其他角色</span><span><FileText size={17} />教学化简化程序</span></div>
+            </div>
+            <div className="case-facts" aria-label="案件版本"><div><strong>案件</strong><span>{selected?.case_id ?? '--'}</span></div><div><strong>版本</strong><span>{selected?.package_version ?? '--'}</span></div><div><strong>法域</strong><span>{selected?.jurisdiction ?? '--'}</span></div><div><strong>基准日</strong><span>{selected?.law_as_of_date ?? '--'}</span></div></div>
+          </section>
+
+          <section className="role-band" aria-labelledby="role-title">
+            <div className="role-copy"><div className="role-index">01</div><div><p className="eyebrow">选择庭审席位</p><h2 id="role-title">你将在本庭承担哪一方？</h2><p>系统只展示该角色有权查阅的材料，另一方、被告人和证人由 AI 按案卷边界补齐。</p></div></div>
+            <div className="role-controls"><div className="segmented" role="radiogroup" aria-label="庭审角色">{(['prosecution', 'defense'] as const).map((item) => <button className={role === item ? 'segment active' : 'segment'} key={item} onClick={() => setRole(item)} role="radio" aria-checked={role === item}>{item === 'prosecution' ? <Gavel size={19} /> : <ShieldCheck size={19} />}{roleLabels[item]}</button>)}</div><button className="primary-action" disabled={!selected || loading} onClick={() => selected && void onStart(selected, role)}>{loading ? '正在准备' : '开始庭审'} <ArrowRight size={19} /></button></div>
+          </section>
+
+          {sessions.length > 0 && <section className="session-history" aria-labelledby="session-history-title"><div className="section-heading-row"><div className="session-history-heading"><History size={18} aria-hidden="true" /><div><p className="eyebrow">CONTINUE</p><h2 id="session-history-title">最近庭审</h2></div></div><span className="section-note">从上次中断处继续</span></div><div className="session-history-list">{sessions.map((item) => <article className="session-history-item" key={item.session_id}><button className="session-resume" aria-label={`继续庭审 ${item.case_id}`} disabled={loading} onClick={() => void onResume(item)}><Play size={16} aria-hidden="true" /><span><strong>{item.case_id}</strong><small>{roleLabels[item.user_role]} · {item.phase}</small></span></button><time dateTime={item.updated_at}>{new Date(item.updated_at).toLocaleString('zh-CN')}</time><button className="session-archive" title="归档庭审" aria-label={`归档 ${item.case_id}`} disabled={loading} onClick={() => void onArchive(item)}><Archive size={16} aria-hidden="true" /></button></article>)}</div></section>}
+          {error && <div className="page-error" role="alert"><span>{error}</span><button className="retry-action" disabled={loading} onClick={onRetry}><RotateCcw size={15} />重试加载</button></div>}
+        </section>
+      </div>
     </main>
   )
 }
