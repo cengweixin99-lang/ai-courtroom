@@ -935,3 +935,67 @@ a { color: inherit; }
   .case-admin-header > .admin-back-button { grid-row: 2; }
   .case-admin-header > .admin-refresh-button { grid-row: 2; }
 }
+
+/* 首页与庭审页共享工作区的密度、边界和面板层级。 */
+.lobby-shell { background: #edf0ee; }
+.lobby-shell .brand-bar { min-height: 54px; padding-inline: 18px; background: #1b332d; border-bottom: 1px solid #35564b; }
+.lobby-shell .brand { color: #f5f7f4; font-size: 14px; }
+.lobby-shell .brand svg { color: #d7a13f; }
+.lobby-shell .brand-divider { background: #587068; }
+.lobby-shell .brand-context { color: #b9c8c1; }
+.lobby-shell .environment-tag { border-color: #426357; background: #27483d; color: #d2dfd8; }
+.lobby-shell .status-dot { background: #71c5a3; }
+.lobby-layout { width: 100%; max-width: none; min-height: calc(100vh - 54px); grid-template-columns: minmax(236px, 18vw) minmax(0, 1fr); background: #d7ddda; gap: 1px; }
+.lobby-sidebar { border-right: 0; background: #f7f8f7; }
+.lobby-sidebar-title { min-height: 53px; padding: 0 15px; display: flex; align-items: center; gap: 10px; border-bottom: 1px solid #dfe4e1; background: #f8f9f8; }
+.lobby-sidebar-title .eyebrow { margin: 0 0 3px; color: #6b7c74; font-size: 9px; }
+.lobby-sidebar-title h2 { margin: 0; color: #24483e; font: 760 14px/1.15 Inter, "Microsoft YaHei", sans-serif; }
+.lobby-sidebar-title > span { margin-left: auto; color: #84908b; font-size: 11px; white-space: nowrap; }
+.sidebar-admin-action { min-height: 29px; display: inline-flex; align-items: center; gap: 5px; margin-left: 5px; padding: 0 8px; border: 1px solid #cba7a9; background: #fff7f7; color: #8e2530; font-size: 11px; white-space: nowrap; }
+.lobby-case-list { padding: 8px; background: #f7f8f7; }
+.lobby-case-link { min-height: 52px; border-left-width: 2px; padding: 8px 9px; }
+.lobby-case-link.active { background: #e4ece8; }
+.lobby-case-link strong { font-size: 12px; }
+.lobby-case-link small { margin-top: 3px; font-size: 10px; }
+.lobby-sidebar-note { align-items: center; gap: 7px; margin: auto 15px 14px; padding-top: 11px; border-top-color: #dfe4e1; font-size: 10px; }
+.lobby-sidebar-note svg { width: 14px; }
+.lobby-sidebar-note span { color: #7c8883; }
+.lobby-main { padding: 21px 22px 28px; background: #edf0ee; }
+.lobby-main-heading { min-height: 31px; margin-bottom: 10px; }
+.lobby-main-heading .eyebrow { color: #60786d; }
+.lobby-main-heading > div > span { color: #7c8883; }
+.lobby-main .case-intro { padding: 25px 26px; gap: 28px; border: 0; border-top: 3px solid #1e6252; background: #f8f9f8; box-shadow: none; }
+.lobby-main .case-heading h1 { color: #243a32; font-size: clamp(31px, 3.5vw, 46px); }
+.lobby-main .case-heading .eyebrow { color: #a5242f; }
+.lobby-main .case-summary { max-width: none; margin: 12px 0 17px; color: #68756f; font-size: 13px; line-height: 1.5; }
+.lobby-main .case-meta { gap: 12px 18px; color: #77847e; font-size: 11px; }
+.lobby-main .case-meta svg { width: 14px; color: #347761; }
+.lobby-main .case-facts { border-left: 2px solid #a5242f; padding: 8px 17px; background: #edf2ef; box-shadow: none; }
+.lobby-main .case-facts div { padding: 9px 0; font-size: 12px; }
+.lobby-main .role-band { margin: 10px 0 18px; padding: 18px 22px; border: 0; border-top: 2px solid #a5242f; background: #f8f9f8; }
+.lobby-main .role-copy { gap: 12px; }
+.lobby-main .role-index { font-size: 25px; }
+.lobby-main .role-copy .eyebrow { color: #6b7c74; font-size: 9px; }
+.lobby-main .role-copy h2 { margin: 0; font-size: 18px; }
+.lobby-main .role-controls { gap: 10px; }
+.lobby-main .segment { height: 37px; min-width: 104px; font-size: 12px; }
+.lobby-main .primary-action { min-height: 42px; padding-inline: 17px; font-size: 12px; }
+.lobby-main .session-history-list { background: #f8f9f8; }
+
+@media (max-width: 680px) {
+  .lobby-shell .brand-bar { min-height: 52px; }
+  .lobby-layout { min-height: auto; display: block; }
+  .lobby-sidebar { border-bottom: 1px solid #d7ddda; }
+  .lobby-sidebar-title { min-height: 50px; padding-inline: 12px; }
+  .lobby-sidebar-title > span { margin-left: auto; }
+  .sidebar-admin-action { margin-left: 0; }
+  .lobby-case-list { display: flex; overflow-x: auto; gap: 5px; padding: 6px; }
+  .lobby-case-link { min-width: 195px; }
+  .lobby-sidebar-note { display: none; }
+  .lobby-main { padding: 15px 10px 20px; }
+  .lobby-main .case-intro { padding: 19px 17px; grid-template-columns: 1fr; gap: 16px; }
+  .lobby-main .case-heading h1 { font-size: 31px; }
+  .lobby-main .role-band { padding: 16px 15px; }
+  .lobby-main .role-controls { align-items: stretch; flex-direction: column; }
+  .lobby-main .segmented { width: 100%; }
+}
