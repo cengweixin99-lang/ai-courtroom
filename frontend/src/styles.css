@@ -130,6 +130,13 @@ a { color: inherit; }
   background: transparent; color: #8c3a38;
 }
 .session-archive:hover { border-color: #d7bfbb; background: #fbefed; }
+.session-review {
+  min-height: 30px; padding: 0 10px; display: inline-flex; align-items: center; gap: 5px;
+  border: 1px solid #b9c9bf; background: #eaf3ef; color: #1d5546;
+  font-size: 12px; font-weight: 720; white-space: nowrap;
+}
+.session-review:hover { border-color: #1d5546; background: #dfece6; }
+.session-review:disabled { opacity: .55; }
 .case-row { min-height: 56px; border: 0; padding: 9px 14px; background: #fff; color: #33433d; display: flex; align-items: center; justify-content: space-between; gap: 10px; text-align: left; }
 .case-row.active { background: #e1ece7; color: #174a3c; box-shadow: inset 3px 0 #1d664f; }
 .case-row small { color: #77827e; }
