@@ -186,6 +186,12 @@ class SqlAlchemyCasePackageRepository:
     async def get_by_database_id(self, database_id: int) -> CasePackageModel | None:
         return await self._session.get(CasePackageModel, database_id)
 
+    async def delete(self, database_id: int) -> None:
+        model = await self.get_by_database_id(database_id)
+        if model is not None:
+            await self._session.delete(model)
+            await self._session.flush()
+
     async def get_runtime_package_by_database_id(self, database_id: int) -> CasePackageModel | None:
         """按会话锁定的数据库 ID 加载构造运行时上下文所需的全部关联数据。"""
         result: CasePackageModel | None = await self._session.scalar(

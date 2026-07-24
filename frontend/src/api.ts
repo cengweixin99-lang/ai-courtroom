@@ -178,6 +178,13 @@ export const api = {
       method: 'POST',
       body: JSON.stringify({ organization_ids: organizationIds }),
     }),
+  updateManagedCaseAccess: (databaseId: number, organizationIds: string[]) =>
+    request<ManagedCasePackage>(`/admin/case-packages/${databaseId}/access`, {
+      method: 'PUT',
+      body: JSON.stringify({ organization_ids: organizationIds }),
+    }),
+  deleteManagedCase: (databaseId: number) =>
+    request<void>(`/admin/case-packages/${databaseId}`, { method: 'DELETE' }),
   listCases: () => request<CaseSummary[]>('/cases'),
   listSessions: (includeArchived = false) =>
     request<SessionView[]>(`/sessions?include_archived=${includeArchived}`),

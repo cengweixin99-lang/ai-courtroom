@@ -16,12 +16,18 @@ export function ReviewPage({ review, onBack }: { review: CourtReview; onBack: (e
   const hasLearningScore = review.score_dimensions.length > 0
   const [quality, setQuality] = useState<TurnQualityEvaluationReport | null>(null)
   const [qualityBusy, setQualityBusy] = useState(false)
+  const [qualityLoading, setQualityLoading] = useState(true)
   const [qualityError, setQualityError] = useState<string | null>(null)
 
   useEffect(() => {
-    void api.getTurnEvaluation(review.session_id).then(setQuality).catch((caught) => {
-      if (!(caught instanceof ApiError) || caught.status !== 404) setQualityError('读取深度点评失败。')
-    })
+    let active = true
+    void api.getTurnEvaluation(review.session_id)
+      .then((report) => { if (active) setQuality(report) })
+      .catch((caught: unknown) => {
+        if (active && (!(caught instanceof ApiError) || caught.status !== 404)) setQualityError('读取深度点评失败。')
+      })
+      .finally(() => { if (active) setQualityLoading(false) })
+    return () => { active = false }
   }, [review.session_id])
 
   const generateQuality = async () => {
@@ -101,14 +107,16 @@ export function ReviewPage({ review, onBack }: { review: CourtReview; onBack: (e
               <button className="locate-event-button" onClick={() => onBack(item.event_sequence_number)}><LocateFixed size={15} />查看庭审记录 #{item.event_sequence_number}</button>
             </article>
           ))}</div>}
-        {review.turn_diagnostics.length > 0 && !quality && <button className="quality-evaluation-button" disabled={qualityBusy} onClick={() => void generateQuality()}>{qualityBusy ? <LoaderCircle className="spin" size={17} /> : <Sparkles size={17} />}生成 Qwen 深度点评</button>}
+        {review.turn_diagnostics.length > 0 && !quality && !qualityLoading && <button className="quality-evaluation-button" disabled={qualityBusy} onClick={() => void generateQuality()}>{qualityBusy ? <LoaderCircle className="spin" size={17} /> : <Sparkles size={17} />}{qualityBusy ? '正在生成深度点评…' : '生成 Qwen 深度点评'}</button>}
         {qualityError && <p className="quality-error" role="alert">{qualityError}</p>}
         {quality && <div className="quality-evaluation"><header><Sparkles size={18} /><strong>Qwen 深度点评</strong><small>{quality.model}</small></header>{quality.evaluations.map((item) => <article key={item.event_sequence_number}><h3>庭审记录 #{item.event_sequence_number}</h3><p>表达组织 {item.organization_score} · 回应质量 {item.responsiveness_score} · 攻防策略 {item.advocacy_score}</p>{item.rewritten_example ? <blockquote>{item.rewritten_example}</blockquote> : <p className="rewrite-disabled">未同时关联证据和事实，已禁用模型改写。</p>}</article>)}</div>}
       </section>
 
       <section id="facts" className="review-section">
         <div className="section-heading"><BookOpenCheck size={21} /><div><p className="eyebrow">庭审材料</p><h2>逐项事实判断</h2></div></div>
-        <div className="finding-list">
+        {review.fact_findings.length === 0
+          ? <p className="empty-turn-review">本庭没有可列出的事实判断。</p>
+          : <div className="finding-list">
           {review.fact_findings.map((item) => (
             <article className="finding-row" key={item.fact_id}>
               <div className="finding-id">{item.fact_id}</div>
@@ -116,12 +124,14 @@ export function ReviewPage({ review, onBack }: { review: CourtReview; onBack: (e
               <span className={`status-badge ${item.status.toLowerCase()}`}>{statusLabels[item.status]}</span>
             </article>
           ))}
-        </div>
+        </div>}
       </section>
 
       <section id="elements" className="review-section">
         <div className="section-heading"><Scale size={21} /><div><p className="eyebrow">法律适用</p><h2>构成要件检查</h2></div></div>
-        <div className="element-list">
+        {review.element_findings.length === 0
+          ? <p className="empty-turn-review">本庭没有可列出的构成要件检查。</p>
+          : <div className="element-list">
           {review.element_findings.map((item) => (
             <article className="element-row" key={item.element_id}>
               <header><span>{item.element_id}</span><h3>{item.description}</h3><span className={`status-badge ${item.status.toLowerCase()}`}>{statusLabels[item.status]}</span></header>
@@ -137,7 +147,7 @@ export function ReviewPage({ review, onBack }: { review: CourtReview; onBack: (e
               </div>
             </article>
           ))}
-        </div>
+        </div>}
       </section>
 
       <section id="boundary" className="review-boundary">

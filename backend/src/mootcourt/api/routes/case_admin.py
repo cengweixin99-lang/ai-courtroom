@@ -24,10 +24,12 @@ from mootcourt.schemas.case_admin import (
 )
 from mootcourt.services.case_admin import (
     CaseAdminError,
+    delete_case_package,
     import_case_archive,
     list_managed_case_packages,
     publish_case_package,
     record_rejected_case_import,
+    update_case_package_access,
 )
 
 router = APIRouter(
@@ -200,6 +202,63 @@ async def publish_case(
             actor_user_id=current_user.id,
             database_id=database_id,
             organization_ids=request.organization_ids,
+        )
+    except CaseAdminError as exc:
+        raise _http_error(exc) from exc
+
+
+@router.put(
+    "/{database_id}/access",
+    response_model=ManagedCasePackageView,
+    operation_id="update_case_package_access",
+    summary="更新案件包授权组织范围",
+    response_description="精确设置案件包可访问的组织列表",
+    responses={
+        403: {"description": "无权管理案件或目标组织"},
+        404: {"description": "案件版本不存在"},
+    },
+)
+async def update_access(
+    database_id: Annotated[int, ApiPath(ge=1, description="案件版本数据库 ID")],
+    request: PublishCasePackageRequest,
+    unit_of_work: RuntimeUnitOfWork,
+    current_user: RuntimeCurrentUser,
+) -> ManagedCasePackageView:
+    """追加或回收案件包对指定组织的访问授权；发布状态案件也可调整范围。"""
+    try:
+        return await update_case_package_access(
+            unit_of_work,
+            actor_user_id=current_user.id,
+            database_id=database_id,
+            organization_ids=request.organization_ids,
+        )
+    except CaseAdminError as exc:
+        raise _http_error(exc) from exc
+
+
+@router.delete(
+    "/{database_id}",
+    status_code=204,
+    operation_id="delete_case_package",
+    summary="删除草稿案件包",
+    response_description="仅允许删除草稿状态且无关联庭审会话的案件包",
+    responses={
+        403: {"description": "无权删除该案件包"},
+        404: {"description": "案件版本不存在"},
+        422: {"description": "案件包非草稿状态或已存在庭审会话"},
+    },
+)
+async def delete_case(
+    database_id: Annotated[int, ApiPath(ge=1, description="案件版本数据库 ID")],
+    unit_of_work: RuntimeUnitOfWork,
+    current_user: RuntimeCurrentUser,
+) -> None:
+    """删除草稿案件包；已发布案件或有庭审会话的案件不允许删除。"""
+    try:
+        await delete_case_package(
+            unit_of_work,
+            actor_user_id=current_user.id,
+            database_id=database_id,
         )
     except CaseAdminError as exc:
         raise _http_error(exc) from exc

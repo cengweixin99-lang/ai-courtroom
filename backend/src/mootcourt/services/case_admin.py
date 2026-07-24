@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Literal, cast
 
 from pydantic import ValidationError
+from sqlalchemy import func, select
 
 from mootcourt.core.config import Settings
 from mootcourt.db.models import CaseImportAttemptModel, CasePackageModel
@@ -17,6 +18,7 @@ from mootcourt.schemas.case_admin import (
     ManagedCasePackageView,
 )
 from mootcourt.schemas.case_package import load_case_package
+from mootcourt.db.models import CourtSessionModel
 from mootcourt.services.case_archive import (
     CaseArchiveError,
     extract_case_archive,
@@ -177,6 +179,72 @@ async def publish_case_package(
         model.lifecycle_status = "published"
         model.published_at = datetime.now(UTC)
     return await _managed_view(unit_of_work, model)
+
+
+async def update_case_package_access(
+    unit_of_work: SqlAlchemyUnitOfWork,
+    *,
+    actor_user_id: int,
+    database_id: int,
+    organization_ids: list[str],
+) -> ManagedCasePackageView:
+    """精确设置案件包的授权组织列表；发布状态案件也可用于追加或回收组织范围。"""
+    administrated = await unit_of_work.identity.administrated_organization_ids(actor_user_id)
+    requested = set(organization_ids)
+    if not requested or not requested.issubset(administrated):
+        raise CaseAdminError(
+            "case_publish_organization_forbidden",
+            "只能向当前用户担任管理员的组织授权案件",
+            403,
+        )
+    model = await unit_of_work.case_packages.get_by_database_id(database_id)
+    if model is None:
+        raise CaseAdminError("case_package_not_found", "案件包不存在", 404)
+    existing_organizations = set(await unit_of_work.case_packages.organization_ids(model.id))
+    can_manage_existing = bool(existing_organizations & administrated)
+    if model.uploaded_by_user_id != actor_user_id and not can_manage_existing:
+        raise CaseAdminError("case_package_access_denied", "无权修改该案件授权范围", 403)
+
+    for organization_id in requested - existing_organizations:
+        await unit_of_work.identity.grant_case_access(model.id, organization_id)
+    for organization_id in existing_organizations - requested:
+        await unit_of_work.identity.revoke_case_access(model.id, organization_id)
+    return await _managed_view(unit_of_work, model)
+
+
+async def delete_case_package(
+    unit_of_work: SqlAlchemyUnitOfWork,
+    *,
+    actor_user_id: int,
+    database_id: int,
+) -> None:
+    """删除草稿案件包；已发布或已有庭审会话的案件不允许删除。"""
+    model = await unit_of_work.case_packages.get_by_database_id(database_id)
+    if model is None:
+        raise CaseAdminError("case_package_not_found", "案件包不存在", 404)
+    if model.lifecycle_status != "draft":
+        raise CaseAdminError(
+            "case_package_delete_published",
+            "只能删除草稿状态的案件包",
+            422,
+        )
+    if model.uploaded_by_user_id != actor_user_id:
+        administrated = await unit_of_work.identity.administrated_organization_ids(actor_user_id)
+        existing_organizations = set(await unit_of_work.case_packages.organization_ids(model.id))
+        if not (existing_organizations & administrated):
+            raise CaseAdminError("case_package_access_denied", "无权删除该案件包", 403)
+
+    session_count = await unit_of_work.session.scalar(
+        select(func.count(CourtSessionModel.id)).where(CourtSessionModel.package_id == model.id)
+    )
+    if session_count and session_count > 0:
+        raise CaseAdminError(
+            "case_package_has_sessions",
+            "该案件包已存在庭审会话，无法删除",
+            422,
+        )
+
+    await unit_of_work.case_packages.delete(database_id)
 
 
 async def _rejected_attempt(

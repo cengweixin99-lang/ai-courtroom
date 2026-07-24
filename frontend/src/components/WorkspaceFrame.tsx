@@ -7,13 +7,13 @@ import { WorkspaceSidebar, type WorkspaceSection } from './WorkspaceSidebar'
 
 interface Props {
   activeSection: WorkspaceSection
-  caseCount: number
   canManageCases: boolean
+  loading?: boolean
   onNavigate: (section: WorkspaceSection) => void
   children: ReactNode
 }
 
-export function WorkspaceFrame({ activeSection, caseCount, canManageCases, onNavigate, children }: Props) {
+export function WorkspaceFrame({ activeSection, canManageCases, loading = false, onNavigate, children }: Props) {
   const account = useAccount()
 
   return (
@@ -27,7 +27,7 @@ export function WorkspaceFrame({ activeSection, caseCount, canManageCases, onNav
         {account && <AccountControls email={account.email} onSignOut={account.onSignOut} />}
       </header>
       <div className="workspace-layout">
-        <WorkspaceSidebar activeSection={activeSection} caseCount={caseCount} canManageCases={canManageCases} onNavigate={onNavigate} />
+        <WorkspaceSidebar activeSection={activeSection} canManageCases={canManageCases} loading={loading} onNavigate={onNavigate} />
         <section className="workspace-content">{children}</section>
       </div>
     </main>

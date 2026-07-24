@@ -4,6 +4,15 @@
 
 > 本项目仅用于虚构案件的教学模拟，不构成现实裁判或法律意见。
 
+## 功能概览
+
+- **案件大厅与卡片式训练入口**：学习者以卡片流浏览已发布案件，一键开始或继续庭审训练。
+- **确定性庭审控制器**：阶段推进、角色权限、证据引用和发言校验由控制器规则驱动，LLM 只负责受控角色表达，不自由推进流程。
+- **结构化证据流程**：举证、质证（真实性 / 合法性 / 关联性 / 证明力）、无异议、证据台账与待回应清单。
+- **程序请求与陈述审核**：问题制止请求、新增陈述审核由教学控制者批准 / 驳回 / 纳入记录，过程写入公开庭审记录。
+- **教学复盘**：庭审结束后可手动生成教学复盘，基于已提交证据、公开庭审材料、冻结构成要件和法律检索 Trace 输出结构化评分与建议；必要法源不足时停止生成。
+- **案件管理（组织管理员）**：导入 ZIP 案卷、发布到组织、更新授权范围、删除草稿，支持版本不可变和内容哈希校验。
+
 ## 技术栈
 
 - Web：React、TypeScript、Vite、Vitest
@@ -23,11 +32,10 @@ npm run infra:up
 npm run dev
 ```
 
-## Supabase authentication
+## Supabase 认证
 
-The API requires an authenticated Supabase user for cases, courtroom sessions, Agent
-calls, and legal search. Create a Supabase project and set these values in `.env` before
-starting the Compose stack:
+案件、庭审会话、Agent 调用和法律检索都需要经过 Supabase 认证的用户的访问 API。启动
+Compose 之前，先在 `.env` 中配置以下值：
 
 ```dotenv
 SUPABASE_URL=https://YOUR_PROJECT.supabase.co
@@ -37,12 +45,10 @@ VITE_SUPABASE_URL=https://YOUR_PROJECT.supabase.co
 VITE_SUPABASE_ANON_KEY=YOUR_PUBLISHABLE_ANON_KEY
 ```
 
-Never put a Supabase `service_role` key in the frontend. For isolated local development
-before creating a Supabase project, explicitly set `AUTH_DEV_BYPASS_ENABLED=true` and keep
-`APP_ENV=development`; production rejects this bypass and also fails closed without issuer
-configuration. The first authenticated subject is provisioned in MySQL and receives the
-shared training-case grant; session ownership is enforced independently from the courtroom
-prosecution/defense seat.
+禁止将 Supabase `service_role` 密钥放到前端。在创建 Supabase 项目之前如需本地隔离开发，
+可显式设置 `AUTH_DEV_BYPASS_ENABLED=true` 并保持 `APP_ENV=development`；生产环境会拒绝该
+绕过，且未配置 issuer 时也会安全失败。首个认证主体在 MySQL 中创建后会自动获得公共训练
+案件的访问授权；会话所有权与庭审中的公诉方 / 辩护方席位相互独立。
 
 前端默认访问 `http://localhost:5173`。API 可通过容器启动：
 
@@ -107,6 +113,10 @@ Docker 环境启动后，可执行不消耗模型额度的交付 smoke 验收：
 两种模式都会在 `evals/delivery/results` 生成 JSON 和 Markdown 报告。完整模式会创建独立
 庭审会话并产生真实模型 Token 和费用；脚本不会拉取镜像、停止容器或删除数据卷。
 
+统一 Eval Runner 覆盖 PRD 的 50 条最低集：程序权限 15 条、参与人边界 10 条、法律 RAG
+20 条、端到端庭审 5 条。报告包含逐条会话/检索 Trace、可靠性门槛、Token、成本、延迟和
+修复比例，任一门槛失败时命令以非零状态退出。
+
 ## 目录
 
 ```text
@@ -149,50 +159,59 @@ cd backend
 ..\.venv\Scripts\mootcourt-import-case.exe ..\data\authoring\CASE-001
 ```
 
-导入目录由命令参数指定，并未写死。运行时从数据库读取案卷，`author_only` 内容不会进入数据库。
+## 核心机制
 
-当前 E2.2 已提供受控 Agent 单回合和真实 OpenAI-compatible Provider：角色上下文按
-白名单构造，案卷及用户输入作为不可信数据封装，输出经过严格 Schema、证据权限和陈述
+### Agent 与 LLM 调用
+
+系统通过受控 Agent 单回合调用 OpenAI-compatible Provider 生成角色发言。角色上下文按
+白名单构造，案卷及用户输入作为不可信数据封装；输出经过严格 Schema、证据权限和陈述
 可追溯性校验。运行环境未配置模型或密钥时返回 `503`，不会静默使用 Fake Provider；
-Fake 只允许通过 `LLM_PROVIDER=fake` 在测试环境中显式启用。
-详细契约见 `backend/API.md`。
+Fake 只允许通过 `LLM_PROVIDER=fake` 在测试环境中显式启用。详细契约见 `backend/API.md`。
 
-M3.1 已提供 Elasticsearch 条款级 BM25：法源清单校验、幂等索引、案件来源白名单、
-法域、生效日期、效力状态和审核状态过滤，以及 `INSUFFICIENT_LEGAL_AUTHORITY` 安全
-失败。首次使用前执行 `mootcourt-index-legal knowledge/legal/source_manifest.json`。
+### 法律检索
 
-M3.2 已提供 20 条法律检索标注集和 `mootcourt-eval-legal` 门禁命令，使用真实案件
-LegalProfile 与 Elasticsearch 检索链计算 Recall@5、Precision@5、MRR、有效期过滤准确率
-和拒答准确率，并保存逐案失败 trace。当前基线报告位于
-`evals/legal_rag/results/bm25_baseline_report.json`。
+法律检索基于 Elasticsearch 实现，默认使用条款级 BM25，并可选启用 `dense_vector`/kNN
+向量检索与应用层 RRF 混合检索。检索受案件法源白名单、法域、生效日期、效力状态和审核
+状态过滤约束；必要法源不足时以 `INSUFFICIENT_LEGAL_AUTHORITY` 安全失败。
 
-M3.3 已加入可选的 OpenAI-compatible 法律向量 Provider、Elasticsearch `dense_vector`/kNN
-和应用层 RRF 混合检索。向量与 BM25 使用完全相同的案件法源白名单和版本过滤；默认仍
-关闭向量能力，只有配置并重新索引同一 `LEGAL_EMBEDDING_VERSION` 后才启用。
+首次使用法源前需要建立索引：
 
-首个工程候选模型登记为 Ollama `bge-m3`（模型 ID `790764642607`，1024 维），当前状态为
-`automated_eval_passed_pending_human_review`，仍不能直接用于运行时 API。真实 hybrid Eval
-已通过版本化自动门禁；人工检查逐案 Trace 后，才可显式修改模型档案的运行时准入状态。
+```powershell
+mootcourt-index-legal knowledge/legal/source_manifest.json
+```
 
-M3.4 已加入法律检索审计和引用真实性校验：每次检索返回 `trace_id`，数据库保存案件包、
-LegalProfile、强制过滤条件、候选快照、两路分数与耗时；后续引用必须逐字段匹配该 Trace，
-伪造法源、错误条款号、篡改原文、来源或版本哈希都会被程序拦截。
+每次检索返回唯一 `trace_id`，数据库保存案件包、LegalProfile、强制过滤条件、候选快照、
+两路分数与耗时；后续引用必须逐字段匹配该 Trace。伪造法源、错误条款号、篡改原文、来源
+或版本哈希都会被程序拦截。
 
-M4 第一批已完成证据状态台账、结构化证据质证和三类问题制止请求。举证校验证据存在性、
-角色权限和重复提交；质证明确真实性、合法性、关联性或证明力维度；无关、重复和不当问题
-请求写入公开庭审记录，其中重复问题由程序确定性识别，其余保持待控制者复核。
+### 法律检索评估
 
-M4.2 已将教学评分接入持久化复盘：按优先证据提交、对方证据回应、必要法源覆盖和争点
-闭合四个维度计算综合分，并将遗漏定位到具体证据、事实和构成要件。评分使用确定性规则，
-不调用 LLM 主观判分；没有对应评价样本的维度按不适用处理，不会人为扣分。
+`mootcourt-eval-legal` 门禁命令使用真实案件 LegalProfile 与 Elasticsearch 检索链计算
+Recall@5、Precision@5、MRR、有效期过滤准确率和拒答准确率，并保存逐案失败 trace。当前
+基线报告位于 `evals/legal_rag/results/bm25_baseline_report.json`。
 
-M5.0 已补齐本庭新增陈述审核和结构化教学复盘。新增陈述可纳入或排除庭审记录，但不会
-自动关联事实；复盘只使用公开庭审材料、已提交证据、冻结构成要件和当前案件版本的法律
-检索 Trace。必要法源不足时停止生成，开发案件不会输出真实法律结论。
+向量模型需要单独评估并登记运行时准入状态。首个工程候选模型登记为 Ollama `bge-m3`
+（模型 ID `790764642607`，1024 维），只有人工检查逐案 Trace 后显式修改模型档案的运行时
+准入状态，才能在生产环境启用。
 
-M5 统一 Eval Runner 已覆盖 PRD 的 50 条最低集：程序权限 15 条、参与人边界 10 条、
-法律 RAG 20 条、端到端庭审 5 条。报告包含逐条会话/检索 Trace、可靠性门槛、Token、
-成本、延迟和修复比例，任一门槛失败时命令以非零状态退出。
+### 证据与庭审程序
+
+系统维护证据状态台账，支持举证、无异议和结构化质证。质证明确真实性、合法性、关联性或
+证明力维度；举证校验证据存在性、角色权限和重复提交。
+
+庭审程序支持三类问题制止请求：无关问题、重复问题和不当问题。重复问题由程序确定性识别，
+其余请求写入公开庭审记录并等待教学控制者复核。本庭新增陈述可纳入或排除庭审记录，但不
+会自动关联事实。
+
+### 教学评分与复盘
+
+教学评分按优先证据提交、对方证据回应、必要法源覆盖和争点闭合四个维度计算综合分，并将
+遗漏定位到具体证据、事实和构成要件。评分使用确定性规则，不调用 LLM 主观判分；没有对应
+评价样本的维度按不适用处理，不会人为扣分。
+
+结构化教学复盘只使用公开庭审材料、已提交证据、冻结构成要件和当前案件版本的法律检索
+Trace。庭审流程到达法律分析阶段后，由用户手动点击“生成教学复盘”触发；必要法源不足时
+停止生成，开发案件不会输出真实法律结论。已生成复盘的会话再次进入时会自动加载。
 
 ## 数据与法律审核边界
 

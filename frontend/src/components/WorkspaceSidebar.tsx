@@ -4,37 +4,44 @@ export type WorkspaceSection = 'training' | 'recent-sessions' | 'case-management
 
 interface Props {
   activeSection: WorkspaceSection
-  caseCount: number
   canManageCases: boolean
+  loading?: boolean
   onNavigate: (section: WorkspaceSection) => void
 }
 
-export function WorkspaceSidebar({ activeSection, caseCount, canManageCases, onNavigate }: Props) {
+export function WorkspaceSidebar({ activeSection, canManageCases, loading = false, onNavigate }: Props) {
   return (
     <aside className="workspace-sidebar" aria-label="工作台导航">
-      <div className="workspace-sidebar-heading">
-        <p>WORKSPACE</p>
-        <h2>工作台</h2>
-      </div>
-      <nav className="workspace-nav">
+
+      <nav className="workspace-nav" aria-busy={loading}>
+        {loading ? (
+          <>
+            <div className="workspace-nav-skeleton" aria-hidden="true" />
+            <div className="workspace-nav-skeleton" aria-hidden="true" />
+            <div className="workspace-nav-skeleton" aria-hidden="true" />
+          </>
+        ) : (
+          <>
         <button className={activeSection === 'training' ? 'active' : ''} type="button" onClick={() => onNavigate('training')}>
           <LayoutGrid size={17} aria-hidden="true" />
-          <span>案件训练<small>{caseCount} 个案件</small></span>
+          <span>案件训练</span>
         </button>
         <button aria-label="最近庭审" className={activeSection === 'recent-sessions' ? 'active' : ''} type="button" onClick={() => onNavigate('recent-sessions')}>
           <History size={17} aria-hidden="true" />
-          <span>最近庭审<small>继续未完成训练</small></span>
+          <span>最近庭审</span>
         </button>
         {canManageCases && (
           <>
             <button aria-label="案件管理" className={activeSection === 'case-management' ? 'active' : ''} type="button" onClick={() => onNavigate('case-management')}>
               <FileCog size={17} aria-hidden="true" />
-              <span>案件管理<small>导入与发布版本</small></span>
+              <span>案件管理</span>
             </button>
             <button aria-label="组织与权限" className={activeSection === 'organization-access' ? 'active' : ''} type="button" onClick={() => onNavigate('organization-access')}>
               <UsersRound size={17} aria-hidden="true" />
-              <span>组织与权限<small>成员与案件范围</small></span>
+              <span>组织与权限</span>
             </button>
+          </>
+        )}
           </>
         )}
       </nav>

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowLeft,
   BookOpen,
@@ -21,10 +21,22 @@ import {
 } from 'lucide-react'
 
 import { api, ApiError } from '../api'
-import { actionLabels, businessErrorLabels, legalQueries, phaseLabels, roleLabels } from '../config'
+import {
+  actionLabels,
+  businessErrorLabels,
+  evidenceChallengeDimensionLabels,
+  legalQueries,
+  phaseLabels,
+  proceduralRequestTypeLabels,
+  proceduralResolutionLabels,
+  roleLabels,
+  statementConsistencyLabels,
+  statementReviewStatusLabels,
+} from '../config'
 import type {
   CaseView,
   CourtAction,
+  CourtPhase,
   CourtReview,
   AgentUsage,
   EvidenceStatus,
@@ -52,6 +64,7 @@ interface Props {
   focusedEventSequence?: number | null
   onExit: () => void
   onReview: (review: CourtReview) => void
+  onReviewLoaded?: (review: CourtReview) => void
   reviewAvailable?: boolean
   onOpenReview?: () => void
 }
@@ -98,7 +111,7 @@ function eventContent(event: SessionEvent): string {
   if (event.action === 'advance_phase') return `庭审已推进至 ${phaseLabels[event.payload.resulting_phase ?? event.phase]}。`
   if (event.action === 'submit_evidence') return `已提交证据 ${event.payload.evidence_ids?.join('、') ?? ''}。`
   if (event.action === 'state_no_objection') return `对证据 ${event.payload.evidence_ids?.join('、') ?? ''} 无异议。`
-  if (event.action === 'procedural_request_resolved') return `程序请求处理结果：${event.payload.resolution ?? ''}`
+  if (event.action === 'procedural_request_resolved') return `程序请求处理结果：${proceduralResolutionLabels[event.payload.resolution ?? ''] ?? event.payload.resolution ?? ''}`
   if (event.action === 'court_review_generated') return '结构化教学复盘已生成。'
   return actionLabels[event.action as CourtAction] ?? event.action
 }
@@ -170,7 +183,8 @@ function transcriptLane(actorRole: string, userRole: SessionView['user_role']): 
 }
 
 // 流式发言和已落库事件共用同一结构，避免完成瞬间因节点样式切换产生跳变。
-function TranscriptEntry({ actorRole, userRole, content, meta, evidenceIds = [], eventSequence, highlighted = false, streaming = false }: TranscriptEntryProps) {
+// memo 隔离流式 delta 引起的高频重渲染，历史条目不随新文本重复渲染。
+const TranscriptEntry = memo(function TranscriptEntry({ actorRole, userRole, content, meta, evidenceIds = [], eventSequence, highlighted = false, streaming = false }: TranscriptEntryProps) {
   const lane = transcriptLane(actorRole, userRole)
   return (
     <article
@@ -191,9 +205,9 @@ function TranscriptEntry({ actorRole, userRole, content, meta, evidenceIds = [],
       )}
     </article>
   )
-}
+})
 
-export function CourtroomPage({ initialCase, initialSession, autoStart = true, focusedEventSequence = null, onExit, onReview, reviewAvailable = false, onOpenReview }: Props) {
+export function CourtroomPage({ initialCase, initialSession, autoStart = true, focusedEventSequence = null, onExit, onReview, onReviewLoaded, reviewAvailable = false, onOpenReview }: Props) {
   const [session, setSession] = useState(initialSession)
   const [events, setEvents] = useState<SessionEvent[]>([])
   const [evidenceStatuses, setEvidenceStatuses] = useState<EvidenceStatus[]>([])
@@ -213,6 +227,7 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, f
   const [requestType, setRequestType] = useState('IMPROPER_QUESTION')
   const [targetSequence, setTargetSequence] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  const [generatingReview, setGeneratingReview] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [automationMessage, setAutomationMessage] = useState('正在初始化自动庭审流程')
   const [streamingTurn, setStreamingTurn] = useState<StreamingTurn | null>(
@@ -275,6 +290,22 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, f
     }
   }, [])
 
+  const reviewablePhases: CourtPhase[] = ['LEGAL_ANALYSIS', 'REVIEW', 'COMPLETED']
+  const canGenerateReview = reviewablePhases.includes(session.phase)
+
+  const handleGenerateReview = useCallback(async () => {
+    setGeneratingReview(true)
+    setError(null)
+    try {
+      const review = await generateReview(session)
+      onReview(review)
+    } catch (caught) {
+      handleError(caught)
+    } finally {
+      setGeneratingReview(false)
+    }
+  }, [generateReview, handleError, onReview, session])
+
   const runAutomaticFlow = useCallback(async (start: SessionView) => {
     let active = start
     const controller = new AbortController()
@@ -328,13 +359,15 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, f
         if (result.status === 'failed') {
           throw new ApiError(result.error?.code ?? 'agent_failed', result.error?.message ?? result.message, 502)
         }
-        if (active.phase === 'LEGAL_ANALYSIS') {
-          setAutomationMessage('正在检索法律依据并生成教学复盘')
-          onReview(await generateReview(active))
-          return
-        }
-        if (active.phase === 'REVIEW' || active.phase === 'COMPLETED') {
-          onReview(await api.getReview(active.session_id))
+        if (active.phase === 'LEGAL_ANALYSIS' || active.phase === 'REVIEW' || active.phase === 'COMPLETED') {
+          setAutomationMessage('庭审流程已结束，可手动生成或查看教学复盘')
+          if (active.phase === 'REVIEW' || active.phase === 'COMPLETED') {
+            void api.getReview(active.session_id)
+              .then((review) => onReviewLoaded?.(review))
+              .catch((caught) => {
+                if (!(caught instanceof ApiError) || caught.status !== 404) handleError(caught)
+              })
+          }
           return
         }
         if (result.status === 'waiting_for_user' || result.status === 'waiting_for_review') return
@@ -355,7 +388,7 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, f
       if (streamController.current === controller) streamController.current = null
       setBusy(false)
     }
-  }, [generateReview, handleError, loadSessionData, onReview])
+  }, [handleError, loadSessionData, onReviewLoaded])
 
   useEffect(() => {
     try {
@@ -379,6 +412,13 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, f
       .then(({ latestSession, data }) => {
         if (!active) return
         commitSessionData(latestSession, data)
+        if (latestSession.phase === 'REVIEW' || latestSession.phase === 'COMPLETED') {
+          void api.getReview(latestSession.session_id)
+            .then((review) => onReviewLoaded?.(review))
+            .catch((caught) => {
+              if (!(caught instanceof ApiError) || caught.status !== 404) handleError(caught)
+            })
+        }
         if (autoStart && !autoStarted.current) {
           autoStarted.current = true
           void runAutomaticFlow(latestSession)
@@ -534,11 +574,16 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, f
             </div>
             <div className="bench-tools">
               <span className="live-status">记录中</span>
-              {reviewAvailable && onOpenReview && (
+              {reviewAvailable && onOpenReview ? (
                 <button className="bench-review-action" type="button" onClick={onOpenReview}>
                   <BookOpenCheck size={15} />查看教学复盘
                 </button>
-              )}
+              ) : canGenerateReview ? (
+                <button className="bench-review-action" type="button" disabled={generatingReview} onClick={() => void handleGenerateReview()}>
+                  {generatingReview ? <LoaderCircle className="spin" size={15} /> : <BookOpenCheck size={15} />}
+                  {generatingReview ? '正在生成复盘…' : '生成教学复盘'}
+                </button>
+              ) : null}
             </div>
           </div>
           <div className="transcript-body" ref={transcriptBody} onScroll={handleTranscriptScroll}>
@@ -579,7 +624,15 @@ export function CourtroomPage({ initialCase, initialSession, autoStart = true, f
               </div>
             </div>
             <div className="action-message" aria-live="polite">
-              <span>{error ?? (busy ? automationMessage : `${automationMessage} · 第 ${events.length} 条记录`)}</span>
+              <span>{error ?? (busy ? automationMessage : (
+                session.phase === 'COMPLETED'
+                  ? `庭审已完成 · 第 ${events.length} 条记录`
+                  : session.phase === 'REVIEW'
+                    ? `教学复盘已生成 · 第 ${events.length} 条记录`
+                    : session.phase === 'LEGAL_ANALYSIS'
+                      ? `庭审流程已结束，可生成教学复盘 · 第 ${events.length} 条记录`
+                      : `${automationMessage} · 第 ${events.length} 条记录`
+              ))}</span>
               {retryAvailable && !busy && (
                 <button className="retry-action" onClick={() => void runAutomaticFlow(session)}>
                   <RotateCcw size={15} />重试本次 Agent
@@ -625,14 +678,14 @@ interface StatusProps {
 }
 
 function StatusPanel({ active, statuses, agenda, requests, traces }: StatusProps) {
-  if (active === 'evidence') return <div className="status-body">{statuses.map((item) => {
+  if (active === 'evidence') return <div className="status-body">{statuses.length === 0 ? <EmptyStatus label="暂无证据状态" /> : statuses.map((item) => {
     const response = agenda.find((entry) => entry.evidence_id === item.evidence_id)
     const status = response?.status ?? item.status
     const labels: Record<string, string> = { not_submitted: '未提交', submitted: '已提交', pending: '待回应', challenged: '已质证', no_objection: '无异议', deferred: '暂缓' }
     return <div className="status-row" key={item.evidence_id}><span>{item.evidence_id}</span><strong>{item.title}</strong><small className={status}>{labels[status] ?? status}</small></div>
   })}</div>
-  if (active === 'requests') return <div className="status-body">{requests.length === 0 ? <EmptyStatus label="暂无程序请求" /> : requests.map((item) => <div className="review-queue-item" key={item.id}><strong>{item.request_type}</strong><p>{item.content}</p><small>{item.resolution ? `已自动处理 · ${item.resolution}` : '等待系统处理'}</small></div>)}</div>
-  return <div className="status-body">{traces.length === 0 ? <EmptyStatus label="暂无参与人陈述" /> : traces.map((item) => <div className="review-queue-item" key={item.id}><strong>{item.participant_id} · {item.consistency_status}</strong><p>{item.answer}</p><small>{item.review_status ?? (item.new_statement ? '等待系统审核' : item.supported_statement_ids.join('、') || '明确拒答')}</small></div>)}</div>
+  if (active === 'requests') return <div className="status-body">{requests.length === 0 ? <EmptyStatus label="暂无程序请求" /> : requests.map((item) => <div className="review-queue-item" key={item.id}><strong>{proceduralRequestTypeLabels[item.request_type] ?? item.request_type}</strong><p>{item.content}</p><small>{item.resolution ? `已自动处理 · ${proceduralResolutionLabels[item.resolution] ?? item.resolution}` : '等待系统处理'}</small></div>)}</div>
+  return <div className="status-body">{traces.length === 0 ? <EmptyStatus label="暂无参与人陈述" /> : traces.map((item) => <div className="review-queue-item" key={item.id}><strong>{item.participant_id} · {statementConsistencyLabels[item.consistency_status] ?? item.consistency_status}</strong><p>{item.answer}</p><small>{(item.review_status ? statementReviewStatusLabels[item.review_status] ?? item.review_status : null) ?? (item.new_statement ? '等待系统审核' : item.supported_statement_ids.join('、') || '明确拒答')}</small></div>)}</div>
 }
 
 function EmptyStatus({ label }: { label: string }) { return <div className="empty-status"><MessageSquareText size={22} /><span>{label}</span></div> }
@@ -690,15 +743,15 @@ function ActionFields(props: ActionFieldsProps) {
       <div className="compact-control dimension-control">
         <span>质证维度</span>
         <div className="toggle-options">
-          {['AUTHENTICITY', 'LEGALITY', 'RELEVANCE', 'PROBATIVE_VALUE'].map((item) => (
+          {(['AUTHENTICITY', 'LEGALITY', 'RELEVANCE', 'PROBATIVE_VALUE'] as const).map((item) => (
             <label className={props.challengeDimensions.includes(item) ? 'selected' : ''} key={item}>
-              <input type="checkbox" checked={props.challengeDimensions.includes(item)} onChange={() => toggleDimension(item)} />{item}
+              <input type="checkbox" checked={props.challengeDimensions.includes(item)} onChange={() => toggleDimension(item)} />{evidenceChallengeDimensionLabels[item]}
             </label>
           ))}
         </div>
       </div>
     )}
-    {props.action === 'raise_procedural_request' && <><label><span>请求类型</span><select value={props.requestType} onChange={(event) => props.setRequestType(event.target.value)}><option>IRRELEVANT_QUESTION</option><option>REPETITIVE_QUESTION</option><option>IMPROPER_QUESTION</option></select></label><label><span>目标发问</span><select value={props.targetSequence ?? ''} onChange={(event) => props.setTargetSequence(Number(event.target.value) || null)}><option value="">请选择</option>{props.questionEvents.map((item) => <option key={item.sequence_number} value={item.sequence_number}>#{item.sequence_number} {item.payload.content}</option>)}</select></label></>}
+    {props.action === 'raise_procedural_request' && <><label><span>请求类型</span><select value={props.requestType} onChange={(event) => props.setRequestType(event.target.value)}>{(['IRRELEVANT_QUESTION', 'REPETITIVE_QUESTION', 'IMPROPER_QUESTION'] as const).map((type) => <option key={type} value={type}>{proceduralRequestTypeLabels[type]}</option>)}</select></label><label><span>目标发问</span><select value={props.targetSequence ?? ''} onChange={(event) => props.setTargetSequence(Number(event.target.value) || null)}><option value="">请选择</option>{props.questionEvents.map((item) => <option key={item.sequence_number} value={item.sequence_number}>#{item.sequence_number} {item.payload.content}</option>)}</select></label></>}
     {needsContent && <label className="grow"><span>内容</span><textarea value={props.content} onChange={(event) => props.setContent(event.target.value)} rows={2} /></label>}
   </div>
 }

@@ -94,6 +94,7 @@ class CaseSummary(BaseModel):
     case_id: str
     package_version: str
     title: str
+    summary: str
     status: str
     jurisdiction: str
     law_as_of_date: date

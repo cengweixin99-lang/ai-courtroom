@@ -14,7 +14,7 @@ vi.mock('./api', async (importOriginal) => {
   return {
     ...original,
     api: {
-      listAdminOrganizations: vi.fn(), listManagedCases: vi.fn(), uploadCaseArchive: vi.fn(), publishManagedCase: vi.fn(),
+      listAdminOrganizations: vi.fn(), listManagedCases: vi.fn(), uploadCaseArchive: vi.fn(), publishManagedCase: vi.fn(), updateManagedCaseAccess: vi.fn(), deleteManagedCase: vi.fn(),
       listOrganizationMembers: vi.fn(), setOrganizationMember: vi.fn(), removeOrganizationMember: vi.fn(),
       listCases: vi.fn(), listSessions: vi.fn(), getCase: vi.fn(), createSession: vi.fn(), getSession: vi.fn(), archiveSession: vi.fn(),
       getEvents: vi.fn(), getEvidenceStatuses: vi.fn(), getEvidenceAgenda: vi.fn(), getProceduralRequests: vi.fn(),
@@ -36,7 +36,8 @@ vi.mock('./auth', () => ({
 }))
 
 const caseSummary: CaseSummary = {
-  case_id: 'CASE-001', package_version: '1.0.0', title: '青禾影像器材失窃案', status: 'ready',
+  case_id: 'CASE-001', package_version: '1.0.0', title: '青禾影像器材失窃案',
+  summary: '一台专业相机在工作室内遗失。', status: 'ready',
   jurisdiction: '中华人民共和国', law_as_of_date: '2026-06-01',
 }
 
@@ -146,7 +147,7 @@ describe('App', () => {
   it('loads the case lobby from the API', async () => {
     render(<App />)
     expect(await screen.findByRole('heading', { name: caseSummary.title })).toBeInTheDocument()
-    expect(screen.getByText('中华人民共和国')).toBeInTheDocument()
+    expect(screen.getByText(/中华人民共和国/)).toBeInTheDocument()
   })
 
   it('lets an organization admin open case management and publish a draft', async () => {
@@ -167,6 +168,7 @@ describe('App', () => {
 
     await user.click(await screen.findByRole('button', { name: '案件管理' }))
     expect(await screen.findByRole('heading', { name: '案件管理' })).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: '详情' }))
     await user.click(await screen.findByRole('button', { name: /发布到 1 个组织/ }))
 
     await waitFor(() => expect(mockedApi.publishManagedCase).toHaveBeenCalledWith(2, ['org-001']))
@@ -375,6 +377,7 @@ describe('App', () => {
     render(<App />)
     await user.click(await screen.findByRole('radio', { name: '辩护方' }))
     await user.click(screen.getByRole('button', { name: /开始庭审/ }))
+    await user.click(await screen.findByRole('button', { name: '查看教学复盘' }))
     await user.click(await screen.findByRole('button', { name: '查看庭审记录 #12' }))
 
     const entry = (await screen.findByText('需要改进的辩护意见')).closest('article')
@@ -404,8 +407,11 @@ describe('App', () => {
     await user.click(await screen.findByRole('radio', { name: '辩护方' }))
     await user.click(screen.getByRole('button', { name: /开始庭审/ }))
 
-    expect(await screen.findByRole('heading', { name: '证据、事实与法律适用' })).toBeInTheDocument()
+    expect(await screen.findByText('公开庭审记录')).toBeInTheDocument()
     expect(mockedApi.streamAutoStep).toHaveBeenCalledTimes(1)
+
+    await user.click(screen.getByRole('button', { name: '查看教学复盘' }))
+    expect(await screen.findByRole('heading', { name: '证据、事实与法律适用' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: '返回庭审' }))
 
@@ -416,7 +422,6 @@ describe('App', () => {
 
     await user.click(reopenReview)
     expect(await screen.findByRole('heading', { name: '证据、事实与法律适用' })).toBeInTheDocument()
-    expect(mockedApi.getReview).toHaveBeenCalledTimes(1)
   })
 
   it('renders agent text before the streaming step completes', async () => {
@@ -534,6 +539,6 @@ describe('App', () => {
     sessionStorage.setItem('mootcourt.active-session-view', 'review')
     render(<App />)
     expect(await screen.findByRole('heading', { name: '证据、事实与法律适用' })).toBeInTheDocument()
-    expect(mockedApi.getReview).toHaveBeenCalledTimes(2)
+    expect(mockedApi.getReview).toHaveBeenCalledTimes(3)
   })
 })

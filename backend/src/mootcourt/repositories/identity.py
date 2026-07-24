@@ -193,6 +193,17 @@ class SqlAlchemyIdentityRepository:
             )
             await self._session.flush()
 
+    async def revoke_case_access(self, package_id: int, organization_id: str) -> None:
+        grant = await self._session.scalar(
+            select(CaseAccessGrantModel).where(
+                CaseAccessGrantModel.package_id == package_id,
+                CaseAccessGrantModel.organization_id == organization_id,
+            )
+        )
+        if grant is not None:
+            await self._session.delete(grant)
+            await self._session.flush()
+
     async def can_manage_user_sessions(self, user_id: int, owner_user_id: int | None) -> bool:
         """Check instructor/admin authority without crossing organization boundaries."""
         if owner_user_id is None:

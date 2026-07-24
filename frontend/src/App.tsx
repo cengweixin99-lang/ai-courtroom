@@ -150,12 +150,21 @@ function CourtroomApp() {
           selectedSession.package_version,
         ),
       ])
+      let restoredReview: CourtReview | null = null
+      if (restoredSession.phase === 'REVIEW' || restoredSession.phase === 'COMPLETED') {
+        try {
+          restoredReview = await api.getReview(restoredSession.session_id)
+        } catch (caught) {
+          // 复盘阶段可能正在生成报告；404 时仍允许先恢复庭审记录。
+          if (!(caught instanceof ApiError) || caught.status !== 404) throw caught
+        }
+      }
       sessionStorage.setItem(SESSION_STORAGE_KEY, restoredSession.session_id)
       sessionStorage.setItem(SESSION_VIEW_STORAGE_KEY, 'courtroom')
       setAutoStartCourtroom(false)
       setSessionViewMode('courtroom')
       setFocusedEventSequence(null)
-      setReview(null)
+      setReview(restoredReview)
       setCaseView(restoredCase)
       setSession(restoredSession)
     } catch (caught) {
@@ -201,6 +210,7 @@ function CourtroomApp() {
       focusedEventSequence={focusedEventSequence}
       onExit={exitSession}
       onReview={openReview}
+      onReviewLoaded={(nextReview) => setReview(nextReview)}
       reviewAvailable={review !== null}
       onOpenReview={() => {
         setFocusedEventSequence(null)
@@ -211,8 +221,8 @@ function CourtroomApp() {
   }
   return <WorkspaceFrame
     activeSection={workspaceSection}
-    caseCount={cases.length}
     canManageCases={adminOrganizations.length > 0}
+    loading={loading}
     onNavigate={setWorkspaceSection}
   >
     {workspaceSection === 'training' || workspaceSection === 'recent-sessions' ? (
@@ -341,12 +351,12 @@ function AuthPage({
         <h1>{registering ? '创建训练账户' : '登录庭审训练'}</h1>
         <p className="auth-note">使用 Supabase 身份登录，案件权限由庭审服务校验。</p>
         <form onSubmit={(event) => void submit(event)}>
-          <label>邮箱<input type="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
-          <label>密码<input type="password" required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
+          <label>邮箱<input type="email" autoComplete="email" required value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+          <label>密码<input type="password" autoComplete={registering ? 'new-password' : 'current-password'} required minLength={8} value={password} onChange={(event) => setPassword(event.target.value)} /></label>
           {(localError || message) && <p className={localError ? 'page-error' : 'auth-success'} role="alert">{localError ?? message}</p>}
           <button className="primary-action" disabled={busy}>{busy ? '处理中...' : registering ? '注册账户' : '登录'}</button>
         </form>
-        <button className="auth-switch" onClick={() => setRegistering((value) => !value)}>
+        <button className="auth-switch" onClick={() => { setRegistering((value) => !value); setLocalError(null); setMessage(null) }}>
           {registering ? '已有账户，返回登录' : '首次使用，创建账户'}
         </button>
       </section>

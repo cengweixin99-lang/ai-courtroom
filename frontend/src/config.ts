@@ -45,6 +45,38 @@ export const legalQueries = [
   '被盗财物有有效价格证明时怎样认定盗窃数额',
 ]
 
+export const proceduralRequestTypeLabels: Record<string, string> = {
+  IRRELEVANT_QUESTION: '无关问题',
+  REPETITIVE_QUESTION: '重复发问',
+  IMPROPER_QUESTION: '不当发问',
+  EVIDENCE_CHALLENGE: '证据异议',
+}
+
+export const proceduralResolutionLabels: Record<string, string> = {
+  APPROVED: '准许',
+  REJECTED: '驳回',
+  RECORDED: '记录在案',
+}
+
+export const statementConsistencyLabels: Record<string, string> = {
+  SUPPORTED_BY_PRIOR_STATEMENT: '与先前陈述一致',
+  EXPLICIT_REFUSAL: '明确拒答',
+  UNSUPPORTED: '与先前陈述矛盾',
+  NEW_STATEMENT_PENDING_REVIEW: '新增陈述待审核',
+}
+
+export const statementReviewStatusLabels: Record<string, string> = {
+  INCLUDED_IN_RECORD: '已纳入记录',
+  EXCLUDED_FROM_RECORD: '已排除记录',
+}
+
+export const evidenceChallengeDimensionLabels: Record<string, string> = {
+  AUTHENTICITY: '真实性',
+  LEGALITY: '合法性',
+  RELEVANCE: '关联性',
+  PROBATIVE_VALUE: '证明力',
+}
+
 export const businessErrorLabels: Record<string, string> = {
   action_not_allowed: '当前阶段或席位不能执行该操作。',
   content_required: '请填写操作内容。',

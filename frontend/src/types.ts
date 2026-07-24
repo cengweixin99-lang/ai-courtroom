@@ -31,6 +31,7 @@ export interface CaseSummary {
   case_id: string
   package_version: string
   title: string
+  summary: string
   status: string
   jurisdiction: string
   law_as_of_date: string

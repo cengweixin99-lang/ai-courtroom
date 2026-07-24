@@ -33,6 +33,7 @@ async def list_case_packages(
             case_id=row.case_id,
             package_version=row.package_version,
             title=row.title,
+            summary=row.case_data.get("summary", ""),
             status=row.status,
             jurisdiction=row.jurisdiction,
             law_as_of_date=row.law_as_of_date,

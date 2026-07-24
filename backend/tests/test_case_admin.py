@@ -468,6 +468,83 @@ def test_archive_rejects_suspicious_compression_ratio(tmp_path: Path) -> None:
     assert raised.value.issue.code == "case_archive_suspicious_compression"
 
 
+async def test_update_published_package_access_replaces_scope(
+    case_admin_client: AsyncClient,
+) -> None:
+    archive = _package_archive(package_version="9.9.4-update-access")
+    imported = await case_admin_client.post(
+        "/api/v1/admin/case-packages/imports",
+        content=archive,
+        headers={"Content-Type": "application/zip", "X-Filename": "case-update.zip"},
+    )
+    assert imported.status_code == 201
+    database_id = imported.json()["database_id"]
+
+    published = await case_admin_client.post(
+        f"/api/v1/admin/case-packages/{database_id}/publish",
+        json={"organization_ids": [PUBLIC_TRAINING_ORGANIZATION_ID]},
+    )
+    assert published.status_code == 200
+    assert published.json()["organization_ids"] == [PUBLIC_TRAINING_ORGANIZATION_ID]
+
+    updated = await case_admin_client.put(
+        f"/api/v1/admin/case-packages/{database_id}/access",
+        json={"organization_ids": []},
+    )
+    assert updated.status_code == 403
+    assert updated.json()["detail"]["code"] == "case_publish_organization_forbidden"
+
+    re_updated = await case_admin_client.put(
+        f"/api/v1/admin/case-packages/{database_id}/access",
+        json={"organization_ids": [PUBLIC_TRAINING_ORGANIZATION_ID]},
+    )
+    assert re_updated.status_code == 200
+    assert re_updated.json()["organization_ids"] == [PUBLIC_TRAINING_ORGANIZATION_ID]
+
+
+async def test_delete_draft_package(case_admin_client: AsyncClient) -> None:
+    archive = _package_archive(package_version="9.9.5-delete-draft")
+    imported = await case_admin_client.post(
+        "/api/v1/admin/case-packages/imports",
+        content=archive,
+        headers={"Content-Type": "application/zip", "X-Filename": "case-delete.zip"},
+    )
+    assert imported.status_code == 201
+    database_id = imported.json()["database_id"]
+
+    deleted = await case_admin_client.delete(f"/api/v1/admin/case-packages/{database_id}")
+    assert deleted.status_code == 204
+
+    listed = await case_admin_client.get("/api/v1/admin/case-packages")
+    assert database_id not in {item["database_id"] for item in listed.json()}
+
+    re_delete = await case_admin_client.delete(f"/api/v1/admin/case-packages/{database_id}")
+    assert re_delete.status_code == 404
+
+
+async def test_cannot_delete_published_package(
+    case_admin_client: AsyncClient,
+) -> None:
+    archive = _package_archive(package_version="9.9.6-delete-published")
+    imported = await case_admin_client.post(
+        "/api/v1/admin/case-packages/imports",
+        content=archive,
+        headers={"Content-Type": "application/zip", "X-Filename": "case-published.zip"},
+    )
+    assert imported.status_code == 201
+    database_id = imported.json()["database_id"]
+
+    published = await case_admin_client.post(
+        f"/api/v1/admin/case-packages/{database_id}/publish",
+        json={"organization_ids": [PUBLIC_TRAINING_ORGANIZATION_ID]},
+    )
+    assert published.status_code == 200
+
+    deleted = await case_admin_client.delete(f"/api/v1/admin/case-packages/{database_id}")
+    assert deleted.status_code == 422
+    assert deleted.json()["detail"]["code"] == "case_package_delete_published"
+
+
 def _package_archive(*, package_version: str) -> bytes:
     archive = io.BytesIO()
     with ZipFile(archive, "w", compression=ZIP_STORED) as output:
