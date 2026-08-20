@@ -295,6 +295,26 @@ class SessionEventModel(Base):
     )
 
 
+class SessionRoleClaimModel(Base):
+    """律师角色在庭审中提出的结构化主张索引，避免每次从事件 JSON 反序列化。"""
+
+    __tablename__ = "session_role_claims"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    session_id: Mapped[str] = mapped_column(
+        ForeignKey("court_sessions.id", ondelete="CASCADE"), index=True
+    )
+    event_sequence_number: Mapped[int] = mapped_column(Integer)
+    role: Mapped[str] = mapped_column(String(32))
+    phase: Mapped[str] = mapped_column(String(64))
+    claim_type: Mapped[str] = mapped_column(String(32))
+    fact_ids: Mapped[list[str]] = mapped_column(JSON)
+    text: Mapped[str] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False
+    )
+
+
 class EvidenceSubmissionModel(Base):
     __tablename__ = "evidence_submissions"
     __table_args__ = (UniqueConstraint("session_id", "evidence_id"),)

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from time import perf_counter
 
 from mootcourt.repositories.legal_search import LegalSearchRepository
@@ -14,7 +15,9 @@ from mootcourt.schemas.legal_search import (
 )
 from mootcourt.search.embeddings import EmbeddingProvider
 
-APPROVED_REVIEW_STATUSES = ("verified",)
+# 默认值与 knowledge/legal/source_manifest.json 的 approved_review_statuses 对齐；
+# 部署可通过 Settings.legal_approved_review_statuses 覆盖。
+DEFAULT_APPROVED_REVIEW_STATUSES = ("verified", "official_publication_verified_historical_version")
 
 
 async def search_case_law(
@@ -22,6 +25,8 @@ async def search_case_law(
     search_repository: LegalSearchRepository,
     request: LegalSearchRequest,
     embedding_provider: EmbeddingProvider | None = None,
+    approved_review_statuses: Sequence[str] = DEFAULT_APPROVED_REVIEW_STATUSES,
+    min_score: float = 0.0,
 ) -> LegalSearchResponse | None:
     started_at = perf_counter()
     package = await unit_of_work.case_packages.get_runtime_package(
@@ -55,16 +60,20 @@ async def search_case_law(
             raise ValueError("embedding provider must return exactly one query vector")
         query_embedding = vectors[0]
         embedding_version = embedding_provider.version
+    approved_statuses = tuple(approved_review_statuses)
     hits = await search_repository.search(
         query=request.query,
         jurisdiction=source_jurisdiction,
         law_as_of_date=profile.law_as_of_date,
         allowed_source_ids=allowed_source_ids,
-        approved_review_statuses=APPROVED_REVIEW_STATUSES,
+        approved_review_statuses=approved_statuses,
         size=request.top_k,
         query_embedding=query_embedding,
         embedding_version=embedding_version,
     )
+    if min_score > 0:
+        # 低分命中不算“充分法律依据”，避免弱相关条款进入复盘与引用校验。
+        hits = [hit for hit in hits if hit.score >= min_score]
     outcome = (
         LegalSearchOutcome.SUFFICIENT_LEGAL_AUTHORITY
         if hits
@@ -77,8 +86,9 @@ async def search_case_law(
         jurisdiction=source_jurisdiction,
         law_as_of_date=profile.law_as_of_date,
         allowed_source_ids=allowed_source_ids,
-        approved_review_statuses=list(APPROVED_REVIEW_STATUSES),
+        approved_review_statuses=list(approved_statuses),
         top_k=request.top_k,
+        min_score=min_score,
     )
     latency_ms = round((perf_counter() - started_at) * 1000)
     # Trace 与业务响应在同一事务写入；API 失败回滚时不会留下误导性的成功审计记录。

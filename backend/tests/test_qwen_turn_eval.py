@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 
 from mootcourt.agents.providers import AgentProviderResult, StructuredProviderRequest
-from mootcourt.schemas.qwen_turn_eval import load_qwen_turn_eval_dataset
+from mootcourt.schemas.eval.qwen_turn_eval import load_qwen_turn_eval_dataset
 from mootcourt.services.qwen_turn_eval import evaluate_qwen_turn_suite
 
 DATASET = Path(__file__).parents[2] / "evals" / "qwen_turn_quality" / "cases.json"

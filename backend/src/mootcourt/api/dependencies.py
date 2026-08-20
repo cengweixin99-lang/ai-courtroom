@@ -28,6 +28,8 @@ from mootcourt.repositories.legal_search import (
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.search.client import get_elasticsearch_client
 from mootcourt.search.embeddings import (
+    CachedEmbeddingProvider,
+    EmbeddingCacheStore,
     EmbeddingProvider,
     EmbeddingProviderError,
     build_embedding_provider,
@@ -212,16 +214,34 @@ RuntimeLegalSearchRepository = Annotated[
 ]
 
 
+_embedding_cache_store: EmbeddingCacheStore | None = None
+
+
+def _shared_embedding_cache_store(maxsize: int) -> EmbeddingCacheStore:
+    # 依赖按请求构建 provider，缓存存储必须跨请求共享才有意义。
+    global _embedding_cache_store
+    if _embedding_cache_store is None or _embedding_cache_store.maxsize != maxsize:
+        _embedding_cache_store = EmbeddingCacheStore(maxsize=maxsize)
+    return _embedding_cache_store
+
+
 def get_legal_embedding_provider(
     settings: Annotated[Settings, Depends(get_settings)],
 ) -> EmbeddingProvider | None:
     try:
-        return build_embedding_provider(settings)
+        provider = build_embedding_provider(settings)
     except EmbeddingProviderError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail={"code": "legal_embedding_not_configured", "message": str(exc)},
         ) from exc
+    if provider is None or settings.legal_embedding_cache_ttl_seconds <= 0:
+        return provider
+    return CachedEmbeddingProvider(
+        provider,
+        _shared_embedding_cache_store(settings.legal_embedding_cache_maxsize),
+        ttl_seconds=settings.legal_embedding_cache_ttl_seconds,
+    )
 
 
 RuntimeLegalEmbeddingProvider = Annotated[

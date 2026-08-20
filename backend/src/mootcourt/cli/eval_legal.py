@@ -10,7 +10,7 @@ from mootcourt.core.config import get_settings
 from mootcourt.db.session import dispose_engine, get_session_factory
 from mootcourt.repositories.legal_search import ElasticsearchLegalSearchRepository
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
-from mootcourt.schemas.legal_eval import load_legal_eval_dataset
+from mootcourt.schemas.eval.legal_eval import load_legal_eval_dataset
 from mootcourt.search.client import dispose_elasticsearch_client, get_elasticsearch_client
 from mootcourt.search.embeddings import build_embedding_provider
 from mootcourt.services.legal_eval import evaluate_legal_retrieval

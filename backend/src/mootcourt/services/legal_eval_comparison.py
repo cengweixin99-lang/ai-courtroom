@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from mootcourt.schemas.legal_eval import (
+from mootcourt.schemas.eval.legal_eval import (
     LegalEvalAdmissionCheck,
     LegalEvalAdmissionPolicy,
     LegalEvalComparisonReport,

@@ -12,7 +12,7 @@ from mootcourt.agents.factory import AgentProviderConfigurationError, build_agen
 from mootcourt.core.config import get_settings
 from mootcourt.core.redis import dispose_redis
 from mootcourt.db.session import dispose_engine, get_session_factory
-from mootcourt.schemas.qwen_agent_eval import load_qwen_agent_eval_dataset
+from mootcourt.schemas.eval.qwen_agent_eval import load_qwen_agent_eval_dataset
 from mootcourt.services.qwen_agent_eval import evaluate_qwen_agent_suite
 
 

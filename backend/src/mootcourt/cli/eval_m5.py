@@ -9,7 +9,7 @@ from anyio import Path as AsyncPath
 from mootcourt.core.config import get_settings
 from mootcourt.db.session import dispose_engine, get_session_factory
 from mootcourt.repositories.legal_search import ElasticsearchLegalSearchRepository
-from mootcourt.schemas.m5_eval import load_m5_eval_datasets
+from mootcourt.schemas.eval.m5_eval import load_m5_eval_datasets
 from mootcourt.search.client import dispose_elasticsearch_client, get_elasticsearch_client
 from mootcourt.search.embeddings import build_embedding_provider
 from mootcourt.services.m5_eval import evaluate_m5_suite

@@ -11,7 +11,7 @@ from mootcourt.agents.factory import build_agent_provider
 from mootcourt.agents.providers import StructuredAgentProvider
 from mootcourt.core.config import get_settings
 from mootcourt.core.redis import dispose_redis
-from mootcourt.schemas.qwen_turn_eval import load_qwen_turn_eval_dataset
+from mootcourt.schemas.eval.qwen_turn_eval import load_qwen_turn_eval_dataset
 from mootcourt.services.qwen_turn_eval import evaluate_qwen_turn_suite
 
 

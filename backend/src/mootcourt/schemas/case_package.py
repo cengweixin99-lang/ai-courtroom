@@ -7,11 +7,11 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-
+# 严格模式
 class StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-
+# 宽松模式
 class FlexibleModel(BaseModel):
     model_config = ConfigDict(extra="allow")
 

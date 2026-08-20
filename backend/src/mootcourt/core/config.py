@@ -61,6 +61,16 @@ class Settings(BaseSettings):
     legal_vector_similarity_threshold: float = Field(default=0.78, ge=-1, le=1)
     legal_hybrid_candidate_multiplier: int = Field(default=4, ge=1, le=20)
     legal_rrf_rank_constant: int = Field(default=60, ge=1, le=1000)
+    # 与 knowledge/legal/source_manifest.json 的 approved_review_statuses 保持一致；
+    # 历史版本条款是否命中由 effective_from/to 日期过滤决定，不由 review_status 意外拦截。
+    legal_approved_review_statuses: list[str] = Field(
+        default=["verified", "official_publication_verified_historical_version"]
+    )
+    # 命中分数下限（BM25 原始分或 RRF 融合分，按部署检索模式调参）；0 表示不按分数过滤。
+    legal_search_min_score: float = Field(default=0.0, ge=0)
+    # query embedding 进程内缓存；0 表示禁用缓存。
+    legal_embedding_cache_ttl_seconds: float = Field(default=3600, ge=0)
+    legal_embedding_cache_maxsize: int = Field(default=1024, ge=1)
 
     llm_provider: str = "openai"
     llm_model: str = ""
@@ -83,6 +93,10 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0, ge=0, le=2)
     llm_input_cost_per_million_cny: float = Field(default=0, ge=0)
     llm_output_cost_per_million_cny: float = Field(default=0, ge=0)
+    llm_role_models: str = Field(
+        default="",
+        description="角色级别模型路由，格式 role:model,role:model；未配置的角色使用 LLM_MODEL",
+    )
     agent_invocation_lease_seconds: int = Field(default=900, ge=30, le=3_600)
     agent_trace_retention_days: int = Field(default=30, ge=1, le=3_650)
     agent_invocation_retention_days: int = Field(default=7, ge=1, le=3_650)
@@ -92,6 +106,23 @@ class Settings(BaseSettings):
     session_max_tokens: int = Field(default=80_000, ge=1)
     session_max_seconds: int = Field(default=2_400, ge=1)
     session_max_cost_cny: float = Field(default=20, gt=0)
+
+    @property
+    def role_model_map(self) -> dict[str, str]:
+        """解析 LLM_ROLE_MODELS 为角色到模型的映射。"""
+        result: dict[str, str] = {}
+        if not self.llm_role_models:
+            return result
+        for pair in self.llm_role_models.split(","):
+            pair = pair.strip()
+            if not pair or ":" not in pair:
+                continue
+            role, model = pair.split(":", 1)
+            role = role.strip()
+            model = model.strip()
+            if role and model:
+                result[role] = model
+        return result
 
     @model_validator(mode="after")
     def validate_production_security(self) -> Settings:

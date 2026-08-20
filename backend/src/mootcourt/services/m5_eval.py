@@ -16,8 +16,8 @@ from mootcourt.domain.courtroom import CourtAction, CourtPhase
 from mootcourt.repositories.legal_search import LegalSearchRepository
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.schemas.agents import AgentRole, AgentTurnRequest
-from mootcourt.schemas.legal_eval import LegalEvalDataset, load_legal_eval_dataset
-from mootcourt.schemas.m5_eval import (
+from mootcourt.schemas.eval.legal_eval import LegalEvalDataset, load_legal_eval_dataset
+from mootcourt.schemas.eval.m5_eval import (
     EndToEndEvalCase,
     EvalCaseResult,
     EvalMetricCheck,

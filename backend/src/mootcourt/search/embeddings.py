@@ -1,14 +1,16 @@
 from __future__ import annotations
 
 import math
+from collections import OrderedDict
 from pathlib import Path
+from time import monotonic
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
 import httpx
 
 from mootcourt.core.config import Settings
-from mootcourt.schemas.embedding_models import load_embedding_model_registry
+from mootcourt.schemas.eval.embedding_models import load_embedding_model_registry
 
 
 class EmbeddingProviderError(Exception):
@@ -26,6 +28,77 @@ class EmbeddingProvider(Protocol):
     def dimensions(self) -> int: ...
 
     async def embed(self, texts: list[str]) -> list[list[float]]: ...
+
+
+class EmbeddingCacheStore:
+    """跨请求共享的 query embedding 存储；键含模型与版本，模型升级后旧条目自然失效。"""
+
+    def __init__(self, *, maxsize: int) -> None:
+        self.maxsize = maxsize
+        self._entries: OrderedDict[tuple[str, str, str], tuple[float, list[float]]] = OrderedDict()
+
+    def get(self, key: tuple[str, str, str], now: float, ttl_seconds: float) -> list[float] | None:
+        entry = self._entries.get(key)
+        if entry is None:
+            return None
+        created_at, vector = entry
+        if now - created_at >= ttl_seconds:
+            del self._entries[key]
+            return None
+        self._entries.move_to_end(key)
+        return vector
+
+    def put(self, key: tuple[str, str, str], now: float, vector: list[float]) -> None:
+        self._entries[key] = (now, vector)
+        self._entries.move_to_end(key)
+        while len(self._entries) > self.maxsize:
+            self._entries.popitem(last=False)
+
+
+class CachedEmbeddingProvider:
+    """按文本缓存 embedding，前端固定法律问题等重复查询不再调用外部 API。"""
+
+    def __init__(
+        self,
+        inner: EmbeddingProvider,
+        store: EmbeddingCacheStore,
+        *,
+        ttl_seconds: float,
+    ) -> None:
+        self._inner = inner
+        self._store = store
+        self._ttl_seconds = ttl_seconds
+
+    @property
+    def model_name(self) -> str:
+        return self._inner.model_name
+
+    @property
+    def version(self) -> str:
+        return self._inner.version
+
+    @property
+    def dimensions(self) -> int:
+        return self._inner.dimensions
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        if not texts:
+            return []
+        now = monotonic()
+        keys = [(self.model_name, self.version, text) for text in texts]
+        results: list[list[float] | None] = [
+            self._store.get(key, now, self._ttl_seconds) for key in keys
+        ]
+        missing_indexes = [index for index, vector in enumerate(results) if vector is None]
+        if missing_indexes:
+            fetched = await self._inner.embed([texts[index] for index in missing_indexes])
+            if len(fetched) != len(missing_indexes):
+                raise EmbeddingProviderError("embedding provider must return one vector per text")
+            now = monotonic()
+            for index, vector in zip(missing_indexes, fetched, strict=True):
+                self._store.put(keys[index], now, vector)
+                results[index] = vector
+        return [vector for vector in results if vector is not None]
 
 
 class OpenAICompatibleEmbeddingProvider:

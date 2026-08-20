@@ -10,6 +10,7 @@ from mootcourt.api.dependencies import (
     RuntimeUnitOfWork,
     require_authenticated_principal,
 )
+from mootcourt.core.config import Settings, get_settings
 from mootcourt.schemas.legal_search import (
     LegalCitationValidationRequest,
     LegalCitationValidationResponse,
@@ -44,6 +45,7 @@ async def search_legal_authority(
     search_repository: RuntimeLegalSearchRepository,
     embedding_provider: RuntimeLegalEmbeddingProvider,
     current_user: RuntimeCurrentUser,
+    settings: Annotated[Settings, Depends(get_settings)],
 ) -> LegalSearchResponse:
     """基于案件锁定的 LegalProfile 执行 BM25 或 BM25 + 向量混合检索。
 
@@ -57,7 +59,14 @@ async def search_legal_authority(
     ):
         raise HTTPException(status_code=404, detail={"code": "case_not_found"})
     try:
-        result = await search_case_law(unit_of_work, search_repository, request, embedding_provider)
+        result = await search_case_law(
+            unit_of_work,
+            search_repository,
+            request,
+            embedding_provider,
+            approved_review_statuses=settings.legal_approved_review_statuses,
+            min_score=settings.legal_search_min_score,
+        )
     except Exception as exc:
         # 搜索基础设施失败不能降级为模型凭记忆作答。
         raise HTTPException(

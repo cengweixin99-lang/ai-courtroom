@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from mootcourt.cli import eval_legal as eval_legal_cli
 from mootcourt.core.config import Settings
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
-from mootcourt.schemas.legal_eval import LegalEvalDataset, LegalEvalReport, load_legal_eval_dataset
+from mootcourt.schemas.eval.legal_eval import LegalEvalDataset, LegalEvalReport, load_legal_eval_dataset
 from mootcourt.schemas.legal_search import LegalSearchHit
 from mootcourt.services.case_importer import import_case_package
 from mootcourt.services.legal_eval import evaluate_legal_retrieval

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from mootcourt.cli import compare_legal_evals as compare_cli
-from mootcourt.schemas.legal_eval import (
+from mootcourt.schemas.eval.legal_eval import (
     LegalEvalReport,
     load_legal_eval_admission_policy,
     load_legal_eval_report,

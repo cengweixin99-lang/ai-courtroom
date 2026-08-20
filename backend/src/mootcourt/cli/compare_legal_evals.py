@@ -3,7 +3,7 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from mootcourt.schemas.legal_eval import (
+from mootcourt.schemas.eval.legal_eval import (
     load_legal_eval_admission_policy,
     load_legal_eval_report,
 )

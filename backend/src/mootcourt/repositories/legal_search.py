@@ -47,6 +47,19 @@ _ARTICLE_REFERENCE = re.compile(
     r"第[零〇一二三四五六七八九十百千万两0-9]+条(?:第[零〇一二三四五六七八九十百千万两0-9]+款)?"
 )
 
+# 中文法律口语↔条文用语同义组；查询命中组内任意词即在 text 上追加低权重扩展子句。
+# 只在查询侧生效，不要求重建索引；可通过构造函数替换。
+DEFAULT_QUERY_SYNONYMS: dict[str, tuple[str, ...]] = {
+    "盗窃": ("偷窃", "窃取", "盗取"),
+    "故意": ("明知", "蓄意"),
+    "非法占有": ("据为己有", "侵占"),
+    "财物": ("财产", "物品"),
+    "数额": ("金额", "价值"),
+    "证据": ("证明材料",),
+    "供述": ("口供",),
+    "认定": ("推定", "推断"),
+}
+
 
 class LegalSearchRepositoryError(Exception):
     pass
@@ -77,6 +90,7 @@ class ElasticsearchLegalSearchRepository:
         vector_similarity_threshold: float = 0.78,
         hybrid_candidate_multiplier: int = 4,
         rrf_rank_constant: int = 60,
+        query_synonyms: Mapping[str, Sequence[str]] | None = None,
     ) -> None:
         self._client = client
         self.index_name = index_name
@@ -84,6 +98,9 @@ class ElasticsearchLegalSearchRepository:
         self._vector_similarity_threshold = vector_similarity_threshold
         self._hybrid_candidate_multiplier = hybrid_candidate_multiplier
         self._rrf_rank_constant = rrf_rank_constant
+        self._query_synonyms = (
+            DEFAULT_QUERY_SYNONYMS if query_synonyms is None else dict(query_synonyms)
+        )
 
     async def ensure_index(self) -> None:
         exists = await self._client.indices.exists(index=self.index_name)
@@ -203,7 +220,7 @@ class ElasticsearchLegalSearchRepository:
                 response = await self._client.search(
                     index=self.index_name,
                     size=size,
-                    query=_build_search_query(query, filters),
+                    query=_build_search_query(query, filters, self._query_synonyms),
                     source_excludes=["embedding"],
                 )
                 raw_hits = _raw_hits(response)
@@ -225,7 +242,7 @@ class ElasticsearchLegalSearchRepository:
                 self._client.search(
                     index=self.index_name,
                     size=candidate_size,
-                    query=_build_search_query(query, filters),
+                    query=_build_search_query(query, filters, self._query_synonyms),
                     source_excludes=["embedding"],
                 ),
                 self._client.search(
@@ -336,7 +353,11 @@ def _search_hit(raw_hit: object) -> LegalSearchHit:
     )
 
 
-def _build_search_query(query: str, filters: list[dict[str, Any]]) -> dict[str, Any]:
+def _build_search_query(
+    query: str,
+    filters: list[dict[str, Any]],
+    query_synonyms: Mapping[str, Sequence[str]] | None = None,
+) -> dict[str, Any]:
     candidates: list[dict[str, Any]] = [
         {
             "multi_match": {
@@ -348,6 +369,7 @@ def _build_search_query(query: str, filters: list[dict[str, Any]]) -> dict[str, 
             }
         }
     ]
+    candidates.extend(_synonym_clauses(query, query_synonyms or {}))
     article_references = sorted(set(_ARTICLE_REFERENCE.findall(query)))
     if article_references:
         candidates.append(
@@ -365,3 +387,29 @@ def _build_search_query(query: str, filters: list[dict[str, Any]]) -> dict[str, 
             "filter": filters,
         }
     }
+
+
+def _synonym_clauses(
+    query: str, query_synonyms: Mapping[str, Sequence[str]]
+) -> list[dict[str, Any]]:
+    """查询命中同义组任意词时，在 text 字段追加整组低权重扩展子句。
+
+    主查询保持 60% 词项匹配精度，扩展子句只提升召回，不放宽主查询门槛。
+    """
+    clauses: list[dict[str, Any]] = []
+    for term, equivalents in query_synonyms.items():
+        group = [term, *equivalents]
+        if not any(item in query for item in group):
+            continue
+        clauses.append(
+            {
+                "multi_match": {
+                    "query": " ".join(group),
+                    "fields": ["text"],
+                    "type": "best_fields",
+                    "operator": "or",
+                    "boost": 0.5,
+                }
+            }
+        )
+    return clauses

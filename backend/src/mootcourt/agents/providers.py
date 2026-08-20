@@ -24,6 +24,7 @@ class AgentProviderRequest:
     instruction: str | None
     repair_instruction: str | None = None
     on_text_update: TextUpdateCallback | None = None
+    preferred_model: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

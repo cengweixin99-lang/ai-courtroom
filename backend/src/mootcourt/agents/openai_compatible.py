@@ -119,12 +119,16 @@ class OpenAICompatibleProvider:
         return self._model
 
     async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        effective_model = request.preferred_model or self._model
+        # json_schema 严格模式由 API 的 response_format 承载 Schema，提示中无需重复嵌入。
+        include_schema_in_prompt = self._response_format != "json_schema"
         try:
             prompt = build_agent_prompt(
                 request.context,
                 request.instruction,
                 request.repair_instruction,
                 max_input_tokens=self._max_input_tokens,
+                include_response_schema_in_prompt=include_schema_in_prompt,
             )
         except ContextBudgetExceeded as exc:
             raise AgentProviderError("agent_context_too_large", str(exc)) from exc
@@ -132,7 +136,7 @@ class OpenAICompatibleProvider:
             logger.info(
                 "agent_context_trimmed",
                 provider=self.provider_name,
-                model=self.model_name,
+                model=effective_model,
                 original_tokens=prompt.budget_report.original_tokens,
                 final_tokens=prompt.budget_report.final_tokens,
                 removed_event_count=prompt.budget_report.removed_event_count,
@@ -151,6 +155,7 @@ class OpenAICompatibleProvider:
             response_schema=prompt.response_schema,
             on_text_update=request.on_text_update,
             visible_field=visible_field,
+            model=effective_model,
         )
 
     async def generate_structured(self, request: StructuredProviderRequest) -> AgentProviderResult:
@@ -172,19 +177,21 @@ class OpenAICompatibleProvider:
         response_schema: dict[str, Any],
         on_text_update: TextUpdateCallback | None,
         visible_field: Literal["speech", "answer"] | None,
+        model: str | None = None,
     ) -> AgentProviderResult:
+        effective_model = model or self._model
         try:
             await enter_provider_call()
         except ProviderResilienceError as exc:
             record_provider_guard_rejection(
                 provider=self.provider_name,
-                model=self.model_name,
+                model=effective_model,
                 reason=exc.code,
             )
             logger.warning(
                 "agent_provider_guard_rejected",
                 provider=self.provider_name,
-                model=self.model_name,
+                model=effective_model,
                 reason=exc.code,
             )
             raise AgentProviderError(exc.code, exc.message) from exc
@@ -194,7 +201,7 @@ class OpenAICompatibleProvider:
             except ProviderResilienceError as exc:
                 record_provider_guard_rejection(
                     provider=self.provider_name,
-                    model=self.model_name,
+                    model=effective_model,
                     reason=exc.code,
                 )
                 raise AgentProviderError(exc.code, exc.message) from exc
@@ -205,6 +212,7 @@ class OpenAICompatibleProvider:
                     response_schema=response_schema,
                     on_text_update=on_text_update,
                     visible_field=visible_field,
+                    model=effective_model,
                 )
             except AgentProviderError as exc:
                 if exc.code == "agent_provider_rate_limited":
@@ -228,9 +236,11 @@ class OpenAICompatibleProvider:
         response_schema: dict[str, Any],
         on_text_update: TextUpdateCallback | None,
         visible_field: Literal["speech", "answer"] | None,
+        model: str | None = None,
     ) -> AgentProviderResult:
+        effective_model = model or self._model
         payload: dict[str, Any] = {
-            "model": self._model,
+            "model": effective_model,
             "messages": messages,
             self._max_tokens_field: self._max_output_tokens,
             "temperature": self._temperature,
@@ -302,7 +312,7 @@ class OpenAICompatibleProvider:
         return AgentProviderResult(
             output=output,
             provider=self.provider_name,
-            model=self.model_name,
+            model=effective_model,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
             estimated_input_tokens=generated.estimated_input_tokens,

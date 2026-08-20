@@ -11,7 +11,7 @@ from mootcourt.schemas.legal_search import (
     LegalSearchHit,
     load_legal_source_manifest,
 )
-from mootcourt.schemas.m5_eval import M5Subset, load_m5_eval_datasets
+from mootcourt.schemas.eval.m5_eval import M5Subset, load_m5_eval_datasets
 from mootcourt.services.case_importer import import_case_package
 from mootcourt.services.m5_eval import _metric_checks, evaluate_m5_suite
 
@@ -85,7 +85,7 @@ def test_m5_dataset_loader_rejects_missing_manifest(tmp_path: Path) -> None:
 def test_m5_at_least_thresholds_are_not_treated_as_zero_percent() -> None:
     from types import SimpleNamespace
 
-    from mootcourt.schemas.m5_eval import EvalCaseResult
+    from mootcourt.schemas.eval.m5_eval import EvalCaseResult
 
     def result(identifier: str, subset: M5Subset, metric: str) -> EvalCaseResult:
         return EvalCaseResult(

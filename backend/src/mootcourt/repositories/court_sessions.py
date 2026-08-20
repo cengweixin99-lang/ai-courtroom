@@ -19,6 +19,7 @@ from mootcourt.db.models import (
     ParticipantStatementTraceModel,
     ProceduralRequestModel,
     SessionEventModel,
+    SessionRoleClaimModel,
 )
 
 CourtSessionRecord = CourtSessionModel
@@ -153,7 +154,7 @@ class SqlAlchemyCourtSessionRepository:
             )
         )
 
-    async def list_recent_events(self, session_id: str, limit: int = 20) -> list[SessionEventModel]:
+    async def list_recent_events(self, session_id: str, limit: int = 50) -> list[SessionEventModel]:
         rows = list(
             await self._session.scalars(
                 select(SessionEventModel)
@@ -165,6 +166,42 @@ class SqlAlchemyCourtSessionRepository:
         # 数据库倒序取最近 N 条更高效，交给模型前恢复为庭审发生顺序。
         rows.reverse()
         return rows
+
+    async def list_relevant_events(
+        self,
+        session_id: str,
+        *,
+        evidence_ids: list[str] | None = None,
+        target_id: str | None = None,
+        phase: str | None = None,
+        recent_limit: int = 50,
+    ) -> list[SessionEventModel]:
+        """返回与当前任务相关的事件：任务相关事件 + 当前阶段事件 + 最近事件。"""
+        evidence_ids = evidence_ids or []
+        all_events = await self.list_events(session_id)
+
+        def _is_relevant(event: SessionEventModel) -> bool:
+            payload = event.payload or {}
+            event_evidence_ids = payload.get("evidence_ids", [])
+            event_target_id = payload.get("target_id") or payload.get("participant_id")
+            if evidence_ids and any(eid in event_evidence_ids for eid in evidence_ids):
+                return True
+            if target_id and event_target_id == target_id:
+                return True
+            return bool(phase and event.phase == phase)
+
+        relevant = [event for event in all_events if _is_relevant(event)]
+        recent = all_events[-recent_limit:] if len(all_events) > recent_limit else all_events
+
+        # 合并并去重，保持庭审顺序
+        seen = set()
+        merged: list[SessionEventModel] = []
+        for event in relevant + recent:
+            if event.id in seen:
+                continue
+            seen.add(event.id)
+            merged.append(event)
+        return merged
 
     async def get_event_by_sequence(
         self, session_id: str, sequence_number: int
@@ -449,6 +486,69 @@ class SqlAlchemyCourtSessionRepository:
                 .order_by(ParticipantStatementTraceModel.event_sequence_number)
             )
         )
+
+    async def list_public_statements_for_participant(
+        self,
+        session_id: str,
+        participant_id: str,
+        *,
+        limit: int = 10,
+    ) -> list[SessionEventModel]:
+        """返回该参与人在本次庭审中已经发表的公开陈述事件（按发生顺序）。"""
+        rows = list(
+            await self._session.scalars(
+                select(SessionEventModel)
+                .where(
+                    SessionEventModel.session_id == session_id,
+                    SessionEventModel.action == "make_statement",
+                )
+                .order_by(SessionEventModel.sequence_number)
+            )
+        )
+        return [row for row in rows if row.payload.get("participant_id") == participant_id][:limit]
+
+    def add_role_claims(
+        self,
+        session_id: str,
+        *,
+        event_sequence_number: int,
+        phase: str,
+        role: str,
+        claims: list[dict[str, Any]],
+    ) -> None:
+        """把律师结构化主张写入索引表，供多轮一致性与复盘统计直接查询。"""
+        for claim in claims:
+            self._session.add(
+                SessionRoleClaimModel(
+                    session_id=session_id,
+                    event_sequence_number=event_sequence_number,
+                    role=role,
+                    phase=phase,
+                    claim_type=str(claim["claim_type"]),
+                    fact_ids=list(claim["fact_ids"]),
+                    text=str(claim["text"]),
+                )
+            )
+
+    async def list_role_claims(
+        self,
+        session_id: str,
+        role: str,
+        *,
+        limit: int = 20,
+    ) -> list[SessionRoleClaimModel]:
+        """返回指定律师角色在本次庭审中已经提出的结构化主张（按发生顺序）。"""
+        rows = list(
+            await self._session.scalars(
+                select(SessionRoleClaimModel)
+                .where(
+                    SessionRoleClaimModel.session_id == session_id,
+                    SessionRoleClaimModel.role == role,
+                )
+                .order_by(SessionRoleClaimModel.event_sequence_number, SessionRoleClaimModel.id)
+            )
+        )
+        return rows[:limit]
 
     async def get_participant_statement_trace_for_update(
         self, session_id: str, trace_id: str

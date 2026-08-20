@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from time import perf_counter
@@ -31,6 +32,7 @@ from mootcourt.schemas.agents import (
     AdvocateOutput,
     AgentContext,
     AgentEvidenceCitation,
+    AgentLegalSourceContext,
     AgentOutput,
     AgentRole,
     AgentTraceStatus,
@@ -93,13 +95,14 @@ async def execute_agent_turn(
     settings: Settings,
     stream_callback: AgentStreamCallback | None = None,
 ) -> AgentTurnResponse:
+    effective_model = settings.role_model_map.get(request.actor_role.value, provider.model_name)
     logger.info(
         "agent_turn_started",
         session_id=session_id,
         actor_role=request.actor_role.value,
         action=request.action.value,
         provider=provider.provider_name,
-        model=provider.model_name,
+        model=effective_model,
     )
     session = await unit_of_work.court_sessions.get(session_id)
     if session is None:
@@ -138,11 +141,13 @@ async def execute_agent_turn(
         if stream_callback is not None:
             await stream_callback("turn.delta", {"text": text})
 
+    preferred_model = settings.role_model_map.get(request.actor_role.value)
     invocation = await _invoke_provider(
         provider,
         context,
         request.instruction,
         on_text_update=on_text_update if stream_callback is not None else None,
+        preferred_model=preferred_model,
     )
     if stream_callback is not None and invocation.provider_result is not None:
         await stream_callback("turn.validating", {})
@@ -315,6 +320,22 @@ async def execute_agent_turn(
             "challenge_dimensions": request.challenge_dimensions,
         },
     )
+    if isinstance(invocation.output, AdvocateOutput) and invocation.output.claims:
+        # 与事件同事务写入 claim 索引；发问回合 claims 恒为空，自然不产生索引行。
+        unit_of_work.court_sessions.add_role_claims(
+            locked.id,
+            event_sequence_number=sequence_number,
+            phase=locked.phase,
+            role=request.actor_role.value,
+            claims=[
+                {
+                    "text": claim.text,
+                    "claim_type": claim.claim_type.value,
+                    "fact_ids": list(claim.fact_ids),
+                }
+                for claim in invocation.output.claims
+            ],
+        )
     if request.action is CourtAction.CHALLENGE_EVIDENCE:
         agenda_rows = await unit_of_work.court_sessions.evidence_agenda_for_update(
             locked.id, event_evidence_ids
@@ -548,6 +569,7 @@ async def _invoke_provider(
     context: AgentContext,
     instruction: str | None,
     on_text_update: TextUpdateCallback | None = None,
+    preferred_model: str | None = None,
 ) -> _InvocationResult:
     started = perf_counter()
     first_result: AgentProviderResult | None = None
@@ -557,6 +579,7 @@ async def _invoke_provider(
                 context=context,
                 instruction=instruction,
                 on_text_update=on_text_update,
+                preferred_model=preferred_model,
             )
         )
         first_payload, anchors_materialized, anchor_error = _materialize_advocate_citation_anchors(
@@ -596,6 +619,7 @@ async def _invoke_provider(
                 instruction=instruction,
                 repair_instruction=repair_instruction,
                 on_text_update=on_text_update,
+                preferred_model=preferred_model,
             )
         )
         repaired_payload, anchors_materialized, anchor_error = (
@@ -801,6 +825,12 @@ def _validate_output(context: AgentContext, output: AgentOutput) -> str | None:
                     allowed_relation_ids.update(fact.contradicting_evidence_ids)
                 if not related_evidence_ids.intersection(allowed_relation_ids):
                     return "claim fact is not connected to a cited evidence item"
+        consistency_error = _claim_consistency_error(context, output)
+        if consistency_error is not None:
+            return consistency_error
+        legal_error = _legal_citation_error(context, output)
+        if legal_error is not None:
+            return legal_error
         return None
 
     if isinstance(output, (WitnessOutput, DefendantOutput)):
@@ -831,6 +861,86 @@ def _validate_output(context: AgentContext, output: AgentOutput) -> str | None:
         ):
             return "participant output must cite a statement or explicitly refuse"
     return None
+
+
+# supported_fact 与 disputed_fact 构成同一角色在同一事实上的对立立场；
+# inference 和 opinion 不做确定性矛盾判定，交给提示词约束。
+_CONTRADICTING_CLAIM_TYPES = frozenset({ClaimType.SUPPORTED_FACT, ClaimType.DISPUTED_FACT})
+
+
+def _claim_consistency_error(context: AgentContext, output: AdvocateOutput) -> str | None:
+    """同一律师角色在同一事实上的 supported/disputed 立场反转视为确定性矛盾。"""
+    if not context.role_public_claims:
+        return None
+    prior_positions: dict[ClaimType, set[str]] = {}
+    for prior in context.role_public_claims:
+        if prior.claim_type not in _CONTRADICTING_CLAIM_TYPES:
+            continue
+        positions = prior_positions.setdefault(prior.claim_type, set())
+        for fact_id in prior.fact_ids:
+            positions.add(fact_id)
+    if not prior_positions:
+        return None
+    for claim in output.claims:
+        if claim.claim_type not in _CONTRADICTING_CLAIM_TYPES:
+            continue
+        opposite = (
+            ClaimType.DISPUTED_FACT
+            if claim.claim_type is ClaimType.SUPPORTED_FACT
+            else ClaimType.SUPPORTED_FACT
+        )
+        conflicting_facts = set(claim.fact_ids) & prior_positions.get(opposite, set())
+        if conflicting_facts:
+            facts_label = ",".join(sorted(conflicting_facts))
+            return (
+                f"claim contradicts the role's earlier public position on facts {facts_label} "
+                f"({claim.claim_type.value} vs {opposite.value})"
+            )
+    return None
+
+
+# 《法律名称》第X条（可选款、项）引用形式；条号支持中文数字与阿拉伯数字。
+_LEGAL_CITATION_PATTERN = re.compile(
+    r"《(?P<title>[^》]{2,40})》"
+    r"(?P<article>第[〇零一二三四五六七八九十百千0-9]+条"
+    r"(?:第[一二三四五六七八九十0-9]+款)?(?:第[一二三四五六七八九十0-9]+项)?)"
+)
+_TITLE_PARENTHETICAL_PATTERN = re.compile(r"（[^）]*）")
+
+
+def _legal_citation_error(context: AgentContext, output: AdvocateOutput) -> str | None:
+    """律师引用法条必须命中本案白名单法源，防止凭记忆捏造清单外条文。"""
+    if not context.legal_sources:
+        return None
+    text = " ".join([output.speech, *(claim.text for claim in output.claims)])
+    for match in _LEGAL_CITATION_PATTERN.finditer(text):
+        cited_title = _normalize_instrument_title(match.group("title"))
+        cited_article = match.group("article")
+        if not any(
+            _legal_source_matches(source, cited_title, cited_article)
+            for source in context.legal_sources
+        ):
+            return (
+                "legal citation is outside the case legal source whitelist: "
+                f"《{match.group('title')}》{cited_article}"
+            )
+    return None
+
+
+def _normalize_instrument_title(title: str) -> str:
+    """去掉括号说明与空白，使《中华人民共和国刑法》能匹配带数据库备注的官方标题。"""
+    return _TITLE_PARENTHETICAL_PATTERN.sub("", title).replace(" ", "")
+
+
+def _legal_source_matches(
+    source: AgentLegalSourceContext, cited_title: str, cited_article: str
+) -> bool:
+    instrument = _normalize_instrument_title(source.instrument_title)
+    title_matches = bool(cited_title) and (cited_title in instrument or instrument in cited_title)
+    if not title_matches:
+        return False
+    article = source.article_number.replace(" ", "")
+    return article.startswith(cited_article) or cited_article.startswith(article)
 
 
 def _materialize_advocate_citation_anchors(

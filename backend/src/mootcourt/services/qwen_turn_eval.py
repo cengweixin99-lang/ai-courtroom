@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from time import perf_counter
 
 from mootcourt.agents.providers import StructuredAgentProvider, StructuredProviderRequest
-from mootcourt.schemas.qwen_turn_eval import (
+from mootcourt.schemas.eval.qwen_turn_eval import (
     QwenTurnEvalCase,
     QwenTurnEvalDataset,
     QwenTurnEvalReport,

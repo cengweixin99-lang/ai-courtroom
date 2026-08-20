@@ -154,6 +154,35 @@ def test_bm25_query_requires_majority_match_and_boosts_article_number() -> None:
     assert candidates[1]["terms"]["boost"] == 10
 
 
+def test_bm25_query_expands_synonyms_without_weakening_primary_clause() -> None:
+    query = _build_search_query(
+        "林舟是否明知相机为他人财物",
+        [],
+        {"故意": ("明知", "蓄意"), "盗窃": ("偷窃", "窃取")},
+    )
+
+    candidates = query["bool"]["should"]
+    # 主查询仍是原始文本与 60% 词项门槛
+    assert candidates[0]["multi_match"]["query"] == "林舟是否明知相机为他人财物"
+    assert candidates[0]["multi_match"]["minimum_should_match"] == "60%"
+    # 命中“明知”触发“故意”组扩展；未命中“盗窃”组则不扩展
+    assert len(candidates) == 2
+    synonym_clause = candidates[1]["multi_match"]
+    assert synonym_clause["query"] == "故意 明知 蓄意"
+    assert synonym_clause["fields"] == ["text"]
+    assert synonym_clause["boost"] == 0.5
+
+
+def test_bm25_query_skips_synonym_expansion_for_unrelated_text() -> None:
+    query = _build_search_query(
+        "法庭调查程序",
+        [],
+        {"故意": ("明知",), "盗窃": ("偷窃",)},
+    )
+
+    assert len(query["bool"]["should"]) == 1
+
+
 async def test_repository_creates_index_and_idempotently_indexes_documents() -> None:
     manifest, documents = load_legal_source_manifest(LEGAL_MANIFEST)
     client = RecordingElasticsearchClient()
@@ -416,8 +445,54 @@ async def test_legal_search_uses_case_profile_filters(
     assert str(call["law_as_of_date"]) == "2026-07-14"
     assert "LS-CRIMINAL-LAW-264" in call["allowed_source_ids"]
     assert "LS-CRIMINAL-LAW-264-2009-HISTORICAL" not in call["allowed_source_ids"]
-    assert call["approved_review_statuses"] == ("verified",)
+    assert call["approved_review_statuses"] == (
+        "verified",
+        "official_publication_verified_historical_version",
+    )
     assert call["size"] == 3
+
+
+async def test_legal_search_min_score_marks_weak_hits_insufficient(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    weak_hit = LegalSearchHit(
+        source_id="LS-CRIMINAL-LAW-264",
+        instrument_title="中华人民共和国刑法",
+        article_number="第二百六十四条",
+        text="盗窃公私财物……",
+        jurisdiction="PRC",
+        effective_from=date(2021, 3, 1),
+        effective_to=None,
+        status="effective",
+        review_status="verified",
+        authority_level="law_current_official",
+        official_source_url="https://flk.npc.gov.cn/",
+        version_hash="a" * 64,
+        score=1.5,
+    )
+    async with session_factory() as session:
+        unit_of_work = SqlAlchemyUnitOfWork(session)
+        await import_case_package(unit_of_work, CASE_PACKAGE)
+        await unit_of_work.commit()
+        repository = StubLegalSearchRepository([weak_hit])
+
+        default_result = await search_case_law(
+            unit_of_work,
+            repository,
+            LegalSearchRequest(case_id="CASE-001", query="盗窃", top_k=3),
+        )
+        threshold_result = await search_case_law(
+            unit_of_work,
+            repository,
+            LegalSearchRequest(case_id="CASE-001", query="盗窃", top_k=3),
+            min_score=5.0,
+        )
+
+    assert default_result is not None
+    assert default_result.outcome == "SUFFICIENT_LEGAL_AUTHORITY"
+    assert threshold_result is not None
+    assert threshold_result.outcome == "INSUFFICIENT_LEGAL_AUTHORITY"
+    assert threshold_result.hits == []
 
 
 async def test_legal_search_returns_insufficient_without_model_fallback(

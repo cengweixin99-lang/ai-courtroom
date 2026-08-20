@@ -31,7 +31,7 @@ from mootcourt.services.court_sessions import (
     resolve_procedural_request,
 )
 
-
+# 异常类
 class CourtOrchestratorError(Exception):
     def __init__(self, code: str, message: str, status_code: int = 409) -> None:
         super().__init__(message)
@@ -39,7 +39,7 @@ class CourtOrchestratorError(Exception):
         self.message = message
         self.status_code = status_code
 
-
+# 一个计划好的 Agent 回合
 @dataclass(frozen=True, slots=True)
 class PlannedAgentTurn:
     actor_role: AgentRole
@@ -50,7 +50,7 @@ class PlannedAgentTurn:
     challenge_dimensions: tuple[str, ...] = ()
     instruction: str | None = None
 
-
+# 自动推进一次庭审
 async def run_automatic_step(
     unit_of_work: SqlAlchemyUnitOfWork,
     session_id: str,

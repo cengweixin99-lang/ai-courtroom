@@ -4,7 +4,7 @@ from time import perf_counter
 
 from mootcourt.repositories.legal_search import LegalSearchRepository
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
-from mootcourt.schemas.legal_eval import (
+from mootcourt.schemas.eval.legal_eval import (
     LegalEvalCase,
     LegalEvalCaseResult,
     LegalEvalDataset,

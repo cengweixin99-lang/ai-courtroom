@@ -14,7 +14,7 @@ from mootcourt.agents.provider_resilience import (
     ProviderResilienceError,
     RedisProviderResilience,
 )
-from mootcourt.schemas.provider_guard_load import ProviderGuardLoadReport
+from mootcourt.schemas.eval.provider_guard_load import ProviderGuardLoadReport
 
 
 class ProviderGuard(Protocol):

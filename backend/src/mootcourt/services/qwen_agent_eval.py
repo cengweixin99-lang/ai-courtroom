@@ -13,7 +13,7 @@ from mootcourt.core.config import Settings
 from mootcourt.domain.courtroom import CourtAction, CourtPhase
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
 from mootcourt.schemas.agents import AdvocateOutput, AgentTurnRequest
-from mootcourt.schemas.qwen_agent_eval import (
+from mootcourt.schemas.eval.qwen_agent_eval import (
     QwenAgentEvalCase,
     QwenAgentEvalCaseResult,
     QwenAgentEvalCheck,

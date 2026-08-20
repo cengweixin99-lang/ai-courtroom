@@ -9,7 +9,7 @@ from typing import Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from mootcourt.schemas.agents import AgentRole
-from mootcourt.schemas.legal_eval import LegalEvalReport
+from mootcourt.schemas.eval.legal_eval import LegalEvalReport
 from mootcourt.schemas.runtime import SessionActionRequest, UserRole
 
 

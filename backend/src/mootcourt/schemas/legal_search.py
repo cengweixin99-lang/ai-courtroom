@@ -166,6 +166,7 @@ class LegalSearchFilters(StrictLegalModel):
     allowed_source_ids: list[str]
     approved_review_statuses: list[str]
     top_k: int
+    min_score: float = Field(default=0.0, description="命中分数下限；0 表示不按分数过滤")
 
 
 class LegalSearchTraceView(StrictLegalModel):

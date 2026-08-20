@@ -9,6 +9,8 @@ from pydantic import SecretStr
 
 from mootcourt.core.config import Settings
 from mootcourt.search.embeddings import (
+    CachedEmbeddingProvider,
+    EmbeddingCacheStore,
     EmbeddingProviderError,
     OpenAICompatibleEmbeddingProvider,
     _is_loopback_url,
@@ -16,6 +18,57 @@ from mootcourt.search.embeddings import (
 )
 
 MODEL_REGISTRY = "knowledge/legal/embedding_models.json"
+
+
+class CountingEmbeddingProvider:
+    def __init__(self) -> None:
+        self.calls: list[list[str]] = []
+
+    @property
+    def model_name(self) -> str:
+        return "counting-model"
+
+    @property
+    def version(self) -> str:
+        return "v1"
+
+    @property
+    def dimensions(self) -> int:
+        return 2
+
+    async def embed(self, texts: list[str]) -> list[list[float]]:
+        self.calls.append(list(texts))
+        return [[float(len(text)), 0.0] for text in texts]
+
+
+async def test_cached_embedding_provider_reuses_vectors_per_text() -> None:
+    inner = CountingEmbeddingProvider()
+    provider = CachedEmbeddingProvider(inner, EmbeddingCacheStore(maxsize=8), ttl_seconds=3600)
+
+    first = await provider.embed(["盗窃罪的构成要件"])
+    second = await provider.embed(["盗窃罪的构成要件"])
+    mixed = await provider.embed(["盗窃罪的构成要件", "排除合理怀疑"])
+
+    assert first == second == [[8.0, 0.0]]
+    assert mixed == [[8.0, 0.0], [6.0, 0.0]]
+    # 三次调用只产生两次真实请求：首次 + 第二次混合中的新文本
+    assert inner.calls == [["盗窃罪的构成要件"], ["排除合理怀疑"]]
+
+
+async def test_cached_embedding_provider_refreshes_expired_entries() -> None:
+    inner = CountingEmbeddingProvider()
+    store = EmbeddingCacheStore(maxsize=8)
+    provider = CachedEmbeddingProvider(inner, store, ttl_seconds=30)
+
+    await provider.embed(["盗窃"])
+    # 把条目时间戳拨到过去，模拟 TTL 过期
+    key = next(iter(store._entries))
+    _, vector = store._entries[key]
+    store._entries[key] = (0.0, vector)
+
+    await provider.embed(["盗窃"])
+
+    assert inner.calls == [["盗窃"], ["盗窃"]]
 
 
 async def test_embedding_provider_sends_versioned_dimensions_and_orders_results() -> None:

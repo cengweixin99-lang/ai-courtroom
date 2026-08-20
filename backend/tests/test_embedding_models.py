@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from pydantic import ValidationError
 
-from mootcourt.schemas.embedding_models import load_embedding_model_registry
+from mootcourt.schemas.eval.embedding_models import load_embedding_model_registry
 
 MODEL_REGISTRY = Path(__file__).parents[2] / "knowledge" / "legal" / "embedding_models.json"
 

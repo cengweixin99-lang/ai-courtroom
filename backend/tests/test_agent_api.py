@@ -25,10 +25,19 @@ from mootcourt.api.dependencies import (
 )
 from mootcourt.core.auth import AuthenticatedPrincipal
 from mootcourt.core.config import Settings, get_settings
+from mootcourt.domain.courtroom import CourtAction, CourtPhase
 from mootcourt.main import app
 from mootcourt.repositories.agent_traces import SessionAgentUsage
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
-from mootcourt.schemas.agents import AgentStatementCitation, Certainty, WitnessOutput
+from mootcourt.schemas.agents import (
+    AgentRole,
+    AgentStatementCitation,
+    AgentTurnRequest,
+    Certainty,
+    ClaimType,
+    WitnessOutput,
+)
+from mootcourt.services.agent_context import build_agent_context
 from mootcourt.services.agent_invocations import acquire_agent_invocation
 from mootcourt.services.agent_turns import (
     AgentTurnServiceError,
@@ -193,6 +202,84 @@ class SubsetEvidenceProvider:
                         "text": claim_text,
                         "claim_type": "disputed_fact",
                         "fact_ids": ["F01"],
+                        "citations": [{"evidence_id": evidence.id, "quote": evidence.content[:20]}],
+                    }
+                ],
+                "requested_action": request.context.action.value,
+                "target_id": None,
+            },
+            provider=self.provider_name,
+            model=self.model_name,
+        )
+
+
+class FactPositionProvider:
+    """按指定立场对 F13 发表主张，引用本轮任务选定的证据。"""
+
+    def __init__(self, claim_type: str) -> None:
+        self._claim_type = claim_type
+
+    @property
+    def provider_name(self) -> str:
+        return "fact-position-test"
+
+    @property
+    def model_name(self) -> str:
+        return "fact-position"
+
+    async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        evidence_id = request.context.task.evidence_ids[0]
+        evidence = next(item for item in request.context.evidence if item.id == evidence_id)
+        claim_text = "本方就林舟取走相机的主观目的发表意见。"
+        return AgentProviderResult(
+            output={
+                "kind": "advocate",
+                "speaker_role": request.context.actor_role.value,
+                "speech": claim_text,
+                "claims": [
+                    {
+                        "text": claim_text,
+                        "claim_type": self._claim_type,
+                        "fact_ids": ["F13"],
+                        "citations": [{"evidence_id": evidence.id, "quote": evidence.content[:20]}],
+                    }
+                ],
+                "requested_action": request.context.action.value,
+                "target_id": None,
+            },
+            provider=self.provider_name,
+            model=self.model_name,
+        )
+
+
+class LegalCitationProvider:
+    """在发言中引用指定法条，用于验证白名单法源校验。"""
+
+    def __init__(self, citation: str) -> None:
+        self._citation = citation
+
+    @property
+    def provider_name(self) -> str:
+        return "legal-citation-test"
+
+    @property
+    def model_name(self) -> str:
+        return "legal-citation"
+
+    async def generate(self, request: AgentProviderRequest) -> AgentProviderResult:
+        evidence_id = request.context.task.evidence_ids[0]
+        evidence = next(item for item in request.context.evidence if item.id == evidence_id)
+        claim_text = f"根据{self._citation}，本方就林舟取走相机的主观目的发表意见。"
+        return AgentProviderResult(
+            output={
+                "kind": "advocate",
+                "speaker_role": request.context.actor_role.value,
+                "speech": claim_text,
+                "claims": [
+                    {
+                        "text": claim_text,
+                        "claim_type": "supported_fact",
+                        "fact_ids": ["F13"],
                         "citations": [{"evidence_id": evidence.id, "quote": evidence.content[:20]}],
                     }
                 ],
@@ -1080,6 +1167,149 @@ async def test_agent_challenge_may_select_subset_and_records_only_addressed_evid
     requests = await agent_api_client.get(f"/api/v1/sessions/{session_id}/procedural-requests")
     assert requests.status_code == 200
     assert requests.json()[0]["evidence_ids"] == ["E01"]
+
+
+async def test_agent_claim_cannot_reverse_earlier_public_position(
+    agent_api_client: AsyncClient,
+) -> None:
+    session_id = await _create_session(agent_api_client, user_role="defense")
+    await _advance(agent_api_client, session_id, 3)
+
+    _use_provider(FactPositionProvider("supported_fact"))
+    first = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "prosecution",
+            "action": "submit_evidence",
+            "evidence_ids": ["E04"],
+        },
+    )
+    assert first.status_code == 200
+
+    # 同一立场针对同一事实不视为矛盾，允许继续举证。
+    consistent = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "prosecution",
+            "action": "submit_evidence",
+            "evidence_ids": ["E06"],
+        },
+    )
+    assert consistent.status_code == 200
+
+    _use_provider(FactPositionProvider("disputed_fact"))
+    response = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "prosecution",
+            "action": "submit_evidence",
+            "evidence_ids": ["E10"],
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json()["error"]["code"] == "agent_output_forbidden"
+    assert "contradicts the role's earlier public position" in (response.json()["error"]["message"])
+
+
+async def test_agent_context_loads_opposing_public_claims(
+    agent_api_client: AsyncClient,
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    # 用户控制辩护方时辩护方无法由 Agent 扮演，因此直接写入双方主张索引做服务层验证。
+    session_id = await _create_session(agent_api_client, user_role="defense")
+    async with session_factory() as session:
+        unit_of_work = SqlAlchemyUnitOfWork(session)
+        record = await unit_of_work.court_sessions.get(session_id)
+        assert record is not None
+        unit_of_work.court_sessions.add_role_claims(
+            session_id,
+            event_sequence_number=2,
+            phase=CourtPhase.PROSECUTION_EVIDENCE_AND_EXAMINATION.value,
+            role="prosecution",
+            claims=[
+                {
+                    "text": "林舟取走相机时具有非法占有目的。",
+                    "claim_type": "supported_fact",
+                    "fact_ids": ["F13"],
+                }
+            ],
+        )
+        unit_of_work.court_sessions.add_role_claims(
+            session_id,
+            event_sequence_number=3,
+            phase=CourtPhase.PROSECUTION_EVIDENCE_AND_EXAMINATION.value,
+            role="defense",
+            claims=[
+                {
+                    "text": "聊天记录不能证明林舟实际知悉禁止取用。",
+                    "claim_type": "disputed_fact",
+                    "fact_ids": ["F04"],
+                }
+            ],
+        )
+
+        context = await build_agent_context(
+            unit_of_work,
+            session_id,
+            record.package_id,
+            CourtPhase.PROSECUTION_EVIDENCE_AND_EXAMINATION,
+            AgentTurnRequest(
+                actor_role=AgentRole.DEFENSE,
+                action=CourtAction.CHALLENGE_EVIDENCE,
+                evidence_ids=["E04"],
+                challenge_dimensions=["RELEVANCE"],
+            ),
+        )
+
+    assert [claim.text for claim in context.role_public_claims] == [
+        "聊天记录不能证明林舟实际知悉禁止取用。"
+    ]
+    assert len(context.opposing_public_claims) == 1
+    opposing = context.opposing_public_claims[0]
+    assert opposing.claim_type is ClaimType.SUPPORTED_FACT
+    assert opposing.fact_ids == ["F13"]
+
+    # 白名单法源进入上下文，供律师主张法律依据
+    sources_by_id = {source.source_id: source for source in context.legal_sources}
+    assert "LS-CRIMINAL-LAW-264" in sources_by_id
+    assert sources_by_id["LS-CRIMINAL-LAW-264"].category == "substantive"
+    assert sources_by_id["LS-CRIMINAL-LAW-264"].article_number == "第二百六十四条"
+    # 历史版本条款不在三类白名单中，不下发
+    assert "LS-CRIMINAL-LAW-264-2009-HISTORICAL" not in sources_by_id
+
+
+async def test_agent_legal_citation_must_stay_within_whitelist(
+    agent_api_client: AsyncClient,
+) -> None:
+    session_id = await _create_session(agent_api_client, user_role="defense")
+    await _advance(agent_api_client, session_id, 3)
+
+    # 白名单内引用：刑法第二百六十四条（标题省略数据库备注也允许）
+    _use_provider(LegalCitationProvider("《中华人民共和国刑法》第二百六十四条"))
+    allowed = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "prosecution",
+            "action": "submit_evidence",
+            "evidence_ids": ["E04"],
+        },
+    )
+    assert allowed.status_code == 200
+
+    # 清单外引用：合同法术条不属于本案法源
+    _use_provider(LegalCitationProvider("《中华人民共和国合同法》第一百零七条"))
+    rejected = await agent_api_client.post(
+        f"/api/v1/sessions/{session_id}/agent-turns",
+        json={
+            "actor_role": "prosecution",
+            "action": "submit_evidence",
+            "evidence_ids": ["E06"],
+        },
+    )
+    assert rejected.status_code == 502
+    assert rejected.json()["error"]["code"] == "agent_output_forbidden"
+    assert "outside the case legal source whitelist" in rejected.json()["error"]["message"]
 
 
 async def test_user_can_state_no_objection_and_complete_remaining_evidence_agenda(

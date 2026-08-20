@@ -10,7 +10,7 @@ from mootcourt.agents.openai_compatible import OpenAICompatibleProvider
 from mootcourt.agents.providers import AgentProviderRequest, AgentProviderResult, FakeAgentProvider
 from mootcourt.core.config import Settings
 from mootcourt.repositories.unit_of_work import SqlAlchemyUnitOfWork
-from mootcourt.schemas.qwen_agent_eval import load_qwen_agent_eval_dataset
+from mootcourt.schemas.eval.qwen_agent_eval import load_qwen_agent_eval_dataset
 from mootcourt.services.case_importer import import_case_package
 from mootcourt.services.qwen_agent_eval import (
     _case_failures,
